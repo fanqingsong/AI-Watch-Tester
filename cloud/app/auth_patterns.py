@@ -179,27 +179,39 @@ def detect_auth_pattern(
 
     # --- Registration detection ---
 
-    # 1) CAPTCHA (highest priority — can overlap with other patterns)
+    # Also check form fields for a "Next" button (supplements HTML hint)
+    _next_keywords = {"다음", "next", "continue", "계속", "진행"}
+    has_next_in_fields = any(
+        f.get("type") == "submit_button"
+        and f.get("context") == "form"
+        and any(kw in (f.get("label") or "").lower() for kw in _next_keywords)
+        for f in fields
+    )
+    if has_next_in_fields:
+        has_next_button = True
+
+    # 1) Multi-step (highest priority — "next" button in form context)
+    if has_next_button:
+        detected = "multi_step"
+
+    # 2) CAPTCHA (additive limitation — does NOT override multi_step)
     if has_captcha:
         pat = REGISTRATION_PATTERNS["captcha"]
         limitations.append(pat["limitation"])
-        detected = "captcha"
+        if not detected:
+            detected = "captcha"
 
-    # 2) Social only (no email field)
+    # 3) Social only (no email field)
     if has_social and not has_email and not has_password:
         pat = REGISTRATION_PATTERNS["social_only"]
         limitations.append(pat["limitation"])
         if not detected:
             detected = "social_only"
 
-    # 3) Social + email
+    # 4) Social + email
     elif has_social and (has_email or has_password):
         if not detected:
             detected = "social_plus_email"
-
-    # 4) Multi-step (next button)
-    if has_next_button and not detected:
-        detected = "multi_step"
 
     # 5) Invite code
     if has_invite_code:
@@ -215,7 +227,7 @@ def detect_auth_pattern(
         if not detected:
             detected = "phone_otp"
 
-    # 7) Terms agreement (additive — doesn't override)
+    # 7) Terms agreement (fallback)
     if has_terms and not detected:
         detected = "terms_agreement"
 
@@ -330,11 +342,12 @@ async def collect_page_html_hints(page: Any) -> dict:
         });
         hints.social_buttons = [...new Set(hints.social_buttons)];
 
-        // CAPTCHA: iframe or div
+        // CAPTCHA: only match known CAPTCHA widget selectors
+        // Removed overly broad '#captcha' / '.captcha' to avoid false positives
         const captchaSelectors = [
             'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]',
             'iframe[src*="turnstile"]', '.g-recaptcha', '.h-captcha',
-            '[data-sitekey]', '#captcha', '.captcha',
+            '[data-sitekey]',
         ];
         for (const sel of captchaSelectors) {
             if (document.querySelector(sel)) {
@@ -396,6 +409,33 @@ async def collect_page_html_hints(page: Any) -> dict:
 # ---------------------------------------------------------------------------
 
 
+async def _safe_interact(page: Any, selector: str, value: str) -> bool:
+    """Fill/click with fallback to attribute selector for special chars in IDs."""
+    for sel in _selector_variants(selector):
+        try:
+            if value == "__CHECK__":
+                await page.click(sel)
+            elif value == "__SELECT_FIRST__":
+                await page.select_option(sel, index=0)
+            else:
+                await page.fill(sel, value)
+            return True
+        except Exception:
+            continue
+    logger.debug("Failed to interact with %s", selector)
+    return False
+
+
+def _selector_variants(selector: str) -> list[str]:
+    """Return selector variants for robustness (original + attribute fallback)."""
+    variants = [selector]
+    if selector.startswith("#"):
+        # Attribute selector fallback for IDs with special characters
+        raw_id = selector[1:]
+        variants.append(f'[id="{raw_id}"]')
+    return variants
+
+
 async def crawl_multi_step_form(
     page: Any,
     fields: list[dict],
@@ -404,65 +444,174 @@ async def crawl_multi_step_form(
     """Crawl multi-step form by filling fields and clicking Next.
 
     Returns list of field lists, one per step.
+    SPA/React apps often have dynamic IDs, so we re-collect fresh
+    selectors from the live page and use type-based filling as fallback.
     """
-    all_steps: list[list[dict]] = [fields]
+    # Re-collect fresh fields from the live page (dynamic IDs may differ
+    # from the originally crawled data).
+    fresh = await _collect_visible_fields(page)
+    input_only = fresh if fresh else [
+        f for f in fields if f.get("type") != "submit_button"
+    ]
+    all_steps: list[list[dict]] = [input_only]
+    start_url = page.url
+    logger.info(
+        "Multi-step crawl starting — step 1 has %d fields, url=%s",
+        len(input_only), start_url,
+    )
 
     for _step_num in range(2, max_steps + 1):
         # 1) Fill current fields with test data
-        for field in fields:
-            value = generate_test_data(field)
-            if not value:
-                continue
-            selector = field.get("selector")
-            if not selector:
-                continue
-            try:
-                if value == "__CHECK__":
-                    await page.click(selector)
-                elif value == "__SELECT_FIRST__":
-                    await page.select_option(selector, index=0)
-                else:
-                    await page.fill(selector, value)
-            except Exception:
-                logger.debug("Failed to fill field %s", selector)
+        filled = await _fill_fields(page, input_only)
+        logger.info(
+            "Multi-step crawl — filled %d/%d fields before next",
+            filled, len(input_only),
+        )
 
-        # 2) Click "Next" button
-        next_clicked = await _click_next_button(page)
+        # 2) Click "Next" button via Playwright (real mouse events
+        #    for React/MUI compatibility)
+        next_clicked = await _click_next_button(page, fields)
         if not next_clicked:
+            logger.info("Multi-step crawl — no next button, stopping")
             break
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(2.0)
 
-        # 3) Collect new fields
+        # 3) Check if URL changed (navigation = submitted, not step)
+        current_url = page.url
+        if current_url != start_url:
+            logger.info(
+                "Multi-step crawl — URL changed %s → %s, stopping",
+                start_url, current_url,
+            )
+            break
+
+        # 4) Collect new fields
         new_fields = await _collect_visible_fields(page)
-        if not new_fields or new_fields == fields:
+        logger.info(
+            "Multi-step crawl step %d — collected %d fields",
+            _step_num, len(new_fields) if new_fields else 0,
+        )
+        if not new_fields:
+            break
+        # Compare by field names/types to detect real changes
+        old_keys = {
+            (f.get("name"), f.get("type"), f.get("label"))
+            for f in input_only
+        }
+        new_keys = {
+            (f.get("name"), f.get("type"), f.get("label"))
+            for f in new_fields
+        }
+        if old_keys == new_keys:
+            logger.info(
+                "Multi-step crawl step %d — same fields, stopping",
+                _step_num,
+            )
             break
         all_steps.append(new_fields)
-        fields = new_fields
+        input_only = new_fields
 
     return all_steps
 
 
-async def _click_next_button(page: Any) -> bool:
-    """Find and click a Next/Continue button. Returns True if clicked."""
-    return await page.evaluate("""() => {
-        const nextTexts = ['다음', 'next', 'continue', '계속', '진행'];
-        const buttons = document.querySelectorAll(
-            'button, input[type="submit"], a.btn, a.button'
-        );
-        for (const b of buttons) {
+async def _fill_fields(page: Any, fields: list[dict]) -> int:
+    """Fill form fields using CSS selector with type-based fallback."""
+    filled = 0
+    # Track type-based fill indices for fallback
+    type_indices: dict[str, int] = {}
+
+    for field in fields:
+        value = generate_test_data(field)
+        if not value:
+            continue
+        selector = field.get("selector")
+
+        # Try CSS selector first
+        if selector:
+            ok = await _safe_interact(page, selector, value)
+            if ok:
+                filled += 1
+                continue
+
+        # Fallback: fill by input type + index
+        ftype = field.get("type", "text")
+        idx = type_indices.get(ftype, 0)
+        type_indices[ftype] = idx + 1
+        try:
+            loc = page.locator(f'input[type="{ftype}"]').nth(idx)
+            if await loc.count() > 0:
+                if value == "__CHECK__":
+                    await loc.click(timeout=3000)
+                else:
+                    await loc.fill(value, timeout=3000)
+                filled += 1
+        except Exception:
+            logger.debug("Type-based fill failed: %s[%d]", ftype, idx)
+
+    return filled
+
+
+async def _click_next_button(
+    page: Any, fields: list[dict] | None = None,
+) -> bool:
+    """Find and click a Next/Continue button.
+
+    Uses Playwright's page.click() instead of JS b.click() for
+    better compatibility with React/MUI synthetic events.
+    """
+    _next_kw = ["다음", "next", "continue", "계속", "진행"]
+
+    # 1) Find the next button via JS, return its index for page.click()
+    btn_index = await page.evaluate("""(nextTexts) => {
+        const buttons = document.querySelectorAll('button, input[type="submit"]');
+        for (let i = 0; i < buttons.length; i++) {
+            const b = buttons[i];
             const text = (b.textContent || b.value || '').trim().toLowerCase();
             if (nextTexts.some(nt => text.includes(nt))
                 && b.offsetParent !== null) {
-                b.click();
-                return true;
+                return i;
             }
         }
-        return false;
-    }""")
+        return -1;
+    }""", _next_kw)
+
+    if btn_index >= 0:
+        try:
+            loc = page.locator(
+                'button, input[type="submit"]',
+            ).nth(btn_index)
+            await loc.click(timeout=5000)
+            return True
+        except Exception:
+            logger.debug("Playwright click on next[%d] failed", btn_index)
+
+    # 2) Fallback: try form submit button (type="submit")
+    try:
+        submit = page.locator('button[type="submit"]').first
+        if await submit.count() > 0:
+            await submit.click(timeout=5000)
+            return True
+    except Exception:
+        pass
+
+    # 3) Fallback: use selector from crawled fields
+    if fields:
+        for f in fields:
+            if f.get("type") == "submit_button" and f.get("selector"):
+                lbl = (f.get("label") or "").lower()
+                if any(kw in lbl for kw in _next_kw):
+                    try:
+                        await page.click(f["selector"], timeout=3000)
+                        return True
+                    except Exception:
+                        logger.debug(
+                            "Field-based click failed: %s", f["selector"],
+                        )
+    return False
 
 
 async def _collect_visible_fields(page: Any) -> list[dict]:
-    """Collect currently visible form fields from the page."""
+    """Collect currently visible form fields + buttons from the page."""
     return await page.evaluate("""() => {
         const fields = [];
         document.querySelectorAll('input, textarea, select').forEach(f => {
@@ -477,10 +626,11 @@ async def _collect_visible_fields(page: Any) -> list[dict]:
                 ? (labelNode.childNodes[0]?.textContent?.trim()
                    || labelNode.textContent?.trim()?.substring(0, 100))
                 : '';
+            // Use CSS.escape for IDs with special characters (e.g. «rf»)
             let sel = null;
-            if (f.id) sel = '#' + f.id;
+            if (f.id) sel = '#' + CSS.escape(f.id);
             else if (f.name) sel = f.tagName.toLowerCase()
-                + '[name="' + f.name + '"]';
+                + '[name="' + CSS.escape(f.name) + '"]';
             else if (f.type && f.type !== 'text')
                 sel = f.tagName.toLowerCase()
                 + '[type="' + f.type + '"]';
@@ -493,6 +643,27 @@ async def _collect_visible_fields(page: Any) -> list[dict]:
                 aria_label: f.getAttribute('aria-label') || '',
                 selector: sel,
                 required: f.required || false,
+            });
+        });
+        // Also collect visible buttons (submit/next/complete)
+        document.querySelectorAll(
+            'button, input[type="submit"]'
+        ).forEach(b => {
+            if (b.offsetParent === null && b.offsetWidth === 0) return;
+            const text = (b.textContent || b.value || '').trim();
+            if (!text) return;
+            let sel = null;
+            if (b.id) sel = '#' + CSS.escape(b.id);
+            else sel = 'button';
+            fields.push({
+                tag: b.tagName.toLowerCase(),
+                type: 'submit_button',
+                name: b.name || '',
+                placeholder: '',
+                label: text.substring(0, 100),
+                aria_label: b.getAttribute('aria-label') || '',
+                selector: sel,
+                required: false,
             });
         });
         return fields;
@@ -552,12 +723,63 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
 
     steps_data = auth_info.get("multi_step_fields")
     if steps_data and len(steps_data) > 1:
-        parts.append(f"MULTI-STEP FORM: {len(steps_data)} 단계 감지됨")
+        # Find the last step's submit button text
+        last_step = steps_data[-1]
+        last_btn_text = ""
+        for f in last_step:
+            if f.get("type") == "submit_button":
+                last_btn_text = f.get("label", "")
+                break
+
+        parts.append(
+            f"MULTI-STEP FORM: {len(steps_data)} 단계 감지됨\n"
+            "→ 회원가입 시나리오는 반드시 모든 단계를 포함해야 합니다.\n"
+            "→ 각 단계 사이에 '다음'/'Next' 버튼 클릭 + wait 스텝을 넣으세요.\n"
+            "→ 마지막 단계에서 최종 제출 버튼 클릭 + assert를 넣으세요.\n"
+            "→ 선택(optional) 파일 업로드(프로필 사진 등)는 스킵.\n"
+            "→ 필수(required) 파일 업로드는 더미 파일로 테스트.\n"
+            "→ 선택(optional) 텍스트 필드는 스킵해도 됩니다.\n"
+            "STEP ORDER RULE (반드시 준수):\n"
+            "→ 각 필드는 아래 수집된 단계(Step N)에 정확히 맞게 배치할 것.\n"
+            "→ Step 1 필드는 '다음' 클릭 전에, Step 2 필드는 '다음' 클릭 후에.\n"
+            "→ 필드를 다른 단계로 이동하지 마세요.\n"
+            "CHECKBOX RULE:\n"
+            "→ '동의', 'agree', '약관', 'terms', 'privacy' 텍스트가 "
+            "포함된 체크박스는 항상 필수로 처리할 것.\n"
+            "→ 이 체크박스들은 반드시 find_and_click 스텝으로 포함하세요.\n"
+            "→ 체크박스가 수집된 단계에 배치하세요 (다른 단계로 옮기지 말 것).\n"
+            "SUBMIT BUTTON RULE:\n"
+            "→ 마지막 단계의 제출 버튼은 수집된 필드의 실제 버튼 텍스트를 "
+            "사용할 것."
+        )
+        if last_btn_text:
+            parts.append(
+                f"→ 마지막 단계 제출 버튼: \"{last_btn_text}\" "
+                "(이 텍스트를 정확히 사용하세요)"
+            )
+
         for i, step_fields in enumerate(steps_data, 1):
-            field_names = [
-                f.get("label") or f.get("placeholder") or f.get("name")
-                for f in step_fields
-            ]
-            parts.append(f"  Step {i}: {', '.join(f for f in field_names if f)}")
+            field_lines = []
+            for f in step_fields:
+                label = (
+                    f.get("label") or f.get("placeholder")
+                    or f.get("name") or f.get("type")
+                )
+                ftype = f.get("type", "text")
+                req = f.get("required", False)
+                # Agreement checkboxes → force required
+                _agree_kw = ("동의", "agree", "약관", "terms", "privacy")
+                if ftype == "checkbox" and any(
+                    kw in (label or "").lower() for kw in _agree_kw
+                ):
+                    req = True
+                sel = f.get("selector", "")
+                tag = "필수" if req else "선택"
+                field_lines.append(
+                    f"    - {label} (type={ftype}, {tag})"
+                    + (f" [selector: {sel}]" if sel else "")
+                )
+            parts.append(f"  Step {i}:")
+            parts.extend(field_lines)
 
     return "\n".join(parts) if parts else ""

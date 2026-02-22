@@ -884,15 +884,28 @@ async def generate_plan(
         special_parts.append(pattern_hint)
 
     # Auth pattern context — inject limitations and pattern hints
+    # Prefer multi_step > registration > any auth pattern
     from app.auth_patterns import build_auth_context_for_ai
 
+    best_auth: dict[str, Any] | None = None
     for obs in observations:
         auth_info = obs.get("auth_pattern")
-        if auth_info:
-            auth_ctx = build_auth_context_for_ai(auth_info)
-            if auth_ctx:
-                special_parts.append(auth_ctx)
-            break  # first auth observation only
+        if not auth_info:
+            continue
+        pat = auth_info.get("pattern", "")
+        if pat == "multi_step":
+            best_auth = auth_info
+            break
+        if (
+            auth_info.get("page_type") == "registration"
+            and (best_auth is None or best_auth.get("page_type") != "registration")
+        ) or best_auth is None:
+            best_auth = auth_info
+
+    if best_auth:
+        auth_ctx = build_auth_context_for_ai(best_auth)
+        if auth_ctx:
+            special_parts.append(auth_ctx)
 
     special_instructions = "\n\n".join(special_parts)
 
@@ -1628,16 +1641,28 @@ async def execute_scan_tests(
     if pattern_hint:
         extra_parts.append(pattern_hint)
 
-    # Auth pattern context — inject limitations and pattern hints
+    # Auth pattern context — prefer multi_step > registration > any
     from app.auth_patterns import build_auth_context_for_ai
 
+    best_auth: dict[str, Any] | None = None
     for obs in observations:
         auth_info = obs.get("auth_pattern")
-        if auth_info:
-            auth_ctx = build_auth_context_for_ai(auth_info)
-            if auth_ctx:
-                extra_parts.append(auth_ctx)
-            break  # first auth observation only
+        if not auth_info:
+            continue
+        pat = auth_info.get("pattern", "")
+        if pat == "multi_step":
+            best_auth = auth_info
+            break
+        if (
+            auth_info.get("page_type") == "registration"
+            and (best_auth is None or best_auth.get("page_type") != "registration")
+        ) or best_auth is None:
+            best_auth = auth_info
+
+    if best_auth:
+        auth_ctx = build_auth_context_for_ai(best_auth)
+        if auth_ctx:
+            extra_parts.append(auth_ctx)
 
     extra_instructions = "\n".join(extra_parts) if extra_parts else ""
 

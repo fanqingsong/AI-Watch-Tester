@@ -1623,14 +1623,17 @@ async def _observe_single_click(
 
         # 6c. Auth page detection — detect registration/login patterns
         #     (runs AFTER tab-switching so we analyze the correct form)
+        #     Use navigated fields if available, otherwise fall back to modal fields
+        #     so SPA/modal-based auth forms are also detected.
         auth_pattern_info: dict[str, Any] | None = None
-        if navigated_page_fields and path_changed:
+        auth_fields = navigated_page_fields if navigated_page_fields else modal_form_fields
+        if auth_fields:
             from app.auth_patterns import (
                 collect_page_html_hints,
                 detect_auth_pattern,
             )
 
-            with contextlib.suppress(Exception):
+            try:
                 page_type = "login"
                 if text and any(
                     kw in text.lower()
@@ -1640,7 +1643,7 @@ async def _observe_single_click(
 
                 html_hints = await collect_page_html_hints(page)
                 auth_result = detect_auth_pattern(
-                    navigated_page_fields, html_hints, page_type=page_type,
+                    auth_fields, html_hints, page_type=page_type,
                 )
 
                 if auth_result.get("pattern"):
@@ -1649,6 +1652,30 @@ async def _observe_single_click(
                         text, auth_result["pattern"],
                     )
                     auth_pattern_info = auth_result
+
+                    # Multi-step form: crawl individual steps
+                    if auth_result["pattern"] == "multi_step":
+                        from app.auth_patterns import crawl_multi_step_form
+                        try:
+                            steps_data = await crawl_multi_step_form(
+                                page, auth_fields,
+                            )
+                            if steps_data and len(steps_data) > 1:
+                                auth_pattern_info["multi_step_fields"] = steps_data
+                                logger.info(
+                                    "Multi-step form crawled: %d steps for '%s'",
+                                    len(steps_data), text,
+                                )
+                        except Exception:
+                            logger.warning(
+                                "Multi-step crawl failed for '%s'",
+                                text, exc_info=True,
+                            )
+            except Exception:
+                logger.warning(
+                    "Auth pattern detection failed for '%s'",
+                    text, exc_info=True,
+                )
 
     if path_changed:
         change_type = "page_navigation"

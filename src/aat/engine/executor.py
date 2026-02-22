@@ -393,6 +393,52 @@ class StepExecutor:
         # when both share selector "button.MuiButtonBase-root")
         if target.selector and hasattr(self._engine, "page"):
             page = self._engine.page
+
+            # Checkbox special handling: MUI/React hides <input> and
+            # wraps it in a <label> or <span>.  Click the label instead.
+            if "checkbox" in (target.selector or "") and target.text:
+                for _cb_attempt in range(2):
+                    try:
+                        # 1) get_by_label — Playwright resolves label↔input
+                        cb = page.get_by_label(target.text).first
+                        if await cb.count() > 0:
+                            with contextlib.suppress(Exception):
+                                await cb.scroll_into_view_if_needed(timeout=2000)
+                            await cb.click(timeout=3000)
+                            return await self._act_at_pos(
+                                step, 0, 0, confidence=1.0,
+                            )
+                    except Exception:
+                        pass
+                    try:
+                        # 2) Click parent <label> containing the text
+                        lbl = page.locator("label").filter(
+                            has_text=target.text,
+                        ).first
+                        if await lbl.count() > 0:
+                            with contextlib.suppress(Exception):
+                                await lbl.scroll_into_view_if_needed(timeout=2000)
+                            await lbl.click(timeout=3000)
+                            return await self._act_at_pos(
+                                step, 0, 0, confidence=1.0,
+                            )
+                    except Exception:
+                        pass
+                    try:
+                        # 3) Click any element containing the text (MUI
+                        #    FormControlLabel wraps checkbox + label text)
+                        txt = page.get_by_text(target.text, exact=False).first
+                        if await txt.count() > 0:
+                            with contextlib.suppress(Exception):
+                                await txt.scroll_into_view_if_needed(timeout=2000)
+                            await txt.click(timeout=3000)
+                            return await self._act_at_pos(
+                                step, 0, 0, confidence=1.0,
+                            )
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.5)
+
             for attempt in range(3):
                 try:
                     base_loc = page.locator(target.selector)

@@ -69,13 +69,8 @@ def verify_supabase_token(token: str) -> dict[str, Any]:
                 status_code=401,
                 detail="Token expired. Please login again.",
             ) from exc
-        except jwt.InvalidTokenError as exc:
-            raise HTTPException(
-                status_code=401,
-                detail=f"Invalid token: {exc}",
-            ) from exc
         except Exception as exc:
-            # JWKS fetch failure — fall through to HS256 if configured
+            # JWKS/ES256 failure — fall through to HS256 if configured
             logger.warning("JWKS verification failed: %s", exc)
 
     # Fallback: HS256 with JWT secret (legacy or local dev)
