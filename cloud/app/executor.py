@@ -672,6 +672,15 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
         completed = 0
 
         for scenario in scenarios:
+            # Clear browser state for session isolation
+            try:
+                context = engine.page.context
+                await context.clear_cookies()
+                await engine.page.evaluate(
+                    "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}"
+                )
+            except Exception:
+                pass
             # Re-navigate for each scenario
             await engine.navigate(target_url)
 

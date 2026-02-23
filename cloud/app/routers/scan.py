@@ -1458,6 +1458,12 @@ Generate AWT test scenario JSON for the selected tests below.
    a. url_contains: verify URL changed after submission
    b. text_visible: verify new content appeared (success message, next step)
    For confirm password fields, use the SAME value as the password: "TestPass123!"
+   **LOGIN REDIRECT RULE**: After LOGIN form submit → the page typically REDIRECTS
+   (302) to a different page (e.g., /board, /dashboard, /index).
+   Assert the REDIRECTED page content, NOT login page text.
+   Use url_contains or text_visible from the observation "new_text" / "after.url"
+   which shows the post-redirect page content. For example, if after.url is "/board"
+   and new_text includes "게시판", assert text_visible "게시판" — NOT "로그인".
 
 ## ========== END ABSOLUTE RULES ==========
 

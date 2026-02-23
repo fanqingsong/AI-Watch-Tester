@@ -607,6 +607,16 @@ async def _click_next_button(
                         logger.debug(
                             "Field-based click failed: %s", f["selector"],
                         )
+
+    # 4) Fallback: Playwright semantic locator (get_by_text / get_by_role)
+    for kw in _next_kw:
+        try:
+            loc = page.get_by_role("button", name=kw)
+            if await loc.count() > 0:
+                await loc.first.click(timeout=5000)
+                return True
+        except Exception:
+            continue
     return False
 
 
