@@ -1399,7 +1399,7 @@ def _build_observation_table(observations: list[dict]) -> str:
 
 _EXECUTE_PROMPT = """\
 Generate AWT test scenario JSON for the selected tests below.
-Generate EXACTLY ONE scenario per selected test. If 7 tests are selected, return 7 scenarios.
+Generate EXACTLY ONE scenario per selected test. If {batch_count} tests are listed, return exactly {batch_count} scenarios.
 Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
 
 ## ========== ABSOLUTE RULES (NEVER VIOLATE) ==========
@@ -1566,6 +1566,11 @@ FINAL CHECK before responding:
 
 Return ONLY valid JSON array.\
 """
+
+
+def _chunk_tests(tests: list[dict], batch_size: int = 3) -> list[list[dict]]:
+    """Split selected tests into batches for safer AI generation."""
+    return [tests[i : i + batch_size] for i in range(0, len(tests), batch_size)]
 
 
 @router.post("/{scan_id}/execute")
@@ -1739,65 +1744,101 @@ async def execute_scan_tests(
         observation_table[:3000],
     )
 
-    prompt = _EXECUTE_PROMPT.format(
-        target_url=scan.target_url,
-        crawl_data=crawl_data_str,
-        observation_table=observation_table,
-        selected_tests=selected_str,
-        user_data=user_data_str,
-        extra_instructions=extra_str,
-        reference_documents=ref_docs_str,
+    # --- Batch generation: split tests into chunks to avoid max_tokens truncation ---
+    all_scenarios: list = []
+    batches = _chunk_tests(selected_details, batch_size=3)
+    logger.info(
+        "Splitting %d tests into %d batches (scan_id=%d)",
+        len(selected_details), len(batches), scan_id,
     )
 
-    # Final safety check: if prompt is still too large, aggressively trim
-    estimated_total = len(prompt) // 3
-    if estimated_total > max_input_tokens:
-        logger.warning(
-            "Prompt still %d tokens (limit %d), trimming further",
-            estimated_total, max_input_tokens,
-        )
-        observation_table = compress_observations_for_ai(observations, max_tokens=3000)
-        prompt = _EXECUTE_PROMPT.format(
+    for batch_idx, batch in enumerate(batches):
+        batch_selected_str = _trunc(batch, selected_limit)
+        batch_prompt = _EXECUTE_PROMPT.format(
             target_url=scan.target_url,
-            crawl_data=_trunc(crawl_context, 2000),
+            crawl_data=crawl_data_str,
             observation_table=observation_table,
-            selected_tests=_trunc(selected_details, 2000),
+            selected_tests=batch_selected_str,
             user_data=user_data_str,
             extra_instructions=extra_str,
-            reference_documents=ref_docs_str[:3000],
+            reference_documents=ref_docs_str,
+            batch_count=len(batch),
         )
 
-    try:
-        scenarios = await adapter.generate_scenarios(prompt)
-    except Exception as exc:
-        err_msg = str(exc).lower()
-        # Token limit exceeded → compress further and retry
-        if "token" in err_msg and ("limit" in err_msg or "rate" in err_msg or "tpm" in err_msg):
-            logger.warning("Token limit exceeded, retrying with minimal prompt")
-            observation_table = compress_observations_for_ai(observations, max_tokens=2000)
-            prompt = _EXECUTE_PROMPT.format(
+        # Final safety check: if prompt is still too large, aggressively trim
+        estimated_total = len(batch_prompt) // 3
+        if estimated_total > max_input_tokens:
+            logger.warning(
+                "Batch %d prompt %d tokens (limit %d), trimming",
+                batch_idx, estimated_total, max_input_tokens,
+            )
+            trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
+            batch_prompt = _EXECUTE_PROMPT.format(
                 target_url=scan.target_url,
-                crawl_data=_trunc(crawl_context, 1500),
-                observation_table=observation_table,
-                selected_tests=_trunc(selected_details, 1500),
+                crawl_data=_trunc(crawl_context, 2000),
+                observation_table=trimmed_obs,
+                selected_tests=_trunc(batch, 2000),
                 user_data=user_data_str,
                 extra_instructions=extra_str,
-                reference_documents="(omitted to fit token limit)",
+                reference_documents=ref_docs_str[:3000],
+                batch_count=len(batch),
             )
+
+        for attempt in range(2):  # max 1 retry per batch
             try:
-                scenarios = await adapter.generate_scenarios(prompt)
-            except Exception as retry_exc:
-                logger.exception("Retry also failed")
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"AI generation failed after retry: {retry_exc}",
-                ) from retry_exc
-        else:
-            logger.exception("Scenario generation from scan failed")
-            raise HTTPException(
-                status_code=502,
-                detail=f"AI scenario generation failed: {exc}",
-            ) from exc
+                batch_scenarios = await adapter.generate_scenarios(batch_prompt)
+                all_scenarios.extend(batch_scenarios)
+                break
+            except Exception as exc:
+                err_msg = str(exc).lower()
+                # JSON parse / truncation error → retry once
+                if attempt == 0 and ("json" in err_msg or "truncat" in err_msg):
+                    logger.warning(
+                        "Batch %d JSON/truncation error, retrying: %s",
+                        batch_idx, str(exc)[:200],
+                    )
+                    continue
+                # Token limit exceeded → compress and retry
+                if "token" in err_msg and (
+                    "limit" in err_msg or "rate" in err_msg or "tpm" in err_msg
+                ):
+                    logger.warning("Batch %d token limit, retrying minimal", batch_idx)
+                    compressed_obs = compress_observations_for_ai(
+                        observations, max_tokens=2000,
+                    )
+                    batch_prompt = _EXECUTE_PROMPT.format(
+                        target_url=scan.target_url,
+                        crawl_data=_trunc(crawl_context, 1500),
+                        observation_table=compressed_obs,
+                        selected_tests=_trunc(batch, 1500),
+                        user_data=user_data_str,
+                        extra_instructions=extra_str,
+                        reference_documents="(omitted to fit token limit)",
+                        batch_count=len(batch),
+                    )
+                    try:
+                        batch_scenarios = await adapter.generate_scenarios(batch_prompt)
+                        all_scenarios.extend(batch_scenarios)
+                        break
+                    except Exception as retry_exc:
+                        logger.exception("Batch %d retry also failed", batch_idx)
+                        raise HTTPException(
+                            status_code=502,
+                            detail=f"AI batch {batch_idx} failed after retry: {retry_exc}",
+                        ) from retry_exc
+                else:
+                    logger.exception("Batch %d scenario generation failed", batch_idx)
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"AI batch {batch_idx} failed: {exc}",
+                    ) from exc
+
+    # Renumber SC-IDs sequentially across batches
+    for i, sc in enumerate(all_scenarios, 1):
+        if hasattr(sc, "id"):
+            sc.__dict__["id"] = f"SC-{i:03d}"
+
+    scenarios = all_scenarios
 
     if not scenarios:
         raise HTTPException(
@@ -1857,9 +1898,21 @@ async def execute_scan_tests(
         target_url=str(scan.target_url),
     )
 
+    # Build a full prompt context for validation retry (uses all selected tests)
+    validation_prompt = _EXECUTE_PROMPT.format(
+        target_url=scan.target_url,
+        crawl_data=crawl_data_str,
+        observation_table=observation_table,
+        selected_tests=selected_str,
+        user_data=user_data_str,
+        extra_instructions=extra_str,
+        reference_documents=ref_docs_str,
+        batch_count=len(selected_details),
+    )
+
     # Validate and retry if needed
     scenarios, validation = await validate_and_retry(
-        scenarios, observations, pages, adapter, prompt,
+        scenarios, observations, pages, adapter, validation_prompt,
     )
 
     # Compute validation summary

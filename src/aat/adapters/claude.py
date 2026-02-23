@@ -305,6 +305,13 @@ class ClaudeAdapter(AIAdapter):
 
         raw_text = response.content[0].text  # type: ignore[union-attr]
 
+        if response.stop_reason == "max_tokens":
+            msg = (
+                f"Response truncated (max_tokens reached). "
+                f"Raw tail: {raw_text[-200:]}"
+            )
+            raise AdapterError(msg)
+
         try:
             return json.loads(raw_text)
         except json.JSONDecodeError as exc:

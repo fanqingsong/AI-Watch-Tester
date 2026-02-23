@@ -322,6 +322,13 @@ class OpenAIAdapter(AIAdapter):
         choice = response.choices[0]
         raw_text = choice.message.content or ""
 
+        if choice.finish_reason == "length":
+            msg = (
+                f"Response truncated (max_tokens reached). "
+                f"Raw tail: {raw_text[-200:]}"
+            )
+            raise AdapterError(msg)
+
         if not raw_text:
             msg = "Empty response from OpenAI"
             raise AdapterError(msg)
