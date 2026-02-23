@@ -15,7 +15,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.routers import billing, documents, keys, scan, tests, v1
+from app.routers import ai_config, billing, documents, keys, scan, tests, v1
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,7 @@ app.include_router(documents.router)
 app.include_router(keys.router)
 app.include_router(v1.router)
 app.include_router(billing.router)
+app.include_router(ai_config.router)
 
 
 # -- Rate limit response headers --

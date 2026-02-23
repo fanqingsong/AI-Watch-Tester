@@ -948,12 +948,21 @@ async def generate_plan(
     try:
         from aat.adapters import ADAPTER_REGISTRY
         from aat.core.models import AIConfig
+        from app.routers.ai_config import get_user_ai_config
 
-        ai_config = AIConfig(
-            provider=settings.ai_provider,
-            api_key=settings.ai_api_key,
-            model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
-        )
+        user_cfg = await get_user_ai_config(user.id, db)
+        if user_cfg:
+            ai_config = AIConfig(
+                provider=user_cfg["provider"],
+                api_key=user_cfg["api_key"],
+                model=user_cfg["model"] or _DEFAULT_MODELS.get(user_cfg["provider"], ""),
+            )
+        else:
+            ai_config = AIConfig(
+                provider=settings.ai_provider,
+                api_key=settings.ai_api_key,
+                model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
+            )
         adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
         if adapter_cls is None:
             raise ValueError(f"Unknown AI provider: {ai_config.provider}")
@@ -1630,12 +1639,25 @@ async def execute_scan_tests(
     except ImportError as exc:
         raise HTTPException(status_code=503, detail=f"AAT core not installed: {exc}") from exc
 
-    ai_config = AIConfig(
-        provider=settings.ai_provider,
-        api_key=settings.ai_api_key,
-        model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
-        max_tokens=16000,
-    )
+    from app.routers.ai_config import get_user_ai_config
+
+    user_cfg = await get_user_ai_config(user.id, db)
+    if user_cfg:
+        ai_config = AIConfig(
+            provider=user_cfg["provider"],
+            api_key=user_cfg["api_key"],
+            model=user_cfg["model"] or _DEFAULT_MODELS.get(user_cfg["provider"], ""),
+            max_tokens=16000,
+        )
+    else:
+        if not settings.ai_api_key:
+            raise HTTPException(status_code=400, detail="no_ai_key_configured")
+        ai_config = AIConfig(
+            provider=settings.ai_provider,
+            api_key=settings.ai_api_key,
+            model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
+            max_tokens=16000,
+        )
     adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
     if adapter_cls is None:
         raise HTTPException(status_code=503, detail=f"Unknown AI provider: {ai_config.provider}")

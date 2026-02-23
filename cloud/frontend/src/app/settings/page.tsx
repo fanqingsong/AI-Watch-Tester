@@ -9,15 +9,22 @@ import {
   listApiKeys,
   deleteApiKey,
   fetchBilling,
+  getAIConfig,
+  saveAIConfig,
+  deleteAIConfig,
+  testAIConfig,
   type ApiKeyItem,
   type ApiKeyCreatedItem,
   type BillingInfo,
+  type AIConfigInfo,
+  type AIConfigTestResult,
 } from "@/lib/api";
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const t = useTranslations("settings");
 
+  // API Keys state
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKey, setCreatedKey] = useState<ApiKeyCreatedItem | null>(null);
@@ -25,6 +32,18 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [billing, setBilling] = useState<BillingInfo | null>(null);
+
+  // AI Config state
+  const [aiConfig, setAiConfig] = useState<AIConfigInfo | null>(null);
+  const [aiProvider, setAiProvider] = useState("openai");
+  const [aiApiKey, setAiApiKey] = useState("");
+  const [aiModel, setAiModel] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<AIConfigTestResult | null>(null);
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiError, setAiError] = useState("");
 
   const loadKeys = async () => {
     try {
@@ -35,9 +54,23 @@ export default function SettingsPage() {
     }
   };
 
+  const loadAIConfig = async () => {
+    try {
+      const cfg = await getAIConfig();
+      setAiConfig(cfg);
+      if (cfg.has_key) {
+        setAiProvider(cfg.provider);
+        setAiModel(cfg.model);
+      }
+    } catch {
+      // ignore — BYOK might not be available
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadKeys();
+      loadAIConfig();
       fetchBilling().then(setBilling).catch(() => {});
     }
   }, [user]);
@@ -74,6 +107,58 @@ export default function SettingsPage() {
     }
   };
 
+  // AI Config handlers
+  const handleTestConnection = async () => {
+    if (!aiApiKey.trim() && aiProvider !== "ollama") return;
+    setAiTesting(true);
+    setAiTestResult(null);
+    setAiError("");
+    try {
+      const result = await testAIConfig(aiProvider, aiApiKey, aiModel);
+      setAiTestResult(result);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
+  const handleSaveAIConfig = async () => {
+    if (!aiApiKey.trim() && aiProvider !== "ollama") return;
+    setAiSaving(true);
+    setAiError("");
+    setAiMessage("");
+    try {
+      const cfg = await saveAIConfig(aiProvider, aiApiKey, aiModel);
+      setAiConfig(cfg);
+      setAiApiKey("");
+      setAiMessage(t("configSaved"));
+      setTimeout(() => setAiMessage(""), 3000);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const handleRemoveAIConfig = async () => {
+    if (!confirm(t("removeConfirm"))) return;
+    setAiError("");
+    setAiMessage("");
+    try {
+      await deleteAIConfig();
+      setAiConfig({ provider: "", model: "", has_key: false, key_prefix: "", updated_at: null });
+      setAiProvider("openai");
+      setAiModel("");
+      setAiApiKey("");
+      setAiTestResult(null);
+      setAiMessage(t("configRemoved"));
+      setTimeout(() => setAiMessage(""), 3000);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Remove failed");
+    }
+  };
+
   if (!user) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
@@ -86,6 +171,136 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-bold text-gray-900">{t("title")}</h1>
       <p className="mb-8 text-sm text-gray-500">{t("subtitle")}</p>
+
+      {/* AI Provider Config Section */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">
+          {t("aiConfigTitle")}
+        </h2>
+        <p className="mb-4 text-sm text-gray-500">{t("aiConfigDesc")}</p>
+
+        {/* Current status */}
+        {aiConfig?.has_key && (
+          <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-sm text-blue-800">
+              {t("usingOwnKey", { provider: aiConfig.provider.toUpperCase(), prefix: aiConfig.key_prefix })}
+            </p>
+            {aiConfig.updated_at && (
+              <p className="mt-1 text-xs text-blue-600">
+                {t("lastUpdated")}: {new Date(aiConfig.updated_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!aiConfig?.has_key && (
+          <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-800">{t("noKeyWarning")}</p>
+          </div>
+        )}
+
+        {/* Provider */}
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            {t("provider")}
+          </label>
+          <select
+            value={aiProvider}
+            onChange={(e) => setAiProvider(e.target.value)}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="ollama">Ollama (Local)</option>
+          </select>
+        </div>
+
+        {/* API Key */}
+        {aiProvider !== "ollama" && (
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t("apiKeyLabel")}
+            </label>
+            <div className="relative">
+              <input
+                type={showKey ? "text" : "password"}
+                value={aiApiKey}
+                onChange={(e) => setAiApiKey(e.target.value)}
+                placeholder={aiConfig?.has_key ? aiConfig.key_prefix : t("apiKeyPlaceholder")}
+                className="w-full rounded border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showKey ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Model */}
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            {t("model")}
+          </label>
+          <input
+            type="text"
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder={t("modelPlaceholder")}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Messages */}
+        {aiError && (
+          <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {aiError}
+          </div>
+        )}
+        {aiMessage && (
+          <div className="mb-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+            {aiMessage}
+          </div>
+        )}
+        {aiTestResult && (
+          <div className={`mb-3 rounded border p-3 text-sm ${aiTestResult.success ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+            {aiTestResult.message}
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleTestConnection}
+            disabled={aiTesting || (!aiApiKey.trim() && aiProvider !== "ollama")}
+            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {aiTesting ? t("testingConnection") : t("testConnection")}
+          </button>
+          <button
+            onClick={handleSaveAIConfig}
+            disabled={aiSaving || (!aiApiKey.trim() && aiProvider !== "ollama")}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {aiSaving ? t("savingConfig") : t("saveConfig")}
+          </button>
+          {aiConfig?.has_key && (
+            <button
+              onClick={handleRemoveAIConfig}
+              className="rounded px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              {t("removeConfig")}
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* API Keys Section */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

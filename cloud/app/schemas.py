@@ -263,6 +263,40 @@ class DocumentListResponse(BaseModel):
     max_allowed: int
 
 
+class AIConfigRequest(BaseModel):
+    """PUT /api/settings/ai-config request body."""
+
+    provider: Literal["openai", "anthropic", "ollama"]
+    api_key: str
+    model: str = ""
+
+
+class AIConfigResponse(BaseModel):
+    """AI config response (key masked)."""
+
+    provider: str
+    model: str
+    has_key: bool
+    key_prefix: str  # "sk-...abc"
+    updated_at: datetime | None
+
+
+class AIConfigTestRequest(BaseModel):
+    """POST /api/settings/ai-config/test request body."""
+
+    provider: Literal["openai", "anthropic", "ollama"]
+    api_key: str
+    model: str = ""
+
+
+class AIConfigTestResponse(BaseModel):
+    """AI config connection test response."""
+
+    success: bool
+    message: str
+    model: str | None = None
+
+
 class ApiKeyCreate(BaseModel):
     """POST /api/keys request body."""
 

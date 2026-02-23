@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     lemon_webhook_secret: str = ""
     lemon_api_key: str = ""
 
+    # Encryption key for BYOK (Fernet symmetric key)
+    encryption_key: str = ""  # AWT_ENCRYPTION_KEY
+
     # CORS — comma-separated origins, or "*" for all (dev default)
     cors_origins: str = "*"
 

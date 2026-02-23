@@ -573,4 +573,66 @@ export async function deleteDocument(id: number): Promise<void> {
   }
 }
 
+// -- AI Config (BYOK) --
+
+export interface AIConfigInfo {
+  provider: string;
+  model: string;
+  has_key: boolean;
+  key_prefix: string;
+  updated_at: string | null;
+}
+
+export interface AIConfigTestResult {
+  success: boolean;
+  message: string;
+  model: string | null;
+}
+
+export async function getAIConfig(): Promise<AIConfigInfo> {
+  const res = await authFetch("/api/settings/ai-config");
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
+}
+
+export async function saveAIConfig(
+  provider: string,
+  apiKey: string,
+  model: string
+): Promise<AIConfigInfo> {
+  const res = await authFetch("/api/settings/ai-config", {
+    method: "PUT",
+    body: JSON.stringify({ provider, api_key: apiKey, model }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteAIConfig(): Promise<void> {
+  const res = await authFetch("/api/settings/ai-config", { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+}
+
+export async function testAIConfig(
+  provider: string,
+  apiKey: string,
+  model: string
+): Promise<AIConfigTestResult> {
+  const res = await authFetch("/api/settings/ai-config/test", {
+    method: "POST",
+    body: JSON.stringify({ provider, api_key: apiKey, model }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
 export { API_URL };

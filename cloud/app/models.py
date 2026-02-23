@@ -146,6 +146,31 @@ class Document(Base):
     )
 
 
+class UserAIConfig(Base):
+    """User's own AI API key configuration (BYOK)."""
+
+    __tablename__ = "user_ai_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    provider: Mapped[str] = mapped_column(
+        String(32), nullable=False,
+    )  # openai | anthropic | ollama
+    api_key_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # Fernet encrypted
+    model: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+
+
 class ApiKey(Base):
     """API key for CI/CD authentication (X-API-Key header)."""
 
