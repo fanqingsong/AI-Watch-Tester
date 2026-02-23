@@ -1617,6 +1617,7 @@ async def execute_scan_tests(
         provider=settings.ai_provider,
         api_key=settings.ai_api_key,
         model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
+        max_tokens=16000,  # Scenario generation needs ~2K tokens per scenario
     )
     adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
     if adapter_cls is None:
@@ -1678,11 +1679,11 @@ async def execute_scan_tests(
     ref_docs = await get_user_doc_text(user.id, db)
 
     # --- Dynamic token budget allocation ---
-    # Reserve tokens for: template (~4000), output (~5000), overhead (~1000)
-    max_input_tokens = 20_000  # safe for 30K TPM (leaves room for output)
-    template_tokens = 4000
+    # GPT-4o supports 128K context; allocate generously for richer scenarios
+    max_input_tokens = 40_000
+    template_tokens = 5000
     overhead_tokens = 1000
-    budget = max_input_tokens - template_tokens - overhead_tokens  # ~15000
+    budget = max_input_tokens - template_tokens - overhead_tokens  # ~34000
 
     # Fixed-size parts first
     user_data_str = json.dumps(user_data, ensure_ascii=False)
