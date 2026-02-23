@@ -675,6 +675,11 @@ async def crawl_site(
         await engine.start()
         page = engine.page
 
+        # Skip ngrok browser warning page (free tier interstitial)
+        await page.set_extra_http_headers({
+            "ngrok-skip-browser-warning": "true",
+        })
+
         while queue and len(visited) < max_pages:
             # Timeout check
             elapsed = time.monotonic() - start_time

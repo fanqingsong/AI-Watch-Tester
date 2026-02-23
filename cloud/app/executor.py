@@ -363,6 +363,10 @@ async def generate_scenarios_for_test(
 
     try:
         await engine.start()
+        # Skip ngrok free-tier interstitial warning page
+        await engine.page.set_extra_http_headers(
+            {"ngrok-skip-browser-warning": "true"}
+        )
         await engine.navigate(target_url)
         page_text = await engine.get_page_text()
         screenshot = await engine.screenshot()
@@ -543,6 +547,11 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
 
     try:
         await engine.start()
+
+        # Skip ngrok free-tier interstitial warning page
+        await engine.page.set_extra_http_headers(
+            {"ngrok-skip-browser-warning": "true"}
+        )
 
         # Attach console/error listeners to Playwright page
         try:

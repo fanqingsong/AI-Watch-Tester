@@ -589,6 +589,10 @@ async def convert_scenario(
         try:
             await engine.start()
             page = engine.page
+            # Skip ngrok free-tier interstitial warning page
+            await page.set_extra_http_headers(
+                {"ngrok-skip-browser-warning": "true"}
+            )
             logger.info("Convert: navigating to %s", body.target_url)
             await page.goto(
                 str(body.target_url),
