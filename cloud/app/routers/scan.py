@@ -1399,6 +1399,8 @@ def _build_observation_table(observations: list[dict]) -> str:
 
 _EXECUTE_PROMPT = """\
 Generate AWT test scenario JSON for the selected tests below.
+Generate EXACTLY ONE scenario per selected test. If 7 tests are selected, return 7 scenarios.
+Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
 
 ## ========== ABSOLUTE RULES (NEVER VIOLATE) ==========
 
@@ -1466,6 +1468,10 @@ Generate AWT test scenario JSON for the selected tests below.
    Use url_contains or text_visible from the observation "new_text" / "after.url"
    which shows the post-redirect page content. For example, if after.url is "/board"
    and new_text includes "게시판", assert text_visible "게시판" — NOT "로그인".
+   **REGISTRATION REDIRECT RULE**: After REGISTRATION form submit → the page redirects
+   to login page or main page. Assert the REDIRECTED page (e.g., url_contains "/login"
+   or text_visible for login page text). NEVER assert registration form text like
+   "1단계" or "계정 정보" — those are from BEFORE submission.
 
 ## ========== END ABSOLUTE RULES ==========
 

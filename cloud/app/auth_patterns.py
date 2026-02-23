@@ -698,6 +698,14 @@ async def _collect_visible_fields(page: Any) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _unique_email() -> str:
+    """Generate a unique test email with timestamp suffix."""
+    import time
+
+    ts = int(time.time()) % 100000
+    return f"awttest_{ts}@example.com"
+
+
 def generate_test_data(field: dict) -> str | None:
     """Generate dummy test data appropriate for the field type."""
     f_type = field.get("type", "text")
@@ -707,7 +715,7 @@ def generate_test_data(field: dict) -> str | None:
     hint = f"{ph} {label} {name}"
 
     if f_type == "email" or "email" in hint or "이메일" in hint:
-        return "awttest@example.com"
+        return _unique_email()
     if f_type == "password" or "password" in hint or "비밀번호" in hint:
         return "TestPass123!"
     if f_type == "tel" or "phone" in hint or "전화" in hint or "휴대" in hint:

@@ -1119,19 +1119,83 @@ def enforce_multi_step_order(
             ))
             step_num += 1
 
-        # Suffix (assert, wait)
-        for s in suffix:
-            _set_step_num(s, step_num)
-            new_steps.append(s)
+        # Suffix — force-replace assert for registration redirect
+        # Registration form submit redirects to login/main page.
+        # AI often asserts form text ("1단계", "계정 정보") instead.
+        has_assert = any(
+            _get_step_action(s) == "assert" for s in suffix
+        )
+        if has_assert:
+            for s in suffix:
+                if _get_step_action(s) != "assert":
+                    _set_step_num(s, step_num)
+                    new_steps.append(s)
+                    step_num += 1
+                    continue
+                # Replace with url_contains /login (common redirect)
+                new_steps.append(_make_step(
+                    step_num, "assert",
+                    "Verify registration success — page redirected",
+                    value="/login",
+                ))
+                # Set assert_type to url_contains on the new step
+                new_step = new_steps[-1]
+                if hasattr(new_step, "assert_type"):
+                    from aat.core.models import AssertType
+                    new_step.__dict__["assert_type"] = (
+                        AssertType.URL_CONTAINS
+                    )
+                step_num += 1
+        else:
+            for s in suffix:
+                _set_step_num(s, step_num)
+                new_steps.append(s)
+                step_num += 1
+            # No assert at all — inject one
+            new_steps.append(_make_step(
+                step_num, "wait",
+                "Wait for registration redirect",
+                value="2000",
+            ))
             step_num += 1
+            assert_step = _make_step(
+                step_num, "assert",
+                "Verify registration success — page redirected",
+                value="/login",
+            )
+            if hasattr(assert_step, "assert_type"):
+                from aat.core.models import AssertType
+                assert_step.__dict__["assert_type"] = (
+                    AssertType.URL_CONTAINS
+                )
+            new_steps.append(assert_step)
+            step_num += 1
+
+        # Randomize registration email to prevent duplicate account errors
+        import time
+
+        unique_email = f"awttest_{int(time.time()) % 100000}@example.com"
+        for s in new_steps:
+            action = _get_step_action(s)
+            if action != "find_and_type":
+                continue
+            sel = _get_step_target_selector(s).lower()
+            txt = _get_step_target_text(s).lower()
+            if "email" in sel or "이메일" in txt or "email" in txt:
+                # Replace email value
+                if isinstance(s, dict):
+                    s["value"] = unique_email
+                elif hasattr(s, "value"):
+                    s.__dict__["value"] = unique_email
 
         # Replace steps in-place
         steps.clear()
         steps.extend(new_steps)
 
         logger.info(
-            "MULTI-STEP ORDER: Rebuilt '%s' — %d phases, %d total steps",
-            sc_name, num_phases, len(new_steps),
+            "MULTI-STEP ORDER: Rebuilt '%s' — %d phases, %d total steps"
+            " (email=%s)",
+            sc_name, num_phases, len(new_steps), unique_email,
         )
 
     return scenarios
