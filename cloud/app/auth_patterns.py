@@ -454,6 +454,13 @@ async def crawl_multi_step_form(
         f for f in fields if f.get("type") != "submit_button"
     ]
     all_steps: list[list[dict]] = [input_only]
+    # Track all seen field signatures for cycle detection
+    _seen_signatures: list[frozenset] = [
+        frozenset(
+            (f.get("name"), f.get("type"), f.get("label"))
+            for f in input_only
+        ),
+    ]
     start_url = page.url
     logger.info(
         "Multi-step crawl starting — step 1 has %d fields, url=%s",
@@ -494,20 +501,25 @@ async def crawl_multi_step_form(
         if not new_fields:
             break
         # Compare by field names/types to detect real changes
-        old_keys = {
-            (f.get("name"), f.get("type"), f.get("label"))
-            for f in input_only
-        }
-        new_keys = {
+        new_keys = frozenset(
             (f.get("name"), f.get("type"), f.get("label"))
             for f in new_fields
-        }
+        )
+        old_keys = _seen_signatures[-1]
         if old_keys == new_keys:
             logger.info(
                 "Multi-step crawl step %d — same fields, stopping",
                 _step_num,
             )
             break
+        # Cycle detection: stop if we've seen this field set before
+        if new_keys in _seen_signatures:
+            logger.info(
+                "Multi-step crawl step %d — cycle detected, stopping",
+                _step_num,
+            )
+            break
+        _seen_signatures.append(new_keys)
         all_steps.append(new_fields)
         input_only = new_fields
 
@@ -585,14 +597,15 @@ async def _click_next_button(
         except Exception:
             logger.debug("Playwright click on next[%d] failed", btn_index)
 
-    # 2) Fallback: try form submit button (type="submit")
-    try:
-        submit = page.locator('button[type="submit"]').first
-        if await submit.count() > 0:
-            await submit.click(timeout=5000)
-            return True
-    except Exception:
-        pass
+    # 2) Fallback: try form submit button with next-like text only
+    for kw in _next_kw:
+        try:
+            loc = page.locator('button[type="submit"]').filter(has_text=kw).first
+            if await loc.count() > 0:
+                await loc.click(timeout=5000)
+                return True
+        except Exception:
+            continue
 
     # 3) Fallback: use selector from crawled fields
     if fields:
