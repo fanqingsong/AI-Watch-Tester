@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 
 from app.models import ScanStatus, TestStatus, UserTier
 
@@ -18,6 +18,11 @@ class ConvertScenarioRequest(BaseModel):
     target_url: str
     user_prompt: str
     language: Literal["ko", "en"] = "en"
+
+    @field_validator("target_url", mode="before")
+    @classmethod
+    def strip_url(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
     scan_id: int | None = None  # If provided, use scan's observation data
     session_id: int | None = None  # WS progress session (frontend-generated)
 
@@ -70,6 +75,11 @@ class TestCreate(BaseModel):
     target_url: HttpUrl
     mode: Literal["review", "auto"] = "review"
     scenario_yaml: str | None = None
+
+    @field_validator("target_url", mode="before")
+    @classmethod
+    def strip_url(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
 
 
 class ScenarioUpdate(BaseModel):
@@ -164,6 +174,11 @@ class ScanRequest(BaseModel):
     target_url: str
     max_pages: int = 5
     max_depth: int = 3
+
+    @field_validator("target_url", mode="before")
+    @classmethod
+    def strip_url(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
 
 
 class SiteType(BaseModel):
