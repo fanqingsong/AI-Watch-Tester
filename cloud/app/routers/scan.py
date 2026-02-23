@@ -23,6 +23,7 @@ from app.scenario_utils import (
 )
 from app.scenario_utils import (
     compress_observations_for_ai,
+    enforce_multi_step_order,
     ensure_post_submit_assert,
     fix_field_targets,
     fix_form_submit_steps,
@@ -1829,6 +1830,12 @@ async def execute_scan_tests(
 
     # Fix AI-generated field targets to use actual observed data
     scenarios = fix_field_targets(scenarios, observations)
+
+    # Enforce multi-step form order (Step1 → "다음" → Step2 → submit)
+    if best_auth and best_auth.get("multi_step_fields"):
+        scenarios = enforce_multi_step_order(
+            scenarios, best_auth["multi_step_fields"],
+        )
 
     # Fix form-submit-after-input: replace nav clicks with form submit buttons
     logger.debug("=== FORM-SUBMIT FIX EXECUTING ===")

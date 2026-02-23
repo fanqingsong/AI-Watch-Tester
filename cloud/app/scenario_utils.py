@@ -766,6 +766,334 @@ def fix_field_targets(
     return scenarios
 
 
+# ---------------------------------------------------------------------------
+# Multi-step form order enforcement
+# ---------------------------------------------------------------------------
+
+_NEXT_KW = frozenset({"다음", "next", "continue", "계속", "다음 단계"})
+_REG_KW = ("회원가입", "register", "signup", "sign up", "registration")
+
+
+def _get_step_action(step: object) -> str:
+    """Extract action string from StepConfig or dict."""
+    if hasattr(step, "action") and hasattr(step.action, "value"):
+        return step.action.value
+    if hasattr(step, "action"):
+        return str(step.action)
+    if isinstance(step, dict):
+        return step.get("action", "")
+    return ""
+
+
+def _get_step_target_text(step: object) -> str:
+    """Extract target text from StepConfig or dict."""
+    target = (
+        getattr(step, "target", None)
+        if not isinstance(step, dict)
+        else step.get("target")
+    )
+    if not target:
+        return ""
+    if hasattr(target, "text"):
+        return (target.text or "").strip()
+    if isinstance(target, dict):
+        return (target.get("text") or "").strip()
+    return ""
+
+
+def _get_step_target_selector(step: object) -> str:
+    """Extract target selector from StepConfig or dict."""
+    target = (
+        getattr(step, "target", None)
+        if not isinstance(step, dict)
+        else step.get("target")
+    )
+    if not target:
+        return ""
+    if hasattr(target, "selector"):
+        return (target.selector or "").strip()
+    if isinstance(target, dict):
+        return (target.get("selector") or "").strip()
+    return ""
+
+
+def _set_step_num(step: object, num: int) -> None:
+    """Set step number on StepConfig or dict."""
+    if isinstance(step, dict):
+        step["step"] = num
+    elif hasattr(step, "step"):
+        # Pydantic v2 model — direct attribute set (no frozen config)
+        step.__dict__["step"] = num
+
+
+def _build_field_phase_map(
+    multi_step_fields: list[list[dict]],
+) -> dict[str, int]:
+    """Map field identifiers (selector/name/label/placeholder) → phase number."""
+    mapping: dict[str, int] = {}
+    for phase, fields in enumerate(multi_step_fields, 1):
+        for f in fields:
+            if f.get("type") == "submit_button":
+                continue
+            for key in ("selector", "name", "label", "placeholder"):
+                val = (f.get(key) or "").strip().lower()
+                if val and val not in mapping:
+                    mapping[val] = phase
+    return mapping
+
+
+def _match_phase(
+    step: object,
+    field_map: dict[str, int],
+    multi_step_fields: list[list[dict]],
+) -> int:
+    """Determine which multi-step phase a form step belongs to."""
+    # 1) Exact selector match
+    sel = _get_step_target_selector(step).lower()
+    if sel and sel in field_map:
+        return field_map[sel]
+
+    # 2) Exact text match
+    text = _get_step_target_text(step).lower()
+    if text and text in field_map:
+        return field_map[text]
+
+    # 3) Partial text match (prefer longer key matches)
+    if text:
+        best_phase = 0
+        best_len = 0
+        for key, phase in field_map.items():
+            if (text in key or key in text) and len(key) > best_len:
+                best_phase = phase
+                best_len = len(key)
+        if best_phase:
+            return best_phase
+
+    # 4) Type-based heuristic fallback
+    hint = _classify_field_hint(text) if text else "unknown"
+    if hint != "unknown":
+        for phase, fields in enumerate(multi_step_fields, 1):
+            for f in fields:
+                if f.get("type") == "submit_button":
+                    continue
+                if _classify_observed_field(f) == hint:
+                    return phase
+
+    return 1  # default to phase 1
+
+
+def _make_step(
+    step_num: int,
+    action: str,
+    description: str,
+    target_text: str = "",
+    target_selector: str = "",
+    value: str = "",
+) -> object:
+    """Create a StepConfig object for injected steps."""
+    from aat.core.models import ActionType, StepConfig, TargetSpec
+
+    target = None
+    if target_text or target_selector:
+        target = TargetSpec(
+            text=target_text or None,
+            selector=target_selector or None,
+        )
+
+    return StepConfig(
+        step=step_num,
+        action=ActionType(action),
+        target=target,
+        value=value or None,
+        description=description,
+    )
+
+
+def enforce_multi_step_order(
+    scenarios: list,
+    multi_step_fields: list[list[dict]],
+) -> list:
+    """Enforce correct step ordering for multi-step registration scenarios.
+
+    AI often ignores the STEP ORDER RULE, placing Step 2 fields before the
+    "다음" click. This function:
+    1. Identifies registration scenarios
+    2. Classifies each form step into its multi-step phase
+    3. Rebuilds: Step1 fields → "다음" click → wait → Step2 fields → submit → assert
+    """
+    if not multi_step_fields or len(multi_step_fields) < 2:
+        return scenarios
+
+    field_map = _build_field_phase_map(multi_step_fields)
+    num_phases = len(multi_step_fields)
+
+    # Extract submit buttons per phase
+    step_buttons: dict[int, dict] = {}
+    for idx, fields in enumerate(multi_step_fields, 1):
+        for f in fields:
+            if f.get("type") == "submit_button":
+                step_buttons[idx] = f
+                break
+
+    for scenario in scenarios:
+        sc_name = ""
+        if hasattr(scenario, "name"):
+            sc_name = scenario.name or ""
+        elif isinstance(scenario, dict):
+            sc_name = scenario.get("name", "")
+
+        if not any(kw in sc_name.lower() for kw in _REG_KW):
+            continue
+
+        steps: list = []
+        if hasattr(scenario, "steps"):
+            steps = scenario.steps
+        elif isinstance(scenario, dict):
+            steps = scenario.get("steps", [])
+
+        if not steps:
+            continue
+
+        # --- Categorize existing steps ---
+        prefix: list = []          # navigate, initial non-form steps
+        phase_inputs: dict[int, list] = {}   # phase → find_and_type steps
+        phase_clicks: dict[int, list] = {}   # phase → checkbox/field clicks
+        submit_step: object | None = None
+        suffix: list = []          # assert, wait at end
+
+        in_form = False
+        post_submit = False
+
+        # Detect final submit button text
+        last_btn = step_buttons.get(num_phases)
+        last_btn_text = (
+            (last_btn.get("label") or "").strip().lower() if last_btn else ""
+        )
+
+        for step in steps:
+            action = _get_step_action(step)
+            target_text = _get_step_target_text(step).lower()
+
+            if post_submit:
+                suffix.append(step)
+                continue
+
+            if action == "navigate":
+                prefix.append(step)
+                continue
+
+            if action == "find_and_type":
+                in_form = True
+                phase = _match_phase(step, field_map, multi_step_fields)
+                phase_inputs.setdefault(phase, []).append(step)
+                continue
+
+            if action == "find_and_click":
+                # Skip existing "다음"/"Next" transition clicks (will rebuild)
+                if any(kw in target_text for kw in _NEXT_KW):
+                    continue
+
+                # Final submit button
+                if last_btn_text and last_btn_text in target_text:
+                    submit_step = step
+                    post_submit = True
+                    continue
+
+                # Checkbox / other field click in form section
+                if in_form:
+                    phase = _match_phase(
+                        step, field_map, multi_step_fields,
+                    )
+                    phase_clicks.setdefault(phase, []).append(step)
+                else:
+                    prefix.append(step)
+                continue
+
+            if action in ("assert", "wait") and in_form:
+                suffix.append(step)
+                post_submit = True
+                continue
+
+            # Other actions (screenshot, etc.)
+            if not in_form:
+                prefix.append(step)
+            else:
+                suffix.append(step)
+
+        # --- Rebuild steps in correct order ---
+        new_steps: list = list(prefix)
+        step_num = len(new_steps) + 1
+
+        for phase in range(1, num_phases + 1):
+            # Field inputs for this phase
+            for s in phase_inputs.get(phase, []):
+                _set_step_num(s, step_num)
+                new_steps.append(s)
+                step_num += 1
+
+            # Checkbox / other clicks for this phase
+            for s in phase_clicks.get(phase, []):
+                _set_step_num(s, step_num)
+                new_steps.append(s)
+                step_num += 1
+
+            if phase < num_phases:
+                # Inject "다음" click + wait between phases
+                btn = step_buttons.get(phase)
+                btn_text = (
+                    btn.get("label", "다음") if btn else "다음"
+                )
+                btn_sel = (
+                    btn.get("selector", "") if btn else ""
+                )
+
+                new_steps.append(_make_step(
+                    step_num, "find_and_click",
+                    f"Click '{btn_text}' to proceed to step {phase + 1}",
+                    target_text=btn_text,
+                    target_selector=btn_sel,
+                ))
+                step_num += 1
+
+                new_steps.append(_make_step(
+                    step_num, "wait",
+                    f"Wait for step {phase + 1} to load",
+                    value="1500",
+                ))
+                step_num += 1
+
+        # Final submit button
+        if submit_step:
+            _set_step_num(submit_step, step_num)
+            new_steps.append(submit_step)
+            step_num += 1
+        elif last_btn:
+            new_steps.append(_make_step(
+                step_num, "find_and_click",
+                "Submit registration form",
+                target_text=last_btn.get("label", "Submit"),
+                target_selector=last_btn.get("selector", ""),
+            ))
+            step_num += 1
+
+        # Suffix (assert, wait)
+        for s in suffix:
+            _set_step_num(s, step_num)
+            new_steps.append(s)
+            step_num += 1
+
+        # Replace steps in-place
+        steps.clear()
+        steps.extend(new_steps)
+
+        logger.info(
+            "MULTI-STEP ORDER: Rebuilt '%s' — %d phases, %d total steps",
+            sc_name, num_phases, len(new_steps),
+        )
+
+    return scenarios
+
+
 def ensure_post_submit_assert(scenarios: list) -> list:
     """Ensure every form scenario has wait+assert after the submit click.
 

@@ -87,24 +87,32 @@ class Comparator:
     async def check_assert(self, step: StepConfig, engine: BaseEngine) -> None:
         """Assert action handler.
 
-        Supports two formats:
-        1. step.assert_type + step.value (inline)
-        2. step.expected list (each with type + value)
+        Priority: step.assert_type (explicit) > expected[].type (implicit).
+        When assert_type is set, it overrides the type in expected list items
+        so that ``assert_type: url_contains`` is not silently ignored when
+        expected[0].type defaults to text_visible.
 
         Args:
             step: StepConfig with assert info.
             engine: BaseEngine instance.
         """
-        # Format 2: expected list (preferred)
-        if step.expected:
-            for exp in step.expected:
-                await self.check(exp, engine)
-            return
-
-        # Format 1: inline assert_type + value
+        # Format 1 (inline): assert_type + value — highest priority
         if step.assert_type is not None and step.value is not None:
             expected = ExpectedResult(type=step.assert_type, value=step.value)
             await self.check(expected, engine)
+            return
+
+        # Format 2: expected list (override type if assert_type is set)
+        if step.expected:
+            for exp in step.expected:
+                if step.assert_type is not None and exp.type != step.assert_type:
+                    exp = ExpectedResult(
+                        type=step.assert_type,
+                        value=exp.value,
+                        tolerance=exp.tolerance,
+                        case_insensitive=exp.case_insensitive,
+                    )
+                await self.check(exp, engine)
             return
 
         raise StepExecutionError(
