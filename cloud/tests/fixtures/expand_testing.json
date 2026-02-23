@@ -1,0 +1,144 @@
+{
+  "target_url": "https://practice.expandtesting.com",
+  "pages": [
+    {
+      "url": "https://practice.expandtesting.com/",
+      "title": "Practice Software Testing",
+      "nav_menus": [
+        {"text": "Home", "href": "/", "selector": "a.nav-link[href='/']"},
+        {"text": "Login", "href": "/login", "selector": "a[href='/login']"},
+        {"text": "Inputs", "href": "/inputs", "selector": "a[href='/inputs']"}
+      ],
+      "forms": [],
+      "buttons": []
+    },
+    {
+      "url": "https://practice.expandtesting.com/login",
+      "title": "Test Login Page",
+      "nav_menus": [],
+      "forms": [
+        {
+          "action": "/login",
+          "method": "POST",
+          "selector": "form",
+          "fields": [
+            {"name": "username", "type": "text", "placeholder": "Enter your username", "selector": "input#username", "label": "Username"},
+            {"name": "password", "type": "password", "placeholder": "Enter your password", "selector": "input#password", "label": "Password"}
+          ],
+          "submit_button": {"text": "Login", "selector": "button#login"}
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "url": "https://practice.expandtesting.com/inputs",
+      "title": "Test Inputs Page",
+      "nav_menus": [],
+      "forms": [
+        {
+          "action": "",
+          "method": "",
+          "selector": "form",
+          "fields": [
+            {"name": "number", "type": "number", "placeholder": "", "selector": "input#input-number", "label": "Number Input"}
+          ],
+          "submit_button": null
+        }
+      ],
+      "buttons": [
+        {"text": "Display Result", "selector": "button#btn-display-result", "type": "button"}
+      ]
+    },
+    {
+      "url": "https://practice.expandtesting.com/add-remove-elements",
+      "title": "Add/Remove Elements",
+      "nav_menus": [],
+      "forms": [],
+      "buttons": [
+        {"text": "Add Element", "selector": "button[onclick='addElement()']", "type": "button"},
+        {"text": "Delete", "selector": "button.added-manually", "type": "button"}
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "element": {"selector": "a[href='/login']", "text": "Login", "type": "link"},
+      "before": {"url": "https://practice.expandtesting.com/"},
+      "after": {"url": "https://practice.expandtesting.com/login"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["Test Login Page", "Username", "Password", "Login"],
+        "navigated_page_fields": [
+          {"selector": "input#username", "type": "text", "placeholder": "Enter your username", "label": "Username", "name": "username"},
+          {"selector": "input#password", "type": "password", "placeholder": "Enter your password", "label": "Password", "name": "password"},
+          {"selector": "button#login", "type": "submit_button", "label": "Login"}
+        ]
+      },
+      "access_path": "/"
+    },
+    {
+      "element": {"selector": "button#login", "text": "Login", "type": "submit_button"},
+      "before": {"url": "https://practice.expandtesting.com/login"},
+      "after": {"url": "https://practice.expandtesting.com/login"},
+      "observed_change": {
+        "type": "element_change",
+        "new_text": ["You logged into a secure area!", "Logout"]
+      },
+      "access_path": "/login"
+    },
+    {
+      "element": {"selector": "a[href='/inputs']", "text": "Inputs", "type": "link"},
+      "before": {"url": "https://practice.expandtesting.com/"},
+      "after": {"url": "https://practice.expandtesting.com/inputs"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["Test Inputs Page", "Number Input", "Display Result"]
+      },
+      "access_path": "/"
+    },
+    {
+      "element": {"selector": "a[href='/add-remove-elements']", "text": "Add/Remove Elements", "type": "link"},
+      "before": {"url": "https://practice.expandtesting.com/"},
+      "after": {"url": "https://practice.expandtesting.com/add-remove-elements"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["Add/Remove Elements", "Add Element"]
+      },
+      "access_path": "/"
+    }
+  ],
+  "detected_features": ["login_form", "input_fields", "dynamic_elements"],
+  "selected_tests": [
+    {
+      "id": "t1",
+      "name": "Login Test",
+      "description": "Navigate to login page, enter username 'practice' and password 'SuperSecretPassword!', submit form, verify success message 'You logged into a secure area!' appears",
+      "priority": "high",
+      "estimated_time": 20,
+      "requires_auth": false
+    },
+    {
+      "id": "t2",
+      "name": "Input Fields Test",
+      "description": "Navigate to inputs page, enter number value in number input field, click Display Result button, verify the entered value is displayed correctly",
+      "priority": "medium",
+      "estimated_time": 15,
+      "requires_auth": false
+    },
+    {
+      "id": "t3",
+      "name": "Add/Remove Elements Test",
+      "description": "Navigate to add/remove elements page, click Add Element button 3 times, verify 3 Delete buttons appear, click Delete once, verify 2 remain",
+      "priority": "medium",
+      "estimated_time": 20,
+      "requires_auth": false
+    }
+  ],
+  "auth_data": {
+    "username": "practice",
+    "password": "SuperSecretPassword!"
+  },
+  "test_data": {
+    "number_input": "42"
+  }
+}

@@ -100,6 +100,9 @@ warn_unused_ignores = false
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
+markers = [
+    "e2e: End-to-end tests requiring real AI API keys (not run in CI)",
+]
 
 [tool.coverage.run]
 source = ["src/aat"]

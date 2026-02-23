@@ -1,0 +1,142 @@
+{
+  "target_url": "https://awt-test.onrender.com",
+  "pages": [
+    {
+      "url": "https://awt-test.onrender.com/",
+      "title": "AWT 테스트 사이트",
+      "nav_menus": [
+        {"text": "홈", "href": "/", "selector": "a.nav-link[href='/']"},
+        {"text": "게시판", "href": "/board", "selector": "a.nav-link[href='/board']"},
+        {"text": "로그인", "href": "/login", "selector": "a.nav-link[href='/login']"},
+        {"text": "회원가입", "href": "/register", "selector": "a.nav-link[href='/register']"}
+      ],
+      "forms": [],
+      "buttons": [
+        {"text": "시작하기", "selector": "a.btn-primary[href='/register']", "type": "link"}
+      ]
+    },
+    {
+      "url": "https://awt-test.onrender.com/login",
+      "title": "로그인",
+      "nav_menus": [],
+      "forms": [
+        {
+          "action": "/login",
+          "method": "POST",
+          "selector": "form[action='/login']",
+          "fields": [
+            {"name": "email", "type": "email", "placeholder": "이메일", "selector": "input[name='email']", "label": "이메일"},
+            {"name": "password", "type": "password", "placeholder": "비밀번호", "selector": "input[name='password']", "label": "비밀번호"}
+          ],
+          "submit_button": {"text": "로그인", "selector": "button[type='submit']"}
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "url": "https://awt-test.onrender.com/register",
+      "title": "회원가입",
+      "nav_menus": [],
+      "forms": [
+        {
+          "action": "/register",
+          "method": "POST",
+          "selector": "form[action='/register']",
+          "fields": [
+            {"name": "username", "type": "text", "placeholder": "이름", "selector": "input[name='username']", "label": "이름"},
+            {"name": "email", "type": "email", "placeholder": "이메일", "selector": "input[name='email']", "label": "이메일"},
+            {"name": "password", "type": "password", "placeholder": "비밀번호", "selector": "input[name='password']", "label": "비밀번호"},
+            {"name": "password_confirm", "type": "password", "placeholder": "비밀번호 확인", "selector": "input[name='password_confirm']", "label": "비밀번호 확인"}
+          ],
+          "submit_button": {"text": "가입하기", "selector": "button[type='submit']"}
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "url": "https://awt-test.onrender.com/board",
+      "title": "게시판",
+      "nav_menus": [],
+      "forms": [],
+      "buttons": [
+        {"text": "글쓰기", "selector": "a.btn-primary[href='/board/new']", "type": "link"}
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "element": {"selector": "a.nav-link[href='/login']", "text": "로그인", "type": "link"},
+      "before": {"url": "https://awt-test.onrender.com/"},
+      "after": {"url": "https://awt-test.onrender.com/login"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["로그인", "이메일", "비밀번호"],
+        "navigated_page_fields": [
+          {"selector": "input[name='email']", "type": "email", "placeholder": "이메일", "label": "이메일", "name": "email"},
+          {"selector": "input[name='password']", "type": "password", "placeholder": "비밀번호", "label": "비밀번호", "name": "password"},
+          {"selector": "button[type='submit']", "type": "submit_button", "label": "로그인"}
+        ]
+      },
+      "access_path": "/"
+    },
+    {
+      "element": {"selector": "a.nav-link[href='/register']", "text": "회원가입", "type": "link"},
+      "before": {"url": "https://awt-test.onrender.com/"},
+      "after": {"url": "https://awt-test.onrender.com/register"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["회원가입", "이름", "이메일", "비밀번호", "비밀번호 확인", "가입하기"],
+        "navigated_page_fields": [
+          {"selector": "input[name='username']", "type": "text", "placeholder": "이름", "label": "이름", "name": "username"},
+          {"selector": "input[name='email']", "type": "email", "placeholder": "이메일", "label": "이메일", "name": "email"},
+          {"selector": "input[name='password']", "type": "password", "placeholder": "비밀번호", "label": "비밀번호", "name": "password"},
+          {"selector": "input[name='password_confirm']", "type": "password", "placeholder": "비밀번호 확인", "label": "비밀번호 확인", "name": "password_confirm"},
+          {"selector": "button[type='submit']", "type": "submit_button", "label": "가입하기"}
+        ]
+      },
+      "access_path": "/"
+    },
+    {
+      "element": {"selector": "a.nav-link[href='/board']", "text": "게시판", "type": "link"},
+      "before": {"url": "https://awt-test.onrender.com/"},
+      "after": {"url": "https://awt-test.onrender.com/board"},
+      "observed_change": {
+        "type": "page_navigation",
+        "new_text": ["게시판", "글쓰기", "제목", "작성자", "작성일"]
+      },
+      "access_path": "/"
+    }
+  ],
+  "detected_features": ["login_form", "signup", "board"],
+  "selected_tests": [
+    {
+      "id": "t1",
+      "name": "로그인 테스트",
+      "description": "이메일과 비밀번호로 로그인하여 게시판 페이지로 리다이렉트 확인",
+      "priority": "high",
+      "estimated_time": 30,
+      "requires_auth": false
+    },
+    {
+      "id": "t2",
+      "name": "회원가입 테스트",
+      "description": "이름, 이메일, 비밀번호를 입력하여 회원가입 후 로그인 페이지로 리다이렉트 확인",
+      "priority": "high",
+      "estimated_time": 30,
+      "requires_auth": false
+    },
+    {
+      "id": "t3",
+      "name": "네비게이션 메뉴 테스트",
+      "description": "홈, 게시판, 로그인, 회원가입 메뉴 클릭 시 올바른 페이지 이동 확인",
+      "priority": "medium",
+      "estimated_time": 20,
+      "requires_auth": false
+    }
+  ],
+  "auth_data": {
+    "email": "awttest@example.com",
+    "password": "TestPass123!"
+  },
+  "test_data": {}
+}
