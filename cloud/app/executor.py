@@ -360,6 +360,10 @@ async def generate_scenarios_for_test(
         viewport_height=1080,
     )
     engine = WebEngine(engine_config)
+    engine._launch_args = [
+        "--no-sandbox", "--disable-setuid-sandbox",
+        "--dns-over-https-url=https://dns.google/dns-query",
+    ]
 
     try:
         await engine.start()
@@ -513,6 +517,10 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
         viewport_height=1080,
     )
     engine = WebEngine(engine_config)
+    engine._launch_args = [
+        "--no-sandbox", "--disable-setuid-sandbox",
+        "--dns-over-https-url=https://dns.google/dns-query",
+    ]
 
     # Console log collector
     console_logs: list[dict[str, str]] = []

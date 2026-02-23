@@ -56,7 +56,11 @@ class WebEngine(BaseEngine):
                 msg = f"Unknown browser: {self._config.browser}"
                 raise EngineError(msg)
 
-            self._browser = await browser_type.launch(headless=self._config.headless)
+            launch_args = getattr(self, "_launch_args", None)
+            self._browser = await browser_type.launch(
+                headless=self._config.headless,
+                args=launch_args or [],
+            )
             self._context = await self._browser.new_context(
                 viewport={
                     "width": self._config.viewport_width,

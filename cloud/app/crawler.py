@@ -646,6 +646,14 @@ async def crawl_site(
         viewport_height=1080,
     )
     engine = WebEngine(engine_config)
+    # Override browser launch args for cloud/Docker environments
+    # --no-sandbox: required for Docker containers
+    # --dns-over-https-url: bypass container DNS issues (e.g. Render)
+    engine._launch_args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--dns-over-https-url=https://dns.google/dns-query",
+    ]
 
     start_time = time.monotonic()
     base_domain = urlparse(target_url).netloc
