@@ -970,17 +970,17 @@ def enforce_multi_step_order(
         prefix: list = []          # navigate, initial non-form steps
         phase_inputs: dict[int, list] = {}   # phase → find_and_type steps
         phase_clicks: dict[int, list] = {}   # phase → checkbox/field clicks
-        submit_step: object | None = None
         suffix: list = []          # assert, wait at end
 
         in_form = False
         post_submit = False
 
-        # Detect final submit button text
+        # Collect all submit button labels to detect AI-generated submits
         last_btn = step_buttons.get(num_phases)
-        last_btn_text = (
-            (last_btn.get("label") or "").strip().lower() if last_btn else ""
-        )
+        all_btn_labels = {
+            (b.get("label") or "").strip().lower()
+            for b in step_buttons.values()
+        }
 
         for step in steps:
             action = _get_step_action(step)
@@ -1001,15 +1001,14 @@ def enforce_multi_step_order(
                 continue
 
             if action == "find_and_click":
-                # Skip "다음"/"Next" and "이전"/"Back" clicks (will rebuild)
+                # Drop transition clicks — "다음"/"이전" (will rebuild)
                 if any(kw in target_text for kw in _NEXT_KW):
                     continue
                 if any(kw in target_text for kw in _BACK_KW):
                     continue
 
-                # Final submit button
-                if last_btn_text and last_btn_text in target_text:
-                    submit_step = step
+                # Drop AI-generated submit buttons (will force-inject)
+                if any(lbl and lbl in target_text for lbl in all_btn_labels):
                     post_submit = True
                     continue
 
@@ -1076,12 +1075,9 @@ def enforce_multi_step_order(
                 ))
                 step_num += 1
 
-        # Final submit button
-        if submit_step:
-            _set_step_num(submit_step, step_num)
-            new_steps.append(submit_step)
-            step_num += 1
-        elif last_btn:
+        # Final submit button — ALWAYS use multi_step_fields data
+        # (AI output is unpredictable; force correct button regardless)
+        if last_btn:
             new_steps.append(_make_step(
                 step_num, "find_and_click",
                 "Submit registration form",
