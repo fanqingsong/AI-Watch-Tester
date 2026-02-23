@@ -629,10 +629,8 @@ class StepExecutor:
             url_after = page.url
             if url_after != url_before:
                 # Navigation detected — wait for DOM ready (fast, not networkidle)
-                try:
+                with contextlib.suppress(Exception):
                     await page.wait_for_load_state("domcontentloaded", timeout=3000)
-                except Exception:
-                    pass
             else:
                 # No navigation — brief delay for modal/animation
                 await asyncio.sleep(0.3)

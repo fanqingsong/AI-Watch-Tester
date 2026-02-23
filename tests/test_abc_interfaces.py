@@ -45,6 +45,7 @@ class TestBaseEngine:
             "get_url",
             "get_page_text",
             "save_screenshot",
+            "find_text_position",
         }
         assert expected == BaseEngine.__abstractmethods__
 
@@ -74,6 +75,9 @@ class TestBaseEngine:
 
             async def save_screenshot(self, path: Path) -> Path:
                 return path
+
+            async def find_text_position(self, text: str) -> tuple[int, int] | None:
+                return None
 
         engine = DummyEngine()
         assert isinstance(engine, BaseEngine)

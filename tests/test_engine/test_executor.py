@@ -20,7 +20,7 @@ from aat.core.models import (
     StepStatus,
     TargetSpec,
 )
-from aat.engine.executor import StepExecutor, _SYNONYMS, _parse_coordinates, _parse_scroll_params
+from aat.engine.executor import _SYNONYMS, StepExecutor, _parse_coordinates, _parse_scroll_params
 
 if TYPE_CHECKING:
     from pathlib import Path

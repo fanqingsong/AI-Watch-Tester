@@ -97,3 +97,8 @@ class BaseEngine(ABC):
     async def save_screenshot(self, path: Path) -> Path:
         """Save screenshot to file and return path."""
         ...
+
+    @abstractmethod
+    async def find_text_position(self, text: str) -> tuple[int, int] | None:
+        """Find screen position of visible text. Returns (x, y) or None."""
+        ...
