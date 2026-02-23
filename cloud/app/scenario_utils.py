@@ -1050,6 +1050,39 @@ def enforce_multi_step_order(
                 new_steps.append(s)
                 step_num += 1
 
+            # Inject missing checkbox clicks from multi_step_fields
+            phase_fields = multi_step_fields[phase - 1]
+            existing_sels = {
+                _get_step_target_selector(s).lower()
+                for s in phase_clicks.get(phase, [])
+            }
+            existing_texts = {
+                _get_step_target_text(s).lower()
+                for s in phase_clicks.get(phase, [])
+            }
+            for f in phase_fields:
+                if f.get("type") != "checkbox":
+                    continue
+                f_sel = (f.get("selector") or "").lower()
+                f_label = (f.get("label") or "").lower()
+                if f_sel and f_sel in existing_sels:
+                    continue
+                if f_label and f_label in existing_texts:
+                    continue
+                # Missing checkbox — inject click
+                new_steps.append(_make_step(
+                    step_num, "find_and_click",
+                    f"Check '{f.get('label', 'checkbox')}'",
+                    target_text=f.get("label", ""),
+                    target_selector=f.get("selector", ""),
+                ))
+                step_num += 1
+                logger.info(
+                    "MULTI-STEP ORDER: Injected missing checkbox "
+                    "'%s' for phase %d",
+                    f.get("label", "?"), phase,
+                )
+
             if phase < num_phases:
                 # Inject "다음" click + wait between phases
                 btn = step_buttons.get(phase)
@@ -1099,6 +1132,181 @@ def enforce_multi_step_order(
         logger.info(
             "MULTI-STEP ORDER: Rebuilt '%s' — %d phases, %d total steps",
             sc_name, num_phases, len(new_steps),
+        )
+
+    return scenarios
+
+
+# ---------------------------------------------------------------------------
+# Login prefix injection for auth-required scenarios
+# ---------------------------------------------------------------------------
+
+_AUTH_SKIP_KW = (
+    "로그인", "login", "회원가입", "register", "signup",
+    "sign up", "broken", "nav",
+)
+_AUTH_NEED_KW = (
+    "게시", "post", "write", "comment", "댓글",
+    "프로필", "profile", "설정", "setting", "마이페이지",
+    "mypage", "dashboard", "작성", "수정", "edit", "delete", "삭제",
+)
+
+
+def _extract_login_info(
+    observations: list[dict],
+) -> dict[str, str] | None:
+    """Extract login form selectors from observation data.
+
+    Returns dict with keys: nav_selector, nav_text, email_selector,
+    password_selector, submit_selector, submit_text.
+    Returns None if login form not found.
+    """
+    for obs in observations:
+        auth = obs.get("auth_pattern")
+        if not auth or auth.get("page_type") != "login":
+            continue
+
+        elem = obs.get("element", {})
+        change = obs.get("observed_change", {})
+        fields = (
+            change.get("navigated_page_fields")
+            or change.get("modal_form_fields")
+            or []
+        )
+        if not fields:
+            continue
+
+        info: dict[str, str] = {
+            "nav_selector": elem.get("selector", ""),
+            "nav_text": elem.get("text", "로그인"),
+        }
+
+        for f in fields:
+            ftype = (f.get("type") or "").lower()
+            sel = f.get("selector", "")
+            label = f.get("label", "")
+
+            if ftype == "email" or "email" in sel.lower() or "이메일" in label:
+                info["email_selector"] = sel
+            elif ftype == "password" or "password" in sel.lower():
+                info["password_selector"] = sel
+            elif ftype == "submit_button" and f.get("context") == "form":
+                info["submit_selector"] = sel
+                info["submit_text"] = f.get("label", "로그인")
+
+        if info.get("email_selector") and info.get("password_selector"):
+            return info
+
+    return None
+
+
+def inject_login_prefix(
+    scenarios: list,
+    observations: list[dict],
+    auth_data: dict[str, str],
+    target_url: str,
+) -> list:
+    """Prepend login steps to scenarios that require authentication.
+
+    After session isolation (cookies cleared per scenario), scenarios like
+    "게시물 작성" or "댓글 작성" need a login prefix to work.
+
+    Skips login/register/nav scenarios that don't need auth.
+    """
+    if not auth_data:
+        return scenarios
+
+    email = auth_data.get("email", "")
+    password = auth_data.get("password", "")
+    if not email or not password:
+        return scenarios
+
+    login_info = _extract_login_info(observations)
+    if not login_info:
+        logger.debug("inject_login_prefix: no login form found in observations")
+        return scenarios
+
+    for scenario in scenarios:
+        sc_name = ""
+        sc_tags: list[str] = []
+        if hasattr(scenario, "name"):
+            sc_name = scenario.name or ""
+            sc_tags = list(getattr(scenario, "tags", []))
+        elif isinstance(scenario, dict):
+            sc_name = scenario.get("name", "")
+            sc_tags = scenario.get("tags", [])
+
+        name_lower = sc_name.lower()
+        tags_str = " ".join(sc_tags).lower()
+        combined = f"{name_lower} {tags_str}"
+
+        # Skip scenarios that don't need login
+        if any(kw in combined for kw in _AUTH_SKIP_KW):
+            continue
+        if not any(kw in combined for kw in _AUTH_NEED_KW):
+            continue
+
+        steps: list = []
+        if hasattr(scenario, "steps"):
+            steps = scenario.steps
+        elif isinstance(scenario, dict):
+            steps = scenario.get("steps", [])
+
+        if not steps:
+            continue
+
+        # Check if login steps already exist (AI may have generated them)
+        has_login = False
+        for s in steps[:6]:
+            t = _get_step_target_text(s).lower()
+            if "로그인" in t or "login" in t:
+                sel = _get_step_target_selector(s).lower()
+                if "password" in sel or "email" in sel or "login" in sel:
+                    has_login = True
+                    break
+        if has_login:
+            continue
+
+        # Build login prefix steps
+        login_steps = [
+            _make_step(1, "navigate", "Navigate to homepage",
+                       value=target_url),
+            _make_step(2, "find_and_click", "Click login link",
+                       target_text=login_info.get("nav_text", "로그인"),
+                       target_selector=login_info.get("nav_selector", "")),
+            _make_step(3, "wait", "Wait for login form",
+                       value="1000"),
+            _make_step(4, "find_and_type", "Enter email",
+                       target_text="이메일",
+                       target_selector=login_info.get("email_selector", ""),
+                       value=email),
+            _make_step(5, "find_and_type", "Enter password",
+                       target_text="비밀번호",
+                       target_selector=login_info.get("password_selector", ""),
+                       value=password),
+            _make_step(6, "find_and_click", "Click login button",
+                       target_text=login_info.get("submit_text", "로그인"),
+                       target_selector=login_info.get("submit_selector", "")),
+            _make_step(7, "wait", "Wait for login redirect",
+                       value="1500"),
+        ]
+
+        # Renumber existing steps
+        offset = len(login_steps)
+        for s in steps:
+            old_num = (
+                s.step if hasattr(s, "step") and not isinstance(s, dict)
+                else s.get("step", 0) if isinstance(s, dict) else 0
+            )
+            _set_step_num(s, old_num + offset)
+
+        # Prepend login steps
+        for ls in reversed(login_steps):
+            steps.insert(0, ls)
+
+        logger.info(
+            "LOGIN PREFIX: Injected %d login steps into '%s'",
+            len(login_steps), sc_name,
         )
 
     return scenarios

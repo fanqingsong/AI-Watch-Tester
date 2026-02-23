@@ -27,6 +27,7 @@ from app.scenario_utils import (
     ensure_post_submit_assert,
     fix_field_targets,
     fix_form_submit_steps,
+    inject_login_prefix,
     parse_json,
     validate_and_retry,
 )
@@ -1843,6 +1844,12 @@ async def execute_scan_tests(
 
     # Ensure every form scenario has assert/wait after submit
     scenarios = ensure_post_submit_assert(scenarios)
+
+    # Inject login prefix for auth-required scenarios
+    scenarios = inject_login_prefix(
+        scenarios, observations, user_data,
+        target_url=str(scan.target_url),
+    )
 
     # Validate and retry if needed
     scenarios, validation = await validate_and_retry(
