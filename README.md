@@ -16,8 +16,7 @@
 ## Demo
 
 <p align="center">
-  <!-- Replace with actual recording: docs/assets/demo.gif -->
-  <img src="https://via.placeholder.com/800x450/1a1a2e/00d4aa?text=Demo+GIF+Coming+Soon" alt="AWT Demo" width="800">
+  <img src="docs/assets/demo.gif" alt="AWT Demo" width="800">
   <br/>
   <em>Enter a URL → AI scans your site → generates test scenarios → executes with live screenshots → reports results.</em>
 </p>
