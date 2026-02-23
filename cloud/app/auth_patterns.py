@@ -746,13 +746,18 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
 
     steps_data = auth_info.get("multi_step_fields")
     if steps_data and len(steps_data) > 1:
-        # Find the last step's submit button text
+        # Find the last step's submit button text (skip back/previous buttons)
+        _back_kw = ("이전", "previous", "back", "뒤로", "prev")
         last_step = steps_data[-1]
         last_btn_text = ""
         for f in last_step:
-            if f.get("type") == "submit_button":
-                last_btn_text = f.get("label", "")
-                break
+            if f.get("type") != "submit_button":
+                continue
+            lbl = (f.get("label") or "").strip().lower()
+            if any(kw in lbl for kw in _back_kw):
+                continue
+            last_btn_text = f.get("label", "")
+            break
 
         parts.append(
             f"MULTI-STEP FORM: {len(steps_data)} 단계 감지됨\n"

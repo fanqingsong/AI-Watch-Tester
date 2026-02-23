@@ -771,6 +771,7 @@ def fix_field_targets(
 # ---------------------------------------------------------------------------
 
 _NEXT_KW = frozenset({"다음", "next", "continue", "계속", "다음 단계"})
+_BACK_KW = frozenset({"이전", "previous", "back", "뒤로", "prev"})
 _REG_KW = ("회원가입", "register", "signup", "sign up", "registration")
 
 
@@ -927,13 +928,24 @@ def enforce_multi_step_order(
     field_map = _build_field_phase_map(multi_step_fields)
     num_phases = len(multi_step_fields)
 
-    # Extract submit buttons per phase
+    # Extract submit buttons per phase (skip back/previous buttons)
     step_buttons: dict[int, dict] = {}
     for idx, fields in enumerate(multi_step_fields, 1):
-        for f in fields:
-            if f.get("type") == "submit_button":
-                step_buttons[idx] = f
-                break
+        candidates = [
+            f for f in fields if f.get("type") == "submit_button"
+        ]
+        if candidates:
+            non_back = [
+                c for c in candidates
+                if not any(
+                    kw in (c.get("label") or "").lower()
+                    for kw in _BACK_KW
+                )
+            ]
+            # Prefer non-back button; fallback to last candidate
+            step_buttons[idx] = (
+                non_back[0] if non_back else candidates[-1]
+            )
 
     for scenario in scenarios:
         sc_name = ""
@@ -989,8 +1001,10 @@ def enforce_multi_step_order(
                 continue
 
             if action == "find_and_click":
-                # Skip existing "다음"/"Next" transition clicks (will rebuild)
+                # Skip "다음"/"Next" and "이전"/"Back" clicks (will rebuild)
                 if any(kw in target_text for kw in _NEXT_KW):
+                    continue
+                if any(kw in target_text for kw in _BACK_KW):
                     continue
 
                 # Final submit button
