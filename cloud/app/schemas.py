@@ -236,6 +236,7 @@ class ScanExecuteRequest(BaseModel):
     selected_tests: list[str]
     auth_data: dict[str, str] = {}
     test_data: dict[str, str] = {}
+    additional_yaml: str = ""
 
 
 # -- Documents --

@@ -441,35 +441,16 @@ export default function DashboardPage() {
         setActiveTest(test);
         setPhase("executing");
         setScanPhase("executing");
-      } else if (additionalYaml) {
-        // Both scan tests + additional: execute scan, merge YAMLs
-        const result = await executeScanTests(
-          activeScan.id,
-          Array.from(selectedTests),
-          authData,
-          testData,
-        );
-        setScanValidation(result.validation || []);
-        setScanValidationSummary(result.validation_summary || null);
-
-        // Merge scan YAML + additional YAML
-        const mergedYaml = result.scenario_yaml + "\n" + additionalYaml;
-        const mergedTest = await createTest(url, "auto", mergedYaml);
-        // Cancel the original scan test
-        await cancelTest(result.test_id).catch(() => {});
-        setActiveTest(mergedTest);
-        setPhase("executing");
-        setScanPhase("executing");
       } else {
-        // Normal: only scan tests
+        // Unified path: server handles additional_yaml merge in background
         const result = await executeScanTests(
           activeScan.id,
           Array.from(selectedTests),
           authData,
           testData,
+          additionalYaml || "",
         );
-        setScanValidation(result.validation || []);
-        setScanValidationSummary(result.validation_summary || null);
+        // Server returns immediately with test_id + status="generating"
         const test = await getTest(result.test_id);
         setActiveTest(test);
         setPhase("executing");

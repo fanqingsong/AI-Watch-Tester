@@ -353,18 +353,20 @@ export async function generateScanPlan(
 
 export interface ExecuteScanResult {
   test_id: number;
-  scenario_yaml: string;
-  scenarios_count: number;
-  steps_total: number;
-  validation: ValidationItem[];
-  validation_summary: ValidationSummary | null;
+  status: string;
+  scenario_yaml?: string;
+  scenarios_count?: number;
+  steps_total?: number;
+  validation?: ValidationItem[];
+  validation_summary?: ValidationSummary | null;
 }
 
 export async function executeScanTests(
   scanId: number,
   selectedTests: string[],
   authData: Record<string, string> = {},
-  testData: Record<string, string> = {}
+  testData: Record<string, string> = {},
+  additionalYaml: string = "",
 ): Promise<ExecuteScanResult> {
   const res = await authFetch(`/api/scan/${scanId}/execute`, {
     method: "POST",
@@ -372,6 +374,7 @@ export async function executeScanTests(
       selected_tests: selectedTests,
       auth_data: authData,
       test_data: testData,
+      additional_yaml: additionalYaml,
     }),
   });
   if (!res.ok) {

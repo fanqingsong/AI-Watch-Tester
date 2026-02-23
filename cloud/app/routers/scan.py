@@ -1580,7 +1580,11 @@ async def execute_scan_tests(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Generate scenarios from selected tests and create a test execution."""
+    """Generate scenarios from selected tests and create a test execution.
+
+    Returns immediately with test_id + status="generating".
+    AI scenario generation runs in the background with parallel batch calls.
+    """
     query = select(Scan).where(Scan.id == scan_id, Scan.user_id == user.id)
     scan = (await db.execute(query)).scalar_one_or_none()
     if scan is None:
@@ -1608,7 +1612,7 @@ async def execute_scan_tests(
     # Gather crawl data for context
     pages = _parse_json(scan.pages_json) or []
     observations = _parse_json(getattr(scan, "observations_json", None)) or []
-    crawl_context = {"nav_menus": [], "forms": [], "buttons": []}
+    crawl_context: dict[str, list] = {"nav_menus": [], "forms": [], "buttons": []}
     for p in pages[:5]:
         crawl_context["nav_menus"].extend(p.get("nav_menus", []))
         crawl_context["forms"].extend(p.get("forms", []))
@@ -1619,7 +1623,7 @@ async def execute_scan_tests(
 
     user_data = {**body.auth_data, **body.test_data}
 
-    # Generate scenarios via AI
+    # Validate AI adapter is available (fail fast before creating test)
     try:
         from aat.adapters import ADAPTER_REGISTRY
         from aat.core.models import AIConfig
@@ -1630,17 +1634,11 @@ async def execute_scan_tests(
         provider=settings.ai_provider,
         api_key=settings.ai_api_key,
         model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
-        max_tokens=16000,  # Scenario generation needs ~2K tokens per scenario
+        max_tokens=16000,
     )
     adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
     if adapter_cls is None:
         raise HTTPException(status_code=503, detail=f"Unknown AI provider: {ai_config.provider}")
-
-    adapter = adapter_cls(ai_config)
-
-    def _trunc(obj: Any, limit: int = 4000) -> str:
-        s = json.dumps(obj, ensure_ascii=False, indent=2)
-        return s[:limit] if len(s) > limit else s
 
     # Build extra instructions based on detected features
     features = _parse_json(scan.detected_features) or []
@@ -1692,20 +1690,17 @@ async def execute_scan_tests(
     ref_docs = await get_user_doc_text(user.id, db)
 
     # --- Dynamic token budget allocation ---
-    # GPT-4o supports 128K context; allocate generously for richer scenarios
     max_input_tokens = 40_000
     template_tokens = 5000
     overhead_tokens = 1000
-    budget = max_input_tokens - template_tokens - overhead_tokens  # ~34000
+    budget = max_input_tokens - template_tokens - overhead_tokens
 
-    # Fixed-size parts first
     user_data_str = json.dumps(user_data, ensure_ascii=False)
     extra_str = extra_instructions
     fixed_tokens = (len(user_data_str) + len(extra_str)) // 3
 
-    # Remaining budget split: ref_docs(20%), crawl(15%), selected(15%), obs(50%)
     remaining = max(budget - fixed_tokens, 3000)
-    ref_limit = int(remaining * 0.20) * 3   # chars (token * 3)
+    ref_limit = int(remaining * 0.20) * 3
     crawl_limit = int(remaining * 0.15) * 3
     selected_limit = int(remaining * 0.15) * 3
     obs_tokens = int(remaining * 0.50)
@@ -1714,235 +1709,18 @@ async def execute_scan_tests(
     if len(ref_docs_str) > ref_limit:
         ref_docs_str = ref_docs_str[:ref_limit] + "\n... (truncated)"
 
-    # Log raw observation form fields for debugging
-    for obs in observations:
-        change = obs.get("observed_change", {})
-        nav_fields = change.get("navigated_page_fields", [])
-        if nav_fields:
-            elem_text = obs.get("element", {}).get("text", "?")
-            after_url = obs.get("after", {}).get("url", "?")
-            logger.info(
-                "Observation '%s' → %s has %d navigated_page_fields: %s",
-                elem_text, after_url, len(nav_fields),
-                json.dumps(nav_fields[:5], ensure_ascii=False)[:500],
-            )
-
     observation_table = compress_observations_for_ai(observations, max_tokens=obs_tokens)
+
+    def _trunc(obj: Any, limit: int = 4000) -> str:
+        s = json.dumps(obj, ensure_ascii=False, indent=2)
+        return s[:limit] if len(s) > limit else s
+
     crawl_data_str = _trunc(crawl_context, crawl_limit)
     selected_str = _trunc(selected_details, selected_limit)
 
-    # Log for debugging
-    prompt_parts_info = (
-        f"obs={len(observation_table)//3}t, crawl={len(crawl_data_str)//3}t, "
-        f"selected={len(selected_str)//3}t, ref={len(ref_docs_str)//3}t, "
-        f"fixed={fixed_tokens}t, budget={remaining}t"
-    )
-    logger.info("Token budget (scan_id=%d): %s", scan_id, prompt_parts_info)
-    logger.info(
-        "=== AI에 전달되는 관찰 데이터 (scan_id=%d) ===\n%s",
-        scan_id,
-        observation_table[:3000],
-    )
-
-    # --- Batch generation: split tests into chunks to avoid max_tokens truncation ---
-    all_scenarios: list = []
-    batches = _chunk_tests(selected_details, batch_size=3)
-    logger.info(
-        "Splitting %d tests into %d batches (scan_id=%d)",
-        len(selected_details), len(batches), scan_id,
-    )
-
-    for batch_idx, batch in enumerate(batches):
-        batch_selected_str = _trunc(batch, selected_limit)
-        batch_prompt = _EXECUTE_PROMPT.format(
-            target_url=scan.target_url,
-            crawl_data=crawl_data_str,
-            observation_table=observation_table,
-            selected_tests=batch_selected_str,
-            user_data=user_data_str,
-            extra_instructions=extra_str,
-            reference_documents=ref_docs_str,
-            batch_count=len(batch),
-        )
-
-        # Final safety check: if prompt is still too large, aggressively trim
-        estimated_total = len(batch_prompt) // 3
-        if estimated_total > max_input_tokens:
-            logger.warning(
-                "Batch %d prompt %d tokens (limit %d), trimming",
-                batch_idx, estimated_total, max_input_tokens,
-            )
-            trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
-            batch_prompt = _EXECUTE_PROMPT.format(
-                target_url=scan.target_url,
-                crawl_data=_trunc(crawl_context, 2000),
-                observation_table=trimmed_obs,
-                selected_tests=_trunc(batch, 2000),
-                user_data=user_data_str,
-                extra_instructions=extra_str,
-                reference_documents=ref_docs_str[:3000],
-                batch_count=len(batch),
-            )
-
-        for attempt in range(2):  # max 1 retry per batch
-            try:
-                batch_scenarios = await adapter.generate_scenarios(batch_prompt)
-                all_scenarios.extend(batch_scenarios)
-                break
-            except Exception as exc:
-                err_msg = str(exc).lower()
-                # JSON parse / truncation error → retry once
-                if attempt == 0 and ("json" in err_msg or "truncat" in err_msg):
-                    logger.warning(
-                        "Batch %d JSON/truncation error, retrying: %s",
-                        batch_idx, str(exc)[:200],
-                    )
-                    continue
-                # Token limit exceeded → compress and retry
-                if "token" in err_msg and (
-                    "limit" in err_msg or "rate" in err_msg or "tpm" in err_msg
-                ):
-                    logger.warning("Batch %d token limit, retrying minimal", batch_idx)
-                    compressed_obs = compress_observations_for_ai(
-                        observations, max_tokens=2000,
-                    )
-                    batch_prompt = _EXECUTE_PROMPT.format(
-                        target_url=scan.target_url,
-                        crawl_data=_trunc(crawl_context, 1500),
-                        observation_table=compressed_obs,
-                        selected_tests=_trunc(batch, 1500),
-                        user_data=user_data_str,
-                        extra_instructions=extra_str,
-                        reference_documents="(omitted to fit token limit)",
-                        batch_count=len(batch),
-                    )
-                    try:
-                        batch_scenarios = await adapter.generate_scenarios(batch_prompt)
-                        all_scenarios.extend(batch_scenarios)
-                        break
-                    except Exception as retry_exc:
-                        logger.exception("Batch %d retry also failed", batch_idx)
-                        raise HTTPException(
-                            status_code=502,
-                            detail=f"AI batch {batch_idx} failed after retry: {retry_exc}",
-                        ) from retry_exc
-                else:
-                    logger.exception("Batch %d scenario generation failed", batch_idx)
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"AI batch {batch_idx} failed: {exc}",
-                    ) from exc
-
-    # Renumber SC-IDs sequentially across batches
-    for i, sc in enumerate(all_scenarios, 1):
-        if hasattr(sc, "id"):
-            sc.__dict__["id"] = f"SC-{i:03d}"
-
-    scenarios = all_scenarios
-
-    if not scenarios:
-        raise HTTPException(
-            status_code=422, detail="AI generated no scenarios",
-        )
-
-    # === DEBUG: Log generated scenarios FULL YAML ===
-    for sc in scenarios:
-        sc_dict = sc.model_dump(mode="json") if hasattr(sc, "model_dump") else sc
-        sc_yaml = yaml.safe_dump(sc_dict, default_flow_style=False, allow_unicode=True)
-        logger.debug(
-            "=== GENERATED SCENARIO ===\n%s", sc_yaml,
-        )
-
-    # === DEBUG: Log signup-related observation data ===
-    for obs in observations:
-        elem = obs.get("element", {})
-        elem_text = (elem.get("text") or "").lower()
-        if any(kw in elem_text for kw in ("가입", "signup", "register")):
-            change = obs.get("observed_change", {})
-            nav_fields = change.get("navigated_page_fields", [])
-            logger.debug(
-                "=== OBSERVATION DATA FOR SIGNUP ===\n"
-                "  element: text=%r, selector=%r, type=%r\n"
-                "  change_type: %s\n"
-                "  navigated_page_fields (%d):",
-                elem.get("text"), elem.get("selector"), elem.get("type"),
-                change.get("type"), len(nav_fields),
-            )
-            for f in nav_fields:
-                logger.debug(
-                    "    field: type=%s, label=%r, selector=%r, "
-                    "placeholder=%r, context=%r",
-                    f.get("type"), f.get("label"), f.get("selector"),
-                    f.get("placeholder"), f.get("context"),
-                )
-
-    # Fix AI-generated field targets to use actual observed data
-    scenarios = fix_field_targets(scenarios, observations)
-
-    # Enforce multi-step form order (Step1 → "다음" → Step2 → submit)
-    if best_auth and best_auth.get("multi_step_fields"):
-        scenarios = enforce_multi_step_order(
-            scenarios, best_auth["multi_step_fields"],
-        )
-
-    # Fix form-submit-after-input: replace nav clicks with form submit buttons
-    logger.debug("=== FORM-SUBMIT FIX EXECUTING ===")
-    scenarios = fix_form_submit_steps(scenarios, observations)
-
-    # Ensure every form scenario has assert/wait after submit
-    scenarios = ensure_post_submit_assert(scenarios)
-
-    # Inject login prefix for auth-required scenarios
-    scenarios = inject_login_prefix(
-        scenarios, observations, user_data,
-        target_url=str(scan.target_url),
-    )
-
-    # Build a full prompt context for validation retry (uses all selected tests)
-    validation_prompt = _EXECUTE_PROMPT.format(
-        target_url=scan.target_url,
-        crawl_data=crawl_data_str,
-        observation_table=observation_table,
-        selected_tests=selected_str,
-        user_data=user_data_str,
-        extra_instructions=extra_str,
-        reference_documents=ref_docs_str,
-        batch_count=len(selected_details),
-    )
-
-    # Validate and retry if needed
-    scenarios, validation = await validate_and_retry(
-        scenarios, observations, pages, adapter, validation_prompt,
-    )
-
-    # Compute validation summary
-    verified = sum(1 for v in validation if v["status"] == "verified")
-    total_v = len(validation)
-
-    # Check scenario name-vs-steps relevance
-    relevance = validate_scenario_relevance(scenarios, selected_details)
-    relevance_warnings: list[str] = []
-    for rel in relevance:
-        if not rel["relevant"]:
-            logger.warning(
-                "Scenario relevance mismatch (scan_id=%d): %s — %s",
-                scan_id, rel["test_name"], rel["reason"],
-            )
-            relevance_warnings.append(
-                f"⚠️ '{rel['test_name']}': {rel['reason']}"
-            )
-
-    # Serialize to YAML
-    scenario_dicts = [
-        s.model_dump(mode="json", exclude_none=True)
-        for s in scenarios
-    ]
-    scenario_yaml = yaml.safe_dump(
-        scenario_dicts,
-        default_flow_style=False,
-        allow_unicode=True,
-    )
-    total_steps = sum(len(s.steps) for s in scenarios)
+    logger.info("Token budget (scan_id=%d): obs=%dt, crawl=%dt, selected=%dt, ref=%dt",
+                scan_id, len(observation_table) // 3, len(crawl_data_str) // 3,
+                len(selected_str) // 3, len(ref_docs_str) // 3)
 
     # Clean up stuck tests for this user before creating a new one
     from app.models import Test, TestStatus
@@ -1966,40 +1744,291 @@ async def execute_scan_tests(
         stuck_test.updated_at = datetime.now(UTC)
         logger.warning(
             "Pre-exec cleanup: auto-failed stuck test %d for user %s",
-            stuck_test.id,
-            user.id,
+            stuck_test.id, user.id,
         )
 
-    # Create a Test record with the generated YAML
+    # Create Test record with GENERATING status (no scenario_yaml yet)
     test = Test(
         user_id=user.id,
         target_url=scan.target_url,
-        status=TestStatus.QUEUED,
-        scenario_yaml=scenario_yaml,
-        steps_total=total_steps,
+        status=TestStatus.GENERATING,
     )
     db.add(test)
     await db.commit()
     await db.refresh(test)
 
-    result: dict[str, Any] = {
-        "test_id": test.id,
-        "scenario_yaml": scenario_yaml,
-        "scenarios_count": len(scenarios),
-        "steps_total": total_steps,
-        "validation": validation,
-        "validation_summary": {
-            "verified": verified,
-            "total": total_v,
-            "percent": (
-                round(verified / total_v * 100)
-                if total_v > 0 else 100
-            ),
-        },
-    }
-    if relevance_warnings:
-        result["relevance_warnings"] = relevance_warnings
-    return result
+    test_id = test.id
+
+    # Launch background scenario generation with parallel AI calls
+    asyncio.create_task(_bg_generate_scenarios(
+        test_id=test_id,
+        target_url=str(scan.target_url),
+        adapter_cls=adapter_cls,
+        ai_config=ai_config,
+        selected_details=selected_details,
+        observations=observations,
+        pages=pages,
+        crawl_context=crawl_context,
+        user_data=user_data,
+        user_data_str=user_data_str,
+        extra_str=extra_str,
+        ref_docs_str=ref_docs_str,
+        observation_table=observation_table,
+        crawl_data_str=crawl_data_str,
+        selected_str=selected_str,
+        selected_limit=selected_limit,
+        max_input_tokens=max_input_tokens,
+        best_auth=best_auth,
+        additional_yaml=body.additional_yaml,
+    ))
+
+    return {"test_id": test_id, "status": "generating"}
+
+
+async def _gen_one_batch(
+    adapter: Any,
+    prompt: str,
+    batch_idx: int,
+    observations: list[dict],
+    crawl_context: dict,
+    user_data_str: str,
+    extra_str: str,
+    ref_docs_str: str,
+    target_url: str,
+    batch: list[dict],
+) -> list:
+    """Generate scenarios for a single batch with retry logic."""
+    def _trunc(obj: Any, limit: int = 4000) -> str:
+        s = json.dumps(obj, ensure_ascii=False, indent=2)
+        return s[:limit] if len(s) > limit else s
+
+    for attempt in range(2):
+        try:
+            batch_scenarios = await adapter.generate_scenarios(prompt)
+            return batch_scenarios
+        except Exception as exc:
+            err_msg = str(exc).lower()
+            if attempt == 0 and ("json" in err_msg or "truncat" in err_msg):
+                logger.warning(
+                    "Batch %d JSON/truncation error, retrying: %s",
+                    batch_idx, str(exc)[:200],
+                )
+                continue
+            if "token" in err_msg and (
+                "limit" in err_msg or "rate" in err_msg or "tpm" in err_msg
+            ):
+                logger.warning("Batch %d token limit, retrying minimal", batch_idx)
+                compressed_obs = compress_observations_for_ai(
+                    observations, max_tokens=2000,
+                )
+                retry_prompt = _EXECUTE_PROMPT.format(
+                    target_url=target_url,
+                    crawl_data=_trunc(crawl_context, 1500),
+                    observation_table=compressed_obs,
+                    selected_tests=_trunc(batch, 1500),
+                    user_data=user_data_str,
+                    extra_instructions=extra_str,
+                    reference_documents="(omitted to fit token limit)",
+                    batch_count=len(batch),
+                )
+                batch_scenarios = await adapter.generate_scenarios(retry_prompt)
+                return batch_scenarios
+            raise
+    return []
+
+
+async def _bg_generate_scenarios(
+    *,
+    test_id: int,
+    target_url: str,
+    adapter_cls: type,
+    ai_config: Any,
+    selected_details: list[dict],
+    observations: list[dict],
+    pages: list[dict],
+    crawl_context: dict,
+    user_data: dict,
+    user_data_str: str,
+    extra_str: str,
+    ref_docs_str: str,
+    observation_table: str,
+    crawl_data_str: str,
+    selected_str: str,
+    selected_limit: int,
+    max_input_tokens: int,
+    best_auth: dict[str, Any] | None,
+    additional_yaml: str,
+) -> None:
+    """Background task: parallel AI batch generation + post-processing."""
+    from app.database import async_session
+
+    def _trunc(obj: Any, limit: int = 4000) -> str:
+        s = json.dumps(obj, ensure_ascii=False, indent=2)
+        return s[:limit] if len(s) > limit else s
+
+    try:
+        adapter = adapter_cls(ai_config)
+
+        # --- Build batch prompts ---
+        batches = _chunk_tests(selected_details, batch_size=3)
+        logger.info(
+            "BG: Splitting %d tests into %d batches (test_id=%d)",
+            len(selected_details), len(batches), test_id,
+        )
+
+        batch_prompts: list[str] = []
+        for batch_idx, batch in enumerate(batches):
+            batch_selected_str = _trunc(batch, selected_limit)
+            batch_prompt = _EXECUTE_PROMPT.format(
+                target_url=target_url,
+                crawl_data=crawl_data_str,
+                observation_table=observation_table,
+                selected_tests=batch_selected_str,
+                user_data=user_data_str,
+                extra_instructions=extra_str,
+                reference_documents=ref_docs_str,
+                batch_count=len(batch),
+            )
+
+            estimated_total = len(batch_prompt) // 3
+            if estimated_total > max_input_tokens:
+                logger.warning(
+                    "BG: Batch %d prompt %d tokens (limit %d), trimming",
+                    batch_idx, estimated_total, max_input_tokens,
+                )
+                trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
+                batch_prompt = _EXECUTE_PROMPT.format(
+                    target_url=target_url,
+                    crawl_data=_trunc(crawl_context, 2000),
+                    observation_table=trimmed_obs,
+                    selected_tests=_trunc(batch, 2000),
+                    user_data=user_data_str,
+                    extra_instructions=extra_str,
+                    reference_documents=ref_docs_str[:3000],
+                    batch_count=len(batch),
+                )
+            batch_prompts.append(batch_prompt)
+
+        # --- Parallel AI calls via asyncio.gather ---
+        tasks = [
+            _gen_one_batch(
+                adapter=adapter,
+                prompt=batch_prompts[i],
+                batch_idx=i,
+                observations=observations,
+                crawl_context=crawl_context,
+                user_data_str=user_data_str,
+                extra_str=extra_str,
+                ref_docs_str=ref_docs_str,
+                target_url=target_url,
+                batch=batch,
+            )
+            for i, batch in enumerate(batches)
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_scenarios: list = []
+        for batch_idx, result in enumerate(results):
+            if isinstance(result, BaseException):
+                logger.exception(
+                    "BG: Batch %d failed (test_id=%d): %s",
+                    batch_idx, test_id, result,
+                )
+                raise result
+            all_scenarios.extend(result)
+
+        # Renumber SC-IDs sequentially across batches
+        for i, sc in enumerate(all_scenarios, 1):
+            if hasattr(sc, "id"):
+                sc.__dict__["id"] = f"SC-{i:03d}"
+
+        scenarios = all_scenarios
+
+        if not scenarios:
+            raise ValueError("AI generated no scenarios")
+
+        # === Post-processing pipeline ===
+        scenarios = fix_field_targets(scenarios, observations)
+
+        if best_auth and best_auth.get("multi_step_fields"):
+            scenarios = enforce_multi_step_order(
+                scenarios, best_auth["multi_step_fields"],
+            )
+
+        scenarios = fix_form_submit_steps(scenarios, observations)
+        scenarios = ensure_post_submit_assert(scenarios)
+        scenarios = inject_login_prefix(
+            scenarios, observations, user_data,
+            target_url=target_url,
+        )
+
+        # Build a full prompt context for validation retry
+        validation_prompt = _EXECUTE_PROMPT.format(
+            target_url=target_url,
+            crawl_data=crawl_data_str,
+            observation_table=observation_table,
+            selected_tests=selected_str,
+            user_data=user_data_str,
+            extra_instructions=extra_str,
+            reference_documents=ref_docs_str,
+            batch_count=len(selected_details),
+        )
+
+        scenarios, _validation = await validate_and_retry(
+            scenarios, observations, pages, adapter, validation_prompt,
+        )
+
+        # Serialize to YAML
+        scenario_dicts = [
+            s.model_dump(mode="json", exclude_none=True)
+            for s in scenarios
+        ]
+        scenario_yaml = yaml.safe_dump(
+            scenario_dicts,
+            default_flow_style=False,
+            allow_unicode=True,
+        )
+
+        # Merge additional_yaml if provided
+        if additional_yaml and additional_yaml.strip():
+            scenario_yaml = scenario_yaml + "\n" + additional_yaml.strip() + "\n"
+
+        total_steps = sum(len(s.steps) for s in scenarios)
+
+        # Update Test record: GENERATING → QUEUED
+        async with async_session() as session:
+            from app.models import Test, TestStatus
+
+            test = (await session.execute(
+                select(Test).where(Test.id == test_id)
+            )).scalar_one()
+            test.scenario_yaml = scenario_yaml
+            test.steps_total = total_steps
+            test.status = TestStatus.QUEUED
+            test.updated_at = datetime.now(UTC)
+            await session.commit()
+
+        logger.info(
+            "BG: Scenario generation complete (test_id=%d): %d scenarios, %d steps",
+            test_id, len(scenarios), total_steps,
+        )
+
+    except Exception as exc:
+        logger.exception("BG: Scenario generation failed (test_id=%d)", test_id)
+        # Mark test as FAILED
+        try:
+            async with async_session() as session:
+                from app.models import Test, TestStatus
+
+                test = (await session.execute(
+                    select(Test).where(Test.id == test_id)
+                )).scalar_one()
+                test.status = TestStatus.FAILED
+                test.error_message = f"Scenario generation failed: {str(exc)[:500]}"
+                test.updated_at = datetime.now(UTC)
+                await session.commit()
+        except Exception:
+            logger.exception("BG: Failed to update test status (test_id=%d)", test_id)
 
 
 # ---------------------------------------------------------------------------
