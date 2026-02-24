@@ -22,9 +22,12 @@ from app.scenario_utils import (
     DEFAULT_AI_MODELS as _DEFAULT_MODELS,
 )
 from app.scenario_utils import (
+    build_language_instruction,
     compress_observations_for_ai,
+    detect_site_language,
     enforce_multi_step_order,
     ensure_post_submit_assert,
+    fix_assert_steps,
     fix_field_targets,
     fix_form_submit_steps,
     inject_login_prefix,
@@ -1489,7 +1492,7 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
 
 ## Reference Documents
 {reference_documents}
-
+{language_instruction}
 ## Target URL: {target_url}
 
 ## Observation Reference Table
@@ -1782,6 +1785,12 @@ async def execute_scan_tests(
 
     test_id = test.id
 
+    # Detect site language for prompt injection
+    all_page_data = pages[0] if pages else {}
+    site_lang = detect_site_language(all_page_data, observations)
+    lang_instruction = build_language_instruction(site_lang)
+    logger.info("Execute: detected site language = %s (scan_id=%d)", site_lang, scan_id)
+
     # Launch background scenario generation with parallel AI calls
     asyncio.create_task(_bg_generate_scenarios(
         test_id=test_id,
@@ -1803,6 +1812,7 @@ async def execute_scan_tests(
         max_input_tokens=max_input_tokens,
         best_auth=best_auth,
         additional_yaml=body.additional_yaml,
+        language_instruction=lang_instruction,
     ))
 
     return {"test_id": test_id, "status": "generating"}
@@ -1819,6 +1829,7 @@ async def _gen_one_batch(
     ref_docs_str: str,
     target_url: str,
     batch: list[dict],
+    language_instruction: str = "",
 ) -> list:
     """Generate scenarios for a single batch with retry logic."""
     def _trunc(obj: Any, limit: int = 4000) -> str:
@@ -1853,6 +1864,7 @@ async def _gen_one_batch(
                     extra_instructions=extra_str,
                     reference_documents="(omitted to fit token limit)",
                     batch_count=len(batch),
+                    language_instruction=language_instruction,
                 )
                 batch_scenarios = await adapter.generate_scenarios(retry_prompt)
                 return batch_scenarios
@@ -1881,6 +1893,7 @@ async def _bg_generate_scenarios(
     max_input_tokens: int,
     best_auth: dict[str, Any] | None,
     additional_yaml: str,
+    language_instruction: str = "",
 ) -> None:
     """Background task: parallel AI batch generation + post-processing."""
     from app.database import async_session
@@ -1911,6 +1924,7 @@ async def _bg_generate_scenarios(
                 extra_instructions=extra_str,
                 reference_documents=ref_docs_str,
                 batch_count=len(batch),
+                language_instruction=language_instruction,
             )
 
             estimated_total = len(batch_prompt) // 3
@@ -1929,6 +1943,7 @@ async def _bg_generate_scenarios(
                     extra_instructions=extra_str,
                     reference_documents=ref_docs_str[:3000],
                     batch_count=len(batch),
+                    language_instruction=language_instruction,
                 )
             batch_prompts.append(batch_prompt)
 
@@ -1945,6 +1960,7 @@ async def _bg_generate_scenarios(
                 ref_docs_str=ref_docs_str,
                 target_url=target_url,
                 batch=batch,
+                language_instruction=language_instruction,
             )
             for i, batch in enumerate(batches)
         ]
@@ -1971,6 +1987,7 @@ async def _bg_generate_scenarios(
             raise ValueError("AI generated no scenarios")
 
         # === Post-processing pipeline ===
+        scenarios = fix_assert_steps(scenarios)
         scenarios = fix_field_targets(scenarios, observations)
 
         if best_auth and best_auth.get("multi_step_fields"):
@@ -1995,6 +2012,7 @@ async def _bg_generate_scenarios(
             extra_instructions=extra_str,
             reference_documents=ref_docs_str,
             batch_count=len(selected_details),
+            language_instruction=language_instruction,
         )
 
         scenarios, _validation = await validate_and_retry(

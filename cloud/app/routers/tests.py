@@ -32,8 +32,11 @@ from app.scenario_utils import (
     DEFAULT_AI_MODELS as _DEFAULT_MODELS,
 )
 from app.scenario_utils import (
+    build_language_instruction,
     compress_observations_for_ai,
+    detect_site_language,
     ensure_post_submit_assert,
+    fix_assert_steps,
     fix_field_targets,
     fix_form_submit_steps,
     validate_and_retry,
@@ -504,7 +507,7 @@ If you generate tests for features the user did NOT ask for, your response is WR
 
 ## Reference Documents
 {reference_documents}
-
+{language_instruction}
 ## ========== RULES ==========
 
 1. **USER REQUEST FIRST**: Generate scenarios ONLY for the user's requested feature.
@@ -838,6 +841,10 @@ async def convert_scenario(
         "message": _cmsg("generating_scenarios"),
     })
     logger.info("Convert: generating scenarios via AI...")
+    site_lang = detect_site_language(pdata_raw, observations_raw)
+    lang_instruction = build_language_instruction(site_lang)
+    logger.info("Convert: detected site language = %s", site_lang)
+
     prompt = _CONVERT_PROMPT.format(
         url=body.target_url,
         user_prompt=body.user_prompt,
@@ -845,6 +852,7 @@ async def convert_scenario(
         page_data=page_data_str,
         observations=observations_str,
         reference_documents=ref_docs or "No reference documents provided.",
+        language_instruction=lang_instruction,
     )
 
     try:
@@ -926,6 +934,9 @@ async def convert_scenario(
         "type": "convert_progress", "phase": "fixing",
         "message": _cmsg("scenarios_generated", n=len(scenarios)),
     })
+
+    # Fix malformed assert steps before Pydantic re-validation
+    scenarios = fix_assert_steps(scenarios)
 
     # Fix AI-generated field targets to use actual observed data
     scenarios = fix_field_targets(scenarios, observations_raw)

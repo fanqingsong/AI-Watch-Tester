@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -1449,3 +1450,237 @@ def ensure_post_submit_assert(scenarios: list) -> list:
         steps.append(wait_step)
 
     return scenarios
+
+
+# ---------------------------------------------------------------------------
+# Site language detection
+# ---------------------------------------------------------------------------
+
+_KO_RE = re.compile(r"[\uac00-\ud7a3]")
+
+
+def detect_site_language(
+    page_data: dict | None,
+    observations: list[dict] | None = None,
+) -> str:
+    """Detect the primary language of the target site.
+
+    Returns "ko", "en", or "auto" (unknown).
+
+    Heuristic:
+    1. HTML lang attribute from page data (most reliable)
+    2. Count Korean characters vs Latin characters in observable text
+    """
+    if not page_data:
+        return "auto"
+
+    # 1) Check HTML lang attribute (set by crawler in page_data)
+    html_lang = (page_data.get("html_lang") or "").lower().strip()
+    if html_lang.startswith("ko"):
+        return "ko"
+    if html_lang.startswith("en"):
+        return "en"
+
+    # 2) Heuristic: sample text from buttons, links, nav, forms
+    texts: list[str] = []
+    for key in ("buttons", "links", "nav_menus"):
+        for item in page_data.get(key, []):
+            t = item.get("text", "") if isinstance(item, dict) else str(item)
+            if t:
+                texts.append(t)
+    for form in page_data.get("forms", []):
+        if isinstance(form, dict):
+            for field in form.get("fields", []):
+                for k in ("label", "placeholder"):
+                    v = field.get(k, "")
+                    if v:
+                        texts.append(v)
+
+    if observations:
+        for obs in observations[:20]:
+            elem = obs.get("element", {})
+            t = elem.get("text", "")
+            if t:
+                texts.append(t)
+
+    sample = " ".join(texts)
+    if not sample:
+        return "auto"
+
+    ko_chars = len(_KO_RE.findall(sample))
+    # If Korean characters make up > 10% of non-space chars, it's Korean
+    non_space = len(sample.replace(" ", ""))
+    if non_space > 0 and ko_chars / non_space > 0.10:
+        return "ko"
+    return "en"
+
+
+def build_language_instruction(site_lang: str) -> str:
+    """Build a prompt instruction for the AI about output language.
+
+    Only emitted when the site is detected as English, to prevent
+    Korean scenario text on English-language sites.
+    """
+    if site_lang == "en":
+        return (
+            "\n## ========== LANGUAGE RULE (CRITICAL) ==========\n"
+            "This is an ENGLISH-language website. ALL generated text MUST be in English:\n"
+            "- Scenario names and descriptions: English\n"
+            "- Step descriptions: English\n"
+            "- Assert values (text_visible, url_contains): copy EXACT English text from data\n"
+            "- Test data: use English (e.g., 'Test User', 'awttest@example.com')\n"
+            "- NEVER use Korean (한글) for ANY generated text — only copy Korean if it\n"
+            "  appears verbatim in the page data or observation data.\n"
+        )
+    if site_lang == "ko":
+        return (
+            "\n## ========== LANGUAGE RULE ==========\n"
+            "This is a KOREAN-language website. Use Korean for scenario names,\n"
+            "descriptions, and test data where appropriate.\n"
+            "Copy form field labels and button text EXACTLY as they appear in the data.\n"
+        )
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Assert step fix — validate and auto-correct malformed assert steps
+# ---------------------------------------------------------------------------
+
+def fix_assert_steps(scenarios: list) -> list:
+    """Validate and fix assert steps that are missing required fields.
+
+    AI sometimes generates assert steps without ``expected`` list or without
+    ``assert_type`` + ``value``. This function patches them to prevent
+    Pydantic validation errors.
+    """
+    for scenario in scenarios:
+        steps: list = []
+        if hasattr(scenario, "steps"):
+            steps = scenario.steps
+        elif isinstance(scenario, dict):
+            steps = scenario.get("steps", [])
+
+        for step in steps:
+            is_dict = isinstance(step, dict)
+            action = ""
+            if is_dict:
+                action = step.get("action", "")
+            elif hasattr(step, "action"):
+                action = (
+                    step.action.value
+                    if hasattr(step.action, "value")
+                    else str(step.action)
+                )
+
+            if action != "assert":
+                continue
+
+            if is_dict:
+                _fix_assert_dict(step)
+            else:
+                _fix_assert_obj(step)
+
+    return scenarios
+
+
+def _fix_assert_dict(step: dict) -> None:
+    """Fix a dict-form assert step in-place."""
+    has_expected = bool(step.get("expected"))
+    has_assert_type = bool(step.get("assert_type"))
+    has_value = bool(step.get("value"))
+
+    if has_expected and has_assert_type:
+        return  # already valid
+
+    # Case 1: has assert_type + value but no expected list → build expected
+    if has_assert_type and has_value and not has_expected:
+        step["expected"] = [{
+            "type": step["assert_type"],
+            "value": step["value"],
+            "tolerance": 0.0,
+            "case_insensitive": True,
+        }]
+        return
+
+    # Case 2: has expected list but no assert_type → derive from first item
+    if has_expected and not has_assert_type:
+        first = step["expected"][0]
+        if isinstance(first, dict) and first.get("type"):
+            step["assert_type"] = first["type"]
+        elif isinstance(first, str):
+            step["assert_type"] = "text_visible"
+            step["expected"] = [{
+                "type": "text_visible",
+                "value": first,
+                "tolerance": 0.0,
+                "case_insensitive": True,
+            }]
+        return
+
+    # Case 3: has value but no assert_type and no expected → infer type
+    if has_value and not has_assert_type and not has_expected:
+        val = step["value"]
+        is_url = val.startswith("/") or val.startswith("http")
+        at = "url_contains" if is_url else "text_visible"
+        step["assert_type"] = at
+        step["expected"] = [{
+            "type": at,
+            "value": val,
+            "tolerance": 0.0,
+            "case_insensitive": True,
+        }]
+        return
+
+    # Case 4: nothing useful — try description as fallback text assert
+    desc = step.get("description", "")
+    if desc:
+        step["assert_type"] = "text_visible"
+        step["value"] = desc
+        step["expected"] = [{
+            "type": "text_visible",
+            "value": desc,
+            "tolerance": 0.0,
+            "case_insensitive": True,
+        }]
+        logger.warning(
+            "Assert step had no assert_type/expected/value — "
+            "used description as fallback: '%s'",
+            desc[:60],
+        )
+
+
+def _fix_assert_obj(step: object) -> None:
+    """Fix an object-form (Pydantic model) assert step in-place."""
+    assert_type = getattr(step, "assert_type", None)
+    expected = getattr(step, "expected", None) or []
+    value = getattr(step, "value", None)
+
+    if expected and assert_type:
+        return
+
+    if assert_type and value and not expected:
+        step.__dict__["expected"] = [{
+            "type": assert_type if isinstance(assert_type, str) else assert_type.value,
+            "value": value,
+            "tolerance": 0.0,
+            "case_insensitive": True,
+        }]
+        return
+
+    if expected and not assert_type:
+        first = expected[0]
+        if hasattr(first, "type"):
+            step.__dict__["assert_type"] = first.type
+        elif isinstance(first, dict) and first.get("type"):
+            step.__dict__["assert_type"] = first["type"]
+
+    if value and not assert_type and not expected:
+        is_url = value.startswith("/") or value.startswith("http")
+        at = "url_contains" if is_url else "text_visible"
+        step.__dict__["assert_type"] = at
+        step.__dict__["expected"] = [{
+            "type": at,
+            "value": value,
+            "tolerance": 0.0,
+            "case_insensitive": True,
+        }]
