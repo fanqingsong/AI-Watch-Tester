@@ -294,14 +294,27 @@ class TestStepConfig:
         )
         assert step.assert_type == AssertType.URL_CONTAINS
 
-    def test_assert_without_type_fails(self) -> None:
-        with pytest.raises(ValidationError, match="assert requires assert_type"):
-            StepConfig(
-                step=3,
-                action=ActionType.ASSERT,
-                value="/dashboard",
-                description="Check URL",
-            )
+    def test_assert_without_type_auto_fixed(self) -> None:
+        """Assert step missing assert_type is auto-fixed from value."""
+        step = StepConfig(
+            step=3,
+            action=ActionType.ASSERT,
+            value="/dashboard",
+            description="Check URL",
+        )
+        assert step.assert_type == AssertType.URL_CONTAINS
+        assert len(step.expected) == 1
+        assert step.expected[0].value == "/dashboard"
+
+    def test_assert_no_type_no_value_uses_description(self) -> None:
+        """Assert step with no assert_type/value falls back to description."""
+        step = StepConfig(
+            step=3,
+            action=ActionType.ASSERT,
+            description="Welcome page loaded",
+        )
+        assert step.assert_type == AssertType.TEXT_VISIBLE
+        assert step.expected[0].value == "Welcome page loaded"
 
     def test_find_and_type_valid(self) -> None:
         step = StepConfig(

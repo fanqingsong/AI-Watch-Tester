@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -254,6 +255,76 @@ class StepConfig(BaseModel):
     optional: bool = Field(default=False)
     assert_type: AssertType | None = Field(default=None)
     expected: list[ExpectedResult] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def fix_assert_fields(cls, data: Any) -> Any:
+        """Auto-fix malformed assert steps from AI output.
+
+        AI sometimes generates assert steps without assert_type or
+        expected list. This pre-validator patches missing fields before
+        the after-validator rejects them.
+        """
+        if not isinstance(data, dict):
+            return data
+        if data.get("action") != "assert":
+            return data
+
+        has_at = bool(data.get("assert_type"))
+        has_exp = bool(data.get("expected"))
+        has_val = bool(data.get("value"))
+
+        if has_at and (has_exp or has_val):
+            # Build expected from assert_type + value if missing
+            if not has_exp and has_val:
+                data["expected"] = [{
+                    "type": data["assert_type"],
+                    "value": data["value"],
+                    "tolerance": 0.0,
+                    "case_insensitive": True,
+                }]
+            return data
+
+        # Has expected list but no assert_type → derive from first item
+        if has_exp and not has_at:
+            exp = data["expected"]
+            if isinstance(exp, list) and exp:
+                first = exp[0]
+                if isinstance(first, dict) and first.get("type"):
+                    data["assert_type"] = first["type"]
+                elif isinstance(first, str):
+                    data["assert_type"] = "text_visible"
+            return data
+
+        # Has value only → infer assert_type
+        if has_val and not has_at:
+            val = data["value"]
+            if isinstance(val, str):
+                is_url = val.startswith("/") or val.startswith("http")
+                at = "url_contains" if is_url else "text_visible"
+                data["assert_type"] = at
+                if not has_exp:
+                    data["expected"] = [{
+                        "type": at,
+                        "value": val,
+                        "tolerance": 0.0,
+                        "case_insensitive": True,
+                    }]
+            return data
+
+        # Fallback: use description
+        desc = data.get("description", "")
+        if desc and not has_at:
+            data["assert_type"] = "text_visible"
+            data["value"] = desc
+            data["expected"] = [{
+                "type": "text_visible",
+                "value": desc,
+                "tolerance": 0.0,
+                "case_insensitive": True,
+            }]
+
+        return data
 
     @field_validator("expected", mode="before")
     @classmethod
