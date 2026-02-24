@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Logged-in users are redirected away from these to /dashboard
-const AUTH_ROUTES = ["/login", "/signup"];
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password"];
 
 // Non-logged-in users are redirected away from these to /login
 const PROTECTED_PREFIXES = ["/dashboard", "/tests", "/settings", "/billing"];

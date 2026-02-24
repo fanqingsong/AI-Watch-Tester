@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase";
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreedTerms, setAgreedTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -17,6 +19,17 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError(t("passwordMismatch"));
+      return;
+    }
+
+    if (!agreedTerms) {
+      setError(t("mustAgreeTerms"));
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
@@ -82,6 +95,42 @@ export default function SignupPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder={t("passwordPlaceholder")}
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t("confirmPassword")}
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              placeholder={t("confirmPasswordPlaceholder")}
+            />
+          </div>
+
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="agree-terms"
+              checked={agreedTerms}
+              onChange={(e) => setAgreedTerms(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="agree-terms" className="text-xs leading-relaxed text-gray-600">
+              {t("agreePrefix")}{" "}
+              <Link href="/terms" className="text-blue-600 hover:underline" target="_blank">
+                {t("termsLink")}
+              </Link>{" "}
+              {t("agreeAnd")}{" "}
+              <Link href="/privacy" className="text-blue-600 hover:underline" target="_blank">
+                {t("privacyLink")}
+              </Link>
+              {t("agreeSuffix")}
+            </label>
           </div>
 
           {error && (

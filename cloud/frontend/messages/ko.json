@@ -143,19 +143,39 @@
     "submitting": "로그인 중...",
     "submit": "로그인",
     "noAccount": "계정이 없으신가요?",
-    "signUpLink": "회원가입"
+    "signUpLink": "회원가입",
+    "forgotPassword": "비밀번호를 잊으셨나요?"
+  },
+  "forgotPassword": {
+    "title": "비밀번호 재설정",
+    "description": "이메일을 입력하면 재설정 링크를 보내드립니다.",
+    "email": "이메일",
+    "emailPlaceholder": "you@example.com",
+    "sending": "전송 중...",
+    "submit": "재설정 링크 보내기",
+    "emailSent": "이메일을 확인해주세요! 비밀번호 재설정 링크를 보냈습니다.",
+    "backToLogin": "로그인으로 돌아가기"
   },
   "signup": {
     "title": "회원가입",
     "email": "이메일",
     "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
     "emailPlaceholder": "you@example.com",
     "passwordPlaceholder": "6자 이상",
+    "confirmPasswordPlaceholder": "비밀번호 다시 입력",
     "submitting": "계정 생성 중...",
     "submit": "회원가입",
     "hasAccount": "이미 계정이 있으신가요?",
     "loginLink": "로그인",
-    "accountCreated": "계정이 생성되었습니다. 로그인해주세요."
+    "accountCreated": "계정이 생성되었습니다. 로그인해주세요.",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다.",
+    "mustAgreeTerms": "이용약관에 동의해야 합니다.",
+    "agreePrefix": "",
+    "termsLink": "이용약관",
+    "agreeAnd": "및",
+    "privacyLink": "개인정보 처리방침",
+    "agreeSuffix": "에 동의합니다."
   },
   "dashboard": {
     "title": "대시보드",
@@ -559,5 +579,15 @@
   "metadata_extra": {
     "pricingTitle": "요금제",
     "billingTitle": "결제"
+  },
+  "terms": {
+    "pageTitle": "이용약관",
+    "lastUpdated": "최종 업데이트: 2026년 2월 24일"
+  },
+  "privacy": {
+    "pageTitle": "개인정보 처리방침",
+    "lastUpdated": "최종 업데이트: 2026년 2월 24일",
+    "seeAlso": "함께 보기:",
+    "termsLink": "이용약관"
   }
 }

@@ -143,19 +143,39 @@
     "submitting": "Logging in...",
     "submit": "Login",
     "noAccount": "Don't have an account?",
-    "signUpLink": "Sign up"
+    "signUpLink": "Sign up",
+    "forgotPassword": "Forgot password?"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "description": "Enter your email and we'll send you a reset link.",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Sending...",
+    "submit": "Send Reset Link",
+    "emailSent": "Check your email! We've sent a password reset link.",
+    "backToLogin": "Back to Login"
   },
   "signup": {
     "title": "Sign Up",
     "email": "Email",
     "password": "Password",
+    "confirmPassword": "Confirm Password",
     "emailPlaceholder": "you@example.com",
     "passwordPlaceholder": "At least 6 characters",
+    "confirmPasswordPlaceholder": "Re-enter password",
     "submitting": "Creating account...",
     "submit": "Sign Up",
     "hasAccount": "Already have an account?",
     "loginLink": "Login",
-    "accountCreated": "Account created. Please login."
+    "accountCreated": "Account created. Please login.",
+    "passwordMismatch": "Passwords do not match.",
+    "mustAgreeTerms": "You must agree to the Terms of Service.",
+    "agreePrefix": "I agree to the",
+    "termsLink": "Terms of Service",
+    "agreeAnd": "and",
+    "privacyLink": "Privacy Policy",
+    "agreeSuffix": "."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -559,5 +579,15 @@
   "metadata_extra": {
     "pricingTitle": "Pricing",
     "billingTitle": "Billing"
+  },
+  "terms": {
+    "pageTitle": "Terms of Service",
+    "lastUpdated": "Last updated: February 24, 2026"
+  },
+  "privacy": {
+    "pageTitle": "Privacy Policy",
+    "lastUpdated": "Last updated: February 24, 2026",
+    "seeAlso": "See also:",
+    "termsLink": "Terms of Service"
   }
 }
