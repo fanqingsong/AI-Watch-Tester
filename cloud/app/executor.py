@@ -639,7 +639,9 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                 test.scenario_yaml = yaml.safe_dump(
                     scenario_dicts, default_flow_style=False, allow_unicode=True
                 )
+            # Always sync steps_total with actual scenario steps
             test.steps_total = total_steps
+            test.steps_completed = 0
             await db.commit()
 
         if ws:
@@ -856,9 +858,13 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                 completed += 1
 
                 # Update progress in DB (+ heartbeat to prevent stuck-timeout)
+                # Clamp to total_steps to prevent overflow (e.g. 17/15)
                 async with async_session() as db:
                     t = (await db.execute(select(Test).where(Test.id == test_id))).scalar_one()
-                    t.steps_completed = completed
+                    t.steps_completed = min(completed, total_steps)
+                    if completed > total_steps:
+                        t.steps_total = completed
+                        total_steps = completed
                     t.updated_at = datetime.now(UTC)
                     await db.commit()
 

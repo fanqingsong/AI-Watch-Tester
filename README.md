@@ -267,6 +267,96 @@ git commit -m "feat(scope): description"
 
 ---
 
+## FAQ
+
+<details>
+<summary><strong>What is AWT?</strong></summary>
+<br/>
+AWT (AI Watch Tester) is an open-source, AI-powered E2E testing tool. You give it a URL, and it automatically generates test scenarios, executes them in a real browser (Playwright), and reports results — no test code required.
+</details>
+
+<details>
+<summary><strong>How do I install it?</strong></summary>
+<br/>
+
+**Cloud (no install):** Visit [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) and enter a URL.
+
+**Local:**
+```bash
+pip install aat-devqa
+playwright install chromium
+aat dashboard
+```
+
+**From source:**
+```bash
+git clone https://github.com/ksgisang/AI-Watch-Tester.git
+cd AI-Watch-Tester
+make dev && aat dashboard
+```
+</details>
+
+<details>
+<summary><strong>Which AI providers are supported?</strong></summary>
+<br/>
+
+| Provider | Models | Cost |
+|----------|--------|------|
+| **OpenAI** | gpt-4o, gpt-4o-mini | Pay-per-use |
+| **Anthropic** | Claude Sonnet 4 | Pay-per-use |
+| **Ollama** | codellama, llama3, mistral | Free (local GPU) |
+
+Cloud users can bring their own API key (BYOK) via the Settings page. Keys are Fernet-encrypted at rest.
+</details>
+
+<details>
+<summary><strong>How much does it cost?</strong></summary>
+<br/>
+
+| Plan | Price | Tests/month | Concurrent |
+|------|-------|-------------|------------|
+| **Free** | $0 | 5 | 1 |
+| **Pro** | $28.99/mo | 100 | 3 |
+| **Team** | $98.99/mo | 500 | 10 |
+
+The open-source local mode is completely free with no limits — you just need your own AI API key.
+</details>
+
+<details>
+<summary><strong>Is it open source?</strong></summary>
+<br/>
+Yes. AWT is licensed under the MIT License — free for personal and commercial use. You can self-host, modify, and distribute it. Contributions are welcome!
+</details>
+
+<details>
+<summary><strong>Can I use it in CI/CD?</strong></summary>
+<br/>
+
+Yes. Pro and Team plans include API keys for CI/CD integration:
+
+```bash
+curl -X POST https://your-awt-server.com/api/v1/run \
+  -H "X-API-Key: awt_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"target_url": "https://staging.example.com"}'
+```
+
+See the [CI/CD Guide](cloud/docs/CI_CD_GUIDE.md) for GitHub Actions and GitLab CI examples.
+</details>
+
+<details>
+<summary><strong>Is my data secure?</strong></summary>
+<br/>
+
+- All traffic is encrypted via HTTPS/TLS
+- BYOK API keys are Fernet-encrypted (AES-128-CBC + HMAC-SHA256) at rest
+- Screenshots are auto-deleted after 7 days
+- Database hosted on Supabase (AWS Seoul region)
+- See our <a href="https://ai-watch-tester.vercel.app/privacy">Privacy Policy</a> for full details
+</details>
+
+---
+
 ## License
 
 [MIT](LICENSE) — free for personal and commercial use.
