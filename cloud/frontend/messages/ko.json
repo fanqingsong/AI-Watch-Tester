@@ -439,7 +439,8 @@
     "teamCta": "Team 시작",
     "perMonth": "/월",
     "mostPopular": "가장 인기",
-    "currentPlan": "현재 플랜"
+    "currentPlan": "현재 플랜",
+    "comingSoon": "출시 예정"
   },
   "billing": {
     "title": "결제",

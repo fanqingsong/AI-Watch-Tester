@@ -22,6 +22,7 @@ export default function PricingPage() {
       cta: t("freeCta"),
       href: user ? "/dashboard" : "/signup",
       highlighted: false,
+      disabled: false,
     },
     {
       key: "pro",
@@ -29,9 +30,10 @@ export default function PricingPage() {
       price: t("proPrice"),
       desc: t("proDesc"),
       features: [t("proFeat1"), t("proFeat2"), t("proFeat3"), t("proFeat4"), t("proFeat5")],
-      cta: t("proCta"),
+      cta: t("comingSoon"),
       href: proUrl,
       highlighted: true,
+      disabled: true,
     },
     {
       key: "team",
@@ -39,9 +41,10 @@ export default function PricingPage() {
       price: t("teamPrice"),
       desc: t("teamDesc"),
       features: [t("teamFeat1"), t("teamFeat2"), t("teamFeat3"), t("teamFeat4")],
-      cta: t("teamCta"),
+      cta: t("comingSoon"),
       href: teamUrl,
       highlighted: false,
+      disabled: true,
     },
   ];
 
@@ -88,7 +91,13 @@ export default function PricingPage() {
               ))}
             </ul>
 
-            {plan.href.startsWith("http") ? (
+            {plan.disabled ? (
+              <span
+                className="block cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-4 py-2.5 text-center text-sm font-medium text-gray-400"
+              >
+                {plan.cta}
+              </span>
+            ) : plan.href.startsWith("http") ? (
               <a
                 href={plan.href}
                 className={`block rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${

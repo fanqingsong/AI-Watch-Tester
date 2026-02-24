@@ -439,7 +439,8 @@
     "teamCta": "Start Team",
     "perMonth": "/mo",
     "mostPopular": "Most Popular",
-    "currentPlan": "Current Plan"
+    "currentPlan": "Current Plan",
+    "comingSoon": "Coming Soon"
   },
   "billing": {
     "title": "Billing",

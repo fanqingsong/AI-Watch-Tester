@@ -720,6 +720,7 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                     ws=ws, step=step_num, timing="before",
                 )
 
+                nav_failed = False
                 try:
                     result = await asyncio.wait_for(
                         step_executor.execute_step(step),
@@ -731,8 +732,19 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                     # Playwright may throw timeout but page still loads
                     if step.action == ActionType.NAVIGATE and status == "failed":
                         try:
+                            from urllib.parse import urlparse
                             current_url = await engine.get_url()
-                            if current_url and not current_url.startswith("about:"):
+                            nav_target = step.value or target_url
+                            target_host = urlparse(nav_target).netloc
+                            current_host = urlparse(current_url or "").netloc
+                            # Only override if we actually reached the target domain
+                            if (
+                                current_url
+                                and not current_url.startswith("about:")
+                                and not current_url.startswith("chrome-error:")
+                                and target_host
+                                and current_host == target_host
+                            ):
                                 logger.info(
                                     "Step %d navigate: page at %s, overriding to passed",
                                     step_num, current_url,
@@ -772,6 +784,9 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                     if status == "failed":
                         scenario_passed = False
                         overall_passed = False
+                        # Navigate failure → skip remaining steps
+                        if step.action == ActionType.NAVIGATE:
+                            nav_failed = True
 
                     if ws:
                         if status == "passed":
@@ -796,6 +811,7 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                         f"{step.description or str(step.action)}"
                     )
                     logger.warning("Step %d timed out", step_num)
+                    nav_failed = step.action == ActionType.NAVIGATE
 
                     ss_error = await _save_screenshot(
                         engine, test_id, f"step_{step_num}_error",
@@ -827,6 +843,7 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                 except Exception as exc:
                     err_msg = str(exc)
                     logger.warning("Step %d failed: %s", step_num, exc)
+                    nav_failed = step.action == ActionType.NAVIGATE
 
                     ss_error = await _save_screenshot(
                         engine, test_id, f"step_{step_num}_error",
@@ -856,6 +873,33 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                         })
 
                 completed += 1
+
+                # Navigate failure → skip remaining steps in this scenario
+                if nav_failed:
+                    skip_reason = "Skipped: navigation failed"
+                    for j in range(i + 1, len(scenario.steps)):
+                        remaining = scenario.steps[j]
+                        completed += 1
+                        step_results.append({
+                            "step": j + 1,
+                            "action": str(remaining.action),
+                            "description": remaining.description or None,
+                            "status": "skipped",
+                            "error": skip_reason,
+                        })
+                        if ws:
+                            await ws.broadcast(test_id, {
+                                "type": "step_fail",
+                                "step": completed,
+                                "status": "skipped",
+                                "error": skip_reason,
+                                "description": remaining.description or str(remaining.action),
+                            })
+                    logger.info(
+                        "Navigate failed at step %d — skipping %d remaining steps",
+                        step_num, len(scenario.steps) - i - 1,
+                    )
+                    break
 
                 # Update progress in DB (+ heartbeat to prevent stuck-timeout)
                 # Clamp to total_steps to prevent overflow (e.g. 17/15)
