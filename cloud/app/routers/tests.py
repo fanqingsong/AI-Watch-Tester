@@ -7,6 +7,7 @@ import json
 import logging
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 import yaml
 from fastapi import (
@@ -52,6 +53,137 @@ from app.schemas import (
 from app.ws import ws_manager
 
 router = APIRouter(prefix="/api/tests", tags=["tests"])
+
+# ---------------------------------------------------------------------------
+# Bilingual message system for convert / validation progress
+# ---------------------------------------------------------------------------
+_convert_lang: str = "en"
+
+_CONVERT_MESSAGES: dict[str, dict[str, str]] = {
+    "using_scan_data": {
+        "en": "Using existing scan data...",
+        "ko": "기존 스캔 데이터 사용 중...",
+    },
+    "scan_loaded": {
+        "en": "{obs} observations, {pages} pages loaded",
+        "ko": "{obs}개 관찰 데이터, {pages}개 페이지 로드 완료",
+    },
+    "visiting_page": {
+        "en": "Visiting page: {url}",
+        "ko": "페이지 방문 중: {url}",
+    },
+    "extracting_data": {
+        "en": "Extracting page data...",
+        "ko": "페이지 데이터 추출 중...",
+    },
+    "keywords": {
+        "en": "Keywords: {kw}",
+        "ko": "키워드: {kw}",
+    },
+    "observing_elements": {
+        "en": "Observing {n} elements...",
+        "ko": "{n}개 요소 관찰 중...",
+    },
+    "observations_collected": {
+        "en": "{n} observations collected",
+        "ko": "{n}개 관찰 데이터 수집 완료",
+    },
+    "page_visit_failed": {
+        "en": "Page visit failed: {err}",
+        "ko": "페이지 방문 실패: {err}",
+    },
+    "feature_not_found_fallback": {
+        "en": "Could not find the requested feature.",
+        "ko": "요청한 기능을 찾을 수 없습니다.",
+    },
+    "generating_scenarios": {
+        "en": "Generating AI scenarios...",
+        "ko": "AI 시나리오 생성 중...",
+    },
+    "ai_generation_failed": {
+        "en": "AI generation failed: {err}",
+        "ko": "AI 생성 실패: {err}",
+    },
+    "ai_no_scenarios": {
+        "en": "AI failed to generate scenarios.",
+        "ko": "AI가 시나리오를 생성하지 못했습니다.",
+    },
+    "scenarios_generated": {
+        "en": "{n} scenarios generated, validating...",
+        "ko": "{n}개 시나리오 생성됨, 검증 중...",
+    },
+    "validating_scenarios": {
+        "en": "Validating and fixing scenarios...",
+        "ko": "시나리오 검증 및 보정 중...",
+    },
+    "feature_missing_reason": {
+        "en": "Could not find '{label}' feature on the site.",
+        "ko": "사이트에서 '{label}' 기능을 찾지 못했습니다.",
+    },
+    "feature_missing_warn1": {
+        "en": "'{label}' feature not found on the site.",
+        "ko": "'{label}' 기능을 사이트에서 찾지 못했습니다.",
+    },
+    "feature_missing_warn2": {
+        "en": "If '{label}' is on a separate URL, enter that URL directly.",
+        "ko": "'{label}' 페이지가 별도 URL인 경우 해당 URL을 직접 입력해주세요.",
+    },
+    "feature_missing_warn3": {
+        "en": (
+            "Automated testing may be difficult for external services"
+            " (Google, Kakao, etc.)."
+        ),
+        "ko": "외부 서비스(Google, Kakao 등)를 통한 경우 자동 테스트가 어려울 수 있습니다.",
+    },
+    "no_scenarios_generated": {
+        "en": "No scenarios were generated.",
+        "ko": "시나리오가 생성되지 않았습니다.",
+    },
+    "wrong_feature_reason": {
+        "en": (
+            "Requested '{label}' test but scenarios for a different"
+            " feature were generated."
+        ),
+        "ko": "'{label}' 테스트를 요청했지만 다른 기능의 시나리오가 생성되었습니다.",
+    },
+    "wrong_feature_warn1": {
+        "en": "Request: '{label}' test",
+        "ko": "요청: '{label}' 테스트",
+    },
+    "wrong_feature_warn2": {
+        "en": "Generated scenarios test a different feature than requested.",
+        "ko": "생성된 시나리오가 요청과 다른 기능을 테스트합니다.",
+    },
+    "wrong_feature_warn3": {
+        "en": "Attempting to regenerate.",
+        "ko": "재생성을 시도합니다.",
+    },
+    "no_intent_kw": {
+        "en": "Scenarios don't contain keywords related to '{label}'.",
+        "ko": "시나리오에 '{label}' 관련 키워드가 포함되어 있지 않습니다.",
+    },
+    "missing_steps": {
+        "en": "Missing required steps: {steps}",
+        "ko": "필수 스텝 누락: {steps}",
+    },
+    "requirements_not_met": {
+        "en": "Does not meet requirements for '{label}' test.",
+        "ko": "'{label}' 테스트의 필수 요건을 충족하지 않습니다.",
+    },
+}
+
+_STEP_NAMES: dict[str, dict[str, str]] = {
+    "page_or_modal": {"en": "Page/modal entry", "ko": "페이지/모달 진입"},
+    "field_input": {"en": "Field input", "ko": "필드 입력"},
+    "submit": {"en": "Submit button click", "ko": "제출 버튼 클릭"},
+}
+
+
+def _cmsg(key: str, **kwargs: Any) -> str:
+    """Return a bilingual message based on the current ``_convert_lang``."""
+    entry = _CONVERT_MESSAGES.get(key, {})
+    tpl = entry.get(_convert_lang, entry.get("en", key))
+    return tpl.format(**kwargs) if kwargs else tpl
 
 
 @router.post("", response_model=TestResponse, status_code=201)
@@ -476,6 +608,9 @@ async def convert_scenario(
     """
     import json
 
+    global _convert_lang  # noqa: PLW0603
+    _convert_lang = body.language or "en"
+
     try:
         from aat.adapters import ADAPTER_REGISTRY
         from aat.core.models import AIConfig, EngineConfig
@@ -520,7 +655,7 @@ async def convert_scenario(
 
         await _broadcast_convert(body.session_id, {
             "type": "convert_progress", "phase": "extracting",
-            "message": "기존 스캔 데이터 사용 중...",
+            "message": _cmsg("using_scan_data"),
         })
 
         scan_q = select(Scan).where(
@@ -563,7 +698,7 @@ async def convert_scenario(
             )
             await _broadcast_convert(body.session_id, {
                 "type": "convert_progress", "phase": "observing",
-                "message": f"{len(observations_raw)}개 관찰 데이터, {len(pages)}개 페이지 로드 완료",
+                "message": _cmsg("scan_loaded", obs=len(observations_raw), pages=len(pages)),
             })
             logger.info(
                 "Convert: using scan %d data — %d observations, %d pages",
@@ -574,7 +709,7 @@ async def convert_scenario(
     if pdata_raw is None:
         await _broadcast_convert(body.session_id, {
             "type": "convert_progress", "phase": "visiting",
-            "message": f"페이지 방문 중: {body.target_url}",
+            "message": _cmsg("visiting_page", url=body.target_url),
         })
         logger.info(
             "Convert: visiting %s (prompt: '%s')",
@@ -607,7 +742,7 @@ async def convert_scenario(
             # Extract page data (single page, no full crawl)
             await _broadcast_convert(body.session_id, {
                 "type": "convert_progress", "phase": "extracting",
-                "message": "페이지 데이터 추출 중...",
+                "message": _cmsg("extracting_data"),
             })
             logger.info("Convert: extracting page data...")
             pdata_raw = await _extract_page_data(
@@ -619,7 +754,7 @@ async def convert_scenario(
             keywords = _extract_keywords(body.user_prompt)
             await _broadcast_convert(body.session_id, {
                 "type": "convert_progress", "phase": "extracting",
-                "message": f"키워드: {', '.join(keywords)}",
+                "message": _cmsg("keywords", kw=", ".join(keywords)),
             })
             logger.info("Convert: keywords=%s", keywords)
             filtered_data = _filter_by_keywords(pdata_raw, keywords)
@@ -628,7 +763,7 @@ async def convert_scenario(
             n_filtered = len(filtered_data.get("links", []))
             await _broadcast_convert(body.session_id, {
                 "type": "convert_progress", "phase": "observing",
-                "message": f"{n_filtered}개 요소 관찰 중...",
+                "message": _cmsg("observing_elements", n=n_filtered),
             })
             logger.info(
                 "Convert: observing %d keyword-relevant elements...",
@@ -640,7 +775,7 @@ async def convert_scenario(
             )
             await _broadcast_convert(body.session_id, {
                 "type": "convert_progress", "phase": "observing",
-                "message": f"{len(observations_raw)}개 관찰 데이터 수집 완료",
+                "message": _cmsg("observations_collected", n=len(observations_raw)),
             })
             logger.info(
                 "Convert: collected %d observations", len(observations_raw),
@@ -661,7 +796,7 @@ async def convert_scenario(
         except Exception as exc:
             await _broadcast_convert(body.session_id, {
                 "type": "convert_error",
-                "message": f"페이지 방문 실패: {exc}",
+                "message": _cmsg("page_visit_failed", err=exc),
             })
             logger.warning(
                 "Page observation failed for convert: %s", exc,
@@ -687,7 +822,7 @@ async def convert_scenario(
         )
         await _broadcast_convert(body.session_id, {
             "type": "convert_error",
-            "message": relevance_pre.get("reason", "요청한 기능을 찾을 수 없습니다."),
+            "message": relevance_pre.get("reason", _cmsg("feature_not_found_fallback")),
         })
         return {
             "scenario_yaml": "",
@@ -700,7 +835,7 @@ async def convert_scenario(
 
     await _broadcast_convert(body.session_id, {
         "type": "convert_progress", "phase": "generating",
-        "message": "AI 시나리오 생성 중...",
+        "message": _cmsg("generating_scenarios"),
     })
     logger.info("Convert: generating scenarios via AI...")
     prompt = _CONVERT_PROMPT.format(
@@ -718,7 +853,7 @@ async def convert_scenario(
         logger.exception("Scenario conversion failed")
         await _broadcast_convert(body.session_id, {
             "type": "convert_error",
-            "message": f"AI 생성 실패: {exc}",
+            "message": _cmsg("ai_generation_failed", err=exc),
         })
         raise HTTPException(
             status_code=502, detail=f"AI generation failed: {exc}",
@@ -727,7 +862,7 @@ async def convert_scenario(
     if not scenarios:
         await _broadcast_convert(body.session_id, {
             "type": "convert_error",
-            "message": "AI가 시나리오를 생성하지 못했습니다.",
+            "message": _cmsg("ai_no_scenarios"),
         })
         raise HTTPException(
             status_code=422, detail="AI generated no scenarios",
@@ -789,7 +924,7 @@ async def convert_scenario(
 
     await _broadcast_convert(body.session_id, {
         "type": "convert_progress", "phase": "fixing",
-        "message": f"{len(scenarios)}개 시나리오 생성됨, 검증 중...",
+        "message": _cmsg("scenarios_generated", n=len(scenarios)),
     })
 
     # Fix AI-generated field targets to use actual observed data
@@ -822,7 +957,7 @@ async def convert_scenario(
 
     await _broadcast_convert(body.session_id, {
         "type": "convert_progress", "phase": "validating",
-        "message": "시나리오 검증 및 보정 중...",
+        "message": _cmsg("validating_scenarios"),
     })
 
     # Validate against observation data and retry if needed
@@ -1218,12 +1353,12 @@ def validate_scenario_relevance(
         return {
             "valid": False,
             "confidence": 0.9,
-            "reason": f"사이트에서 '{label}' 기능을 찾지 못했습니다.",
+            "reason": _cmsg("feature_missing_reason", label=label),
             "feature_missing": True,
             "warnings": [
-                f"'{label}' 기능을 사이트에서 찾지 못했습니다.",
-                f"'{label}' 페이지가 별도 URL인 경우 해당 URL을 직접 입력해주세요.",
-                "외부 서비스(Google, Kakao 등)를 통한 경우 자동 테스트가 어려울 수 있습니다.",
+                _cmsg("feature_missing_warn1", label=label),
+                _cmsg("feature_missing_warn2", label=label),
+                _cmsg("feature_missing_warn3"),
             ],
         }
 
@@ -1232,7 +1367,7 @@ def validate_scenario_relevance(
         return {
             "valid": False,
             "confidence": 0.8,
-            "reason": "시나리오가 생성되지 않았습니다.",
+            "reason": _cmsg("no_scenarios_generated"),
             "feature_missing": False,
             "warnings": [],
         }
@@ -1243,15 +1378,12 @@ def validate_scenario_relevance(
         return {
             "valid": False,
             "confidence": 0.9,
-            "reason": (
-                f"'{label}' 테스트를 요청했지만 "
-                f"다른 기능의 시나리오가 생성되었습니다."
-            ),
+            "reason": _cmsg("wrong_feature_reason", label=label),
             "feature_missing": False,
             "warnings": [
-                f"요청: '{label}' 테스트",
-                "생성된 시나리오가 요청과 다른 기능을 테스트합니다.",
-                "재생성을 시도합니다.",
+                _cmsg("wrong_feature_warn1", label=label),
+                _cmsg("wrong_feature_warn2"),
+                _cmsg("wrong_feature_warn3"),
             ],
         }
 
@@ -1259,24 +1391,20 @@ def validate_scenario_relevance(
         warnings: list[str] = []
         if not match_result["has_intent_kw"]:
             warnings.append(
-                f"시나리오에 '{label}' 관련 키워드가 포함되어 있지 않습니다."
+                _cmsg("no_intent_kw", label=label)
             )
         if match_result["missing_steps"]:
-            step_names = {
-                "page_or_modal": "페이지/모달 진입",
-                "field_input": "필드 입력",
-                "submit": "제출 버튼 클릭",
-            }
             missing_names = [
-                step_names.get(s, s) for s in match_result["missing_steps"]
+                _STEP_NAMES.get(s, {}).get(_convert_lang, s)
+                for s in match_result["missing_steps"]
             ]
             warnings.append(
-                f"필수 스텝 누락: {', '.join(missing_names)}"
+                _cmsg("missing_steps", steps=", ".join(missing_names))
             )
         return {
             "valid": False,
             "confidence": 0.7,
-            "reason": f"'{label}' 테스트의 필수 요건을 충족하지 않습니다.",
+            "reason": _cmsg("requirements_not_met", label=label),
             "feature_missing": False,
             "warnings": warnings,
         }

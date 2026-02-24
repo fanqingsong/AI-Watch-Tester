@@ -555,6 +555,7 @@ async def start_scan(
                 total_timeout=float(tier_limits["timeout"]),
                 screenshot_limit=tier_limits["screenshots"],
                 ws=_LogCollectingWS(),
+                lang="en",
             )
 
             # Update DB with results FIRST, then broadcast

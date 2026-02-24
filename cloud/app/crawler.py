@@ -22,6 +22,84 @@ from app.ws import WSManager
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Bilingual log messages (scan detail log shown to users)
+# ---------------------------------------------------------------------------
+
+_MESSAGES: dict[str, dict[str, str]] = {
+    "navigating": {"en": "Navigating to {url}", "ko": "페이지 접속 중... {url}"},
+    "nav_failed": {"en": "Navigation failed: {err}", "ko": "페이지 접속 실패: {err}"},
+    "http_error": {"en": "HTTP {status} error: {url}", "ko": "HTTP {status} 에러: {url}"},
+    "page_loaded": {"en": "Page loaded ({time}s) — {title}", "ko": "페이지 로드 완료 ({time}초) — {title}"},
+    "collecting_dom": {"en": "Collecting DOM elements...", "ko": "DOM 요소 수집 중..."},
+    "dom_collected": {
+        "en": "DOM collected: {buttons} buttons, {links} links, {forms} forms, {navs} nav menus",
+        "ko": "DOM 수집 완료: {buttons}개 버튼, {links}개 링크, {forms}개 폼, {navs}개 내비게이션",
+    },
+    "detecting_features": {"en": "Detecting site features...", "ko": "사이트 기능 감지 중..."},
+    "observe_start": {
+        "en": "Starting element observation — clicking elements and recording changes...",
+        "ko": "요소 관찰 시작 — 각 요소를 클릭하고 변화를 기록합니다...",
+    },
+    "checking_links": {"en": "Checking external link status...", "ko": "외부 링크 상태 확인 중..."},
+    "scroll_start": {
+        "en": "Page scroll scan started ({sections} sections)",
+        "ko": "페이지 스크롤 스캔 시작 ({sections}개 섹션)",
+    },
+    "scrolling": {
+        "en": "Scrolling page... [{i}/{sections} sections]",
+        "ko": "페이지 스크롤 중... [{i}/{sections} 섹션]",
+    },
+    "accordion_found": {
+        "en": "Accordion elements found: {count} — expanding each...",
+        "ko": "아코디언 요소 발견: {count}개 → 각각 펼쳐서 확인 중...",
+    },
+    "accordion_checking": {
+        "en": "Checking accordion... [{current}/{total}]",
+        "ko": "아코디언 확인 중... [{current}/{total}]",
+    },
+    "accordion_done": {
+        "en": "Accordion observation complete: recorded {count} expanded elements.",
+        "ko": "아코디언 관찰 완료: {count}개 요소의 펼친 콘텐츠를 기록했습니다.",
+    },
+    "skipping_observed": {
+        "en": "Skipping {count} elements already observed on previous pages",
+        "ko": "이전 페이지에서 관찰된 {count}개 요소 스킵",
+    },
+    "file_download_found": {
+        "en": "  → File download link found: '{text}' ({file})",
+        "ko": "  → 파일 다운로드 링크 발견: '{text}' ({file})",
+    },
+    "observing_element": {
+        "en": "Observing element [{current}/{total}]: clicking '{text}'...",
+        "ko": "요소 관찰 중 [{current}/{total}]: '{text}' 클릭...",
+    },
+    "observe_result": {"en": "  → Result: {label}", "ko": "  → 결과: {label}"},
+    "observe_failed": {"en": "  → Observation failed: {err}", "ko": "  → 관찰 실패: {err}"},
+    "observe_done": {
+        "en": "Observation complete: recorded behavior of {count} elements.",
+        "ko": "관찰 완료: {count}개 요소의 동작을 기록했습니다.",
+    },
+    "change_page_navigation": {"en": "page navigation", "ko": "페이지 이동"},
+    "change_modal_opened": {"en": "modal/popup opened", "ko": "모달/팝업 열림"},
+    "change_anchor_scroll": {"en": "section scroll", "ko": "섹션 스크롤"},
+    "change_section_change": {"en": "content changed", "ko": "콘텐츠 변경"},
+    "change_no_change": {"en": "no change", "ko": "변화 없음"},
+    "change_minor_change": {"en": "minor change", "ko": "미세 변화"},
+}
+
+# Module-level language setting — set before calling crawl_site
+_scan_lang: str = "en"
+
+
+def _msg(key: str, **kwargs: Any) -> str:
+    """Get a log message in the current scan language."""
+    entry = _MESSAGES.get(key)
+    if not entry:
+        return key
+    return entry.get(_scan_lang, entry.get("en", key)).format(**kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Feature detection — hybrid: CSS selectors + link/button text matching
 # ---------------------------------------------------------------------------
 #
@@ -628,11 +706,15 @@ async def crawl_site(
     total_timeout: float = 180.0,  # 3 minutes default
     screenshot_limit: int = 3,
     ws: WSManager | None = None,
+    lang: str = "en",
 ) -> dict[str, Any]:
     """BFS crawl a site and extract page data.
 
     Returns dict with keys: pages, summary, broken_links, detected_features.
     """
+    global _scan_lang
+    _scan_lang = lang
+
     try:
         from aat.core.models import EngineConfig
         from aat.engine.web import WebEngine
@@ -713,7 +795,7 @@ async def crawl_site(
                 await ws.broadcast(scan_id, {
                     "type": "scan_log",
                     "phase": "navigate",
-                    "message": f"페이지 접속 중... {url}",
+                    "message": _msg("navigating", url=url),
                 })
             try:
                 response = await page.goto(
@@ -727,7 +809,7 @@ async def crawl_site(
                         "type": "scan_log",
                         "phase": "navigate",
                         "level": "error",
-                        "message": f"페이지 접속 실패: {str(exc)[:100]}",
+                        "message": _msg("nav_failed", err=str(exc)[:100]),
                     })
                 continue
 
@@ -739,7 +821,7 @@ async def crawl_site(
                         "type": "scan_log",
                         "phase": "navigate",
                         "level": "warn",
-                        "message": f"HTTP {response.status} 에러: {url}",
+                        "message": _msg("http_error", status=response.status, url=url),
                     })
                 continue
 
@@ -753,7 +835,7 @@ async def crawl_site(
                 await ws.broadcast(scan_id, {
                     "type": "scan_log",
                     "phase": "navigate",
-                    "message": f"페이지 로드 완료 ({page_load_time}초) — {title or url}",
+                    "message": _msg("page_loaded", time=page_load_time, title=title or url),
                 })
 
             # Scroll through entire page to trigger lazy-loaded elements
@@ -764,7 +846,7 @@ async def crawl_site(
                 await ws.broadcast(scan_id, {
                     "type": "scan_log",
                     "phase": "extract",
-                    "message": "DOM 요소 수집 중...",
+                    "message": _msg("collecting_dom"),
                 })
             take_ss = len(pages) < screenshot_limit
             page_data = await _extract_page_data(page, url, take_screenshot=take_ss)
@@ -779,7 +861,7 @@ async def crawl_site(
                 await ws.broadcast(scan_id, {
                     "type": "scan_log",
                     "phase": "extract",
-                    "message": f"DOM 수집 완료: {n_buttons}개 버튼, {n_links}개 링크, {n_forms}개 폼, {n_navs}개 내비게이션",
+                    "message": _msg("dom_collected", buttons=n_buttons, links=n_links, forms=n_forms, navs=n_navs),
                 })
 
             # Collect stats
@@ -792,7 +874,7 @@ async def crawl_site(
                 await ws.broadcast(scan_id, {
                     "type": "scan_log",
                     "phase": "feature",
-                    "message": "사이트 기능 감지 중...",
+                    "message": _msg("detecting_features"),
                 })
             try:
                 page_text = await page.inner_text("body")
@@ -820,7 +902,7 @@ async def crawl_site(
                     await ws.broadcast(scan_id, {
                         "type": "scan_log",
                         "phase": "observe",
-                        "message": "요소 관찰 시작 — 각 요소를 클릭하고 변화를 기록합니다...",
+                        "message": _msg("observe_start"),
                     })
                 try:
                     page_observations = await _observe_interactions(
@@ -906,7 +988,7 @@ async def crawl_site(
             await ws.broadcast(scan_id, {
                 "type": "scan_log",
                 "phase": "links",
-                "message": "외부 링크 상태 확인 중...",
+                "message": _msg("checking_links"),
             })
         external_links = [
             link.get("href", "")
@@ -1018,7 +1100,7 @@ async def _full_page_scroll(
         await ws.broadcast(scan_id, {
             "type": "scan_log",
             "phase": "scroll",
-            "message": f"페이지 스크롤 스캔 시작 ({num_sections}개 섹션)",
+            "message": _msg("scroll_start", sections=num_sections),
         })
 
     for i in range(1, num_sections + 1):
@@ -1039,7 +1121,7 @@ async def _full_page_scroll(
             await ws.broadcast(scan_id, {
                 "type": "scan_log",
                 "phase": "scroll",
-                "message": f"페이지 스크롤 중... [{i}/{num_sections} 섹션]",
+                "message": _msg("scrolling", i=i, sections=num_sections),
             })
 
     # Scroll back to top
@@ -1136,7 +1218,7 @@ async def _detect_and_observe_accordions(
         await ws.broadcast(scan_id, {
             "type": "scan_log",
             "phase": "accordion",
-            "message": f"아코디언 요소 발견: {len(accordion_elements)}개 → 각각 펼쳐서 확인 중...",
+            "message": _msg("accordion_found", count=len(accordion_elements)),
         })
 
     observations: list[dict[str, Any]] = []
@@ -1219,14 +1301,14 @@ async def _detect_and_observe_accordions(
             await ws.broadcast(scan_id, {
                 "type": "scan_log",
                 "phase": "accordion",
-                "message": f"아코디언 확인 중... [{idx + 1}/{min(len(accordion_elements), 15)}]",
+                "message": _msg("accordion_checking", current=idx + 1, total=min(len(accordion_elements), 15)),
             })
 
     if ws and observations:
         await ws.broadcast(scan_id, {
             "type": "scan_log",
             "phase": "accordion",
-            "message": f"아코디언 관찰 완료: {len(observations)}개 요소의 펼친 콘텐츠를 기록했습니다.",
+            "message": _msg("accordion_done", count=len(observations)),
         })
 
     return observations
@@ -1871,7 +1953,7 @@ async def _observe_interactions(
         if skipped and ws:
             await ws.broadcast(scan_id, {
                 "type": "scan_log", "phase": "observe",
-                "message": f"이전 페이지에서 관찰된 {skipped}개 요소 스킵",
+                "message": _msg("skipping_observed", count=skipped),
             })
         clickable = filtered
 
@@ -1907,7 +1989,7 @@ async def _observe_interactions(
             await ws.broadcast(scan_id, {
                 "type": "scan_log",
                 "phase": "observe",
-                "message": f"  → 파일 다운로드 링크 발견: '{dl_text}' ({dl_href.rsplit('/', 1)[-1]})",
+                "message": _msg("file_download_found", text=dl_text, file=dl_href.rsplit("/", 1)[-1]),
             })
     for idx, elem in enumerate(clickable):
         elem_text = elem.get("text", "")
@@ -1915,7 +1997,7 @@ async def _observe_interactions(
             await ws.broadcast(scan_id, {
                 "type": "scan_log",
                 "phase": "observe",
-                "message": f"요소 관찰 중 [{idx + 1}/{len(clickable)}]: '{elem_text}' 클릭...",
+                "message": _msg("observing_element", current=idx + 1, total=len(clickable), text=elem_text),
             })
         try:
             obs = await asyncio.wait_for(
@@ -1926,19 +2008,19 @@ async def _observe_interactions(
                 observations.append(obs)
                 change_type = obs["observed_change"]["type"]
                 change_labels = {
-                    "page_navigation": "페이지 이동",
-                    "modal_opened": "모달/팝업 열림",
-                    "anchor_scroll": "섹션 스크롤",
-                    "section_change": "콘텐츠 변경",
-                    "no_change": "변화 없음",
-                    "minor_change": "미세 변화",
+                    "page_navigation": _msg("change_page_navigation"),
+                    "modal_opened": _msg("change_modal_opened"),
+                    "anchor_scroll": _msg("change_anchor_scroll"),
+                    "section_change": _msg("change_section_change"),
+                    "no_change": _msg("change_no_change"),
+                    "minor_change": _msg("change_minor_change"),
                 }
                 label = change_labels.get(change_type, change_type)
                 if ws:
                     await ws.broadcast(scan_id, {
                         "type": "scan_log",
                         "phase": "observe",
-                        "message": f"  → 결과: {label}",
+                        "message": _msg("observe_result", label=label),
                     })
                     await ws.broadcast(scan_id, {
                         "type": "element_observed",
@@ -1952,7 +2034,7 @@ async def _observe_interactions(
                     "type": "scan_log",
                     "phase": "observe",
                     "level": "warn",
-                    "message": f"  → 관찰 실패: {str(exc)[:80]}",
+                    "message": _msg("observe_failed", err=str(exc)[:80]),
                 })
             # Restore state on error
             try:
@@ -1967,7 +2049,7 @@ async def _observe_interactions(
         await ws.broadcast(scan_id, {
             "type": "scan_log",
             "phase": "observe",
-            "message": f"관찰 완료: {len(observations)}개 요소의 동작을 기록했습니다.",
+            "message": _msg("observe_done", count=len(observations)),
         })
 
     return observations
