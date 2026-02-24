@@ -8,6 +8,7 @@
   <a href="https://github.com/ksgisang/AI-Watch-Tester/actions"><img src="https://img.shields.io/github/actions/workflow/status/ksgisang/AI-Watch-Tester/ci.yml?label=CI&logo=github" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python 3.11+"></a>
+  <a href="https://ai-watch-tester.vercel.app"><img src="https://img.shields.io/badge/Cloud-Try_Now-00d4aa?logo=vercel&logoColor=white" alt="Cloud"></a>
   <a href="https://github.com/ksgisang/AI-Watch-Tester/stargazers"><img src="https://img.shields.io/github/stars/ksgisang/AI-Watch-Tester?style=flat&logo=github" alt="GitHub Stars"></a>
 </p>
 
@@ -37,44 +38,45 @@ No test code. No recording. No manual maintenance.
 
 ---
 
-## Features
+## Cloud Version vs Local CLI
 
-| | Feature | Description |
-|---|---------|-------------|
-| :robot: | **AI Scenario Generation** | Upload a URL or spec doc (PDF/DOCX/MD) — AI creates E2E test scenarios |
-| :globe_with_meridians: | **Real Browser Testing** | Playwright-driven Chromium with Bezier mouse curves and variable-speed typing |
-| :recycle: | **Self-Healing DevQA Loop** | AI analyzes failures, patches code or scenarios, and re-runs automatically |
-| :cloud: | **Cloud + Local** | Cloud mode (no install, browser dashboard) or local mode (real browser, full control) |
-| :bar_chart: | **Live Dashboard** | Real-time screenshot streaming, step-by-step progress, event log |
-| :page_facing_up: | **Document-Based Generation** | Feed PDF/DOCX/Markdown specs — AI generates scenarios from requirements |
-| :test_tube: | **CI/CD Ready** | One-line `curl` integration with any pipeline |
-| :jigsaw: | **Plugin Architecture** | Engines, matchers, AI adapters, and reporters are all swappable via registries |
+AWT ships in two modes. Pick one — or use both.
 
----
+| | **Cloud** | **Local CLI** |
+|---|-----------|---------------|
+| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 |
+| **Install** | None — just sign up | `pip install aat-devqa` |
+| **Browser** | Headless Chromium on server | Real Chromium on your machine |
+| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) |
+| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use |
+| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) |
+| **Data** | Stored on our servers | Never leaves your machine |
 
-## Quick Start
-
-### Option A: Cloud (No Install)
+### Cloud — Start in 30 seconds
 
 ```
 1. Visit https://ai-watch-tester.vercel.app
-2. Enter your target URL
-3. Watch AI generate and execute tests
+2. Sign up (email or GitHub)
+3. Enter your target URL
+4. Watch AI generate and execute tests
 ```
 
-### Option B: Local
+### Local CLI — Full control
 
 ```bash
-# Install
 pip install aat-devqa
 playwright install chromium
 
-# Launch dashboard
-aat dashboard
-# Open http://localhost:9500
+# Option 1: Web dashboard
+aat dashboard                    # http://localhost:9500
+
+# Option 2: CLI
+aat start                        # guided mode
+aat generate --url https://example.com --provider openai
+aat run scenarios/
 ```
 
-### Option C: From Source
+### From Source
 
 ```bash
 git clone https://github.com/ksgisang/AI-Watch-Tester.git
@@ -87,43 +89,19 @@ aat dashboard     # launch web UI
 
 ---
 
-## Usage
+## Features
 
-### CLI
-
-```bash
-# Guided mode — walks you through the entire flow
-aat start
-
-# Generate scenarios from a URL
-aat generate --url https://example.com --provider openai
-
-# Run scenarios
-aat run scenarios/
-
-# DevQA Loop — auto-fix failures
-aat loop scenarios/ --approval-mode auto --max-iterations 3
-
-# Validate scenario YAML
-aat validate scenarios/login.yaml
-```
-
-### CI/CD (one-line)
-
-```bash
-curl -X POST https://your-awt-server.com/api/scan \
-  -H "Content-Type: application/json" \
-  -d '{"target_url": "https://staging.example.com"}'
-```
-
-### Dashboard
-
-```bash
-aat dashboard                    # default: http://localhost:9500
-aat dashboard --port 8080        # custom port
-```
-
-The dashboard provides a 3-step workflow: **Setup** (config + AI provider) → **Prepare** (scan + generate scenarios) → **Execute** (run tests with live screenshots).
+| | Feature | Description |
+|---|---------|-------------|
+| :robot: | **AI Scenario Generation** | Upload a URL or spec doc (PDF/DOCX/MD) — AI creates E2E test scenarios |
+| :globe_with_meridians: | **Real Browser Testing** | Playwright-driven Chromium with Bezier mouse curves and variable-speed typing |
+| :recycle: | **Self-Healing DevQA Loop** | AI analyzes failures, patches code or scenarios, and re-runs automatically |
+| :cloud: | **Cloud + Local** | Cloud mode (no install, browser dashboard) or local mode (real browser, full control) |
+| :bar_chart: | **Live Dashboard** | Real-time screenshot streaming, step-by-step progress, event log |
+| :page_facing_up: | **Document-Based Generation** | Feed PDF/DOCX/Markdown specs — AI generates scenarios from requirements |
+| :key: | **BYOK** | Bring your own AI API key (OpenAI, Anthropic, Ollama) — encrypted at rest |
+| :test_tube: | **CI/CD Ready** | One-line `curl` integration with any pipeline |
+| :jigsaw: | **Plugin Architecture** | Engines, matchers, AI adapters, and reporters are all swappable via registries |
 
 ---
 
@@ -131,9 +109,9 @@ The dashboard provides a 3-step workflow: **Setup** (config + AI provider) → *
 
 | Provider | Models | Cost | Setup |
 |----------|--------|------|-------|
-| **Ollama** | codellama, llama3, mistral | Free (local GPU) | `ollama serve` |
 | **OpenAI** | gpt-4o, gpt-4o-mini | Pay-per-use | `export OPENAI_API_KEY=sk-...` |
-| **Anthropic** | claude-sonnet-4-20250514 | Pay-per-use | `export ANTHROPIC_API_KEY=sk-ant-...` |
+| **Anthropic** | Claude Sonnet 4 | Pay-per-use | `export ANTHROPIC_API_KEY=sk-ant-...` |
+| **Ollama** | codellama, llama3, mistral | Free (local GPU) | `ollama serve` |
 
 Configure in `aat.yaml` or via environment variables:
 
@@ -144,13 +122,13 @@ ai:
   api_key: ${OPENAI_API_KEY}
 ```
 
+Cloud users can bring their own API key (BYOK) via **Settings > AI Provider**.
+
 ---
 
 ## How It Compares
 
 ### vs testRigor
-
-testRigor lets you write tests in plain English and handles execution + maintenance automatically. It is a mature enterprise SaaS.
 
 | | **AWT** | **testRigor** |
 |---|---------|---------------|
@@ -163,8 +141,6 @@ testRigor lets you write tests in plain English and handles execution + maintena
 **Choose AWT** if you want fully automated test generation with no scripting at all, or need a self-hostable open-source tool. **Choose testRigor** if you prefer writing plain-English test specs with enterprise support.
 
 ### vs Applitools
-
-Applitools is the leader in **Visual AI** testing — pixel-level visual regression, cross-browser screenshots, and layout comparison via its Eyes SDK.
 
 | | **AWT** | **Applitools** |
 |---|---------|----------------|

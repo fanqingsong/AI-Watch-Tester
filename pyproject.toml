@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "aat-devqa"
 version = "0.2.0"
-description = "AI Auto Tester — AI-powered DevQA Loop Orchestrator"
+description = "AWT (AI Watch Tester) — AI-powered E2E testing, no code required"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-authors = [{ name = "AAT Contributors" }]
+authors = [{ name = "AWT Contributors" }]
 keywords = ["testing", "automation", "ai", "devqa"]
 classifiers = [
     "Development Status :: 3 - Alpha",
