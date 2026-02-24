@@ -1,6 +1,7 @@
 {
   "common": {
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "serverStarting": "Server is starting up, please wait a moment..."
   },
   "metadata": {
     "title": "AWT — AI-Powered E2E Testing",

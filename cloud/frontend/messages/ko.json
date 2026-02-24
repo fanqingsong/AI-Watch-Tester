@@ -1,6 +1,7 @@
 {
   "common": {
-    "loading": "로딩 중..."
+    "loading": "로딩 중...",
+    "serverStarting": "서버가 시작 중입니다. 잠시만 기다려주세요..."
   },
   "metadata": {
     "title": "AWT — AI 기반 E2E 테스트",
