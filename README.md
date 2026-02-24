@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="AWT Logo" width="120">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.png">
+    <img alt="AWT Logo" src="docs/assets/logo-light.png" width="300">
+  </picture>
   <br/>
   <strong>AWT — AI Watch Tester</strong>
   <br/>
