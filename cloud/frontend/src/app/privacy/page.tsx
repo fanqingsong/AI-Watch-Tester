@@ -127,7 +127,7 @@ export default function PrivacyPage() {
         <h2>11. Contact</h2>
         <p>
           For privacy-related questions or data deletion requests, contact us at{" "}
-          <a href="mailto:support@awt.dev" className="text-blue-600 hover:underline">support@awt.dev</a>.
+          <a href="mailto:awt.dev.team@gmail.com" className="text-blue-600 hover:underline">awt.dev.team@gmail.com</a>.
         </p>
       </div>
 
