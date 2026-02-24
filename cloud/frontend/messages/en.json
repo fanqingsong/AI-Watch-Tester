@@ -3,6 +3,10 @@
     "loading": "Loading...",
     "serverStarting": "Server is starting up, please wait a moment..."
   },
+  "footer": {
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  },
   "metadata": {
     "title": "AWT — AI-Powered E2E Testing",
     "description": "Just enter a URL. AI generates test scenarios, executes them with Playwright, and reports results. No code required.",

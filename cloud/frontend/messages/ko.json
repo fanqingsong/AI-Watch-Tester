@@ -3,6 +3,10 @@
     "loading": "로딩 중...",
     "serverStarting": "서버가 시작 중입니다. 잠시만 기다려주세요..."
   },
+  "footer": {
+    "terms": "이용약관",
+    "privacy": "개인정보 처리방침"
+  },
   "metadata": {
     "title": "AWT — AI 기반 E2E 테스트",
     "description": "URL만 입력하세요. AI가 테스트 시나리오를 생성하고, Playwright로 실행하여 결과를 보여줍니다. 코딩 불필요.",

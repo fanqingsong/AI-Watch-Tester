@@ -382,16 +382,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 px-4 py-6">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 text-xs text-gray-400 sm:flex-row sm:justify-between">
-          <span>&copy; {new Date().getFullYear()} AWT. All rights reserved.</span>
-          <div className="flex gap-4">
-            <Link href="/terms" className="hover:text-white transition">Terms of Service</Link>
-            <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
