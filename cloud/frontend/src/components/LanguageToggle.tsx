@@ -17,7 +17,7 @@ export default function LanguageToggle() {
     <button
       onClick={toggle}
       className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-      title={locale === "ko" ? "Switch to English" : "\ud55c\uad6d\uc5b4\ub85c \uc804\ud658"}
+      title={locale === "ko" ? "Switch to English" : "Switch to Korean"}
     >
       {locale === "ko" ? "\ud83c\uddfa\ud83c\uddf8 EN" : "\ud83c\uddf0\ud83c\uddf7 KO"}
     </button>
