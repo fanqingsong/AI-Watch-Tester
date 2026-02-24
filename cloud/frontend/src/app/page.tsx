@@ -32,18 +32,19 @@ interface PricingRow {
   free: CellValue;
   pro: CellValue;
   team: CellValue;
+  comingSoon?: boolean;
 }
 
 const PRICING_ROWS: PricingRow[] = [
   { key: "featAiScenario", free: true, pro: true, team: true },
-  { key: "featAutoExplore", free: "val3Pages", pro: "valUnlimited", team: "valUnlimited" },
+  { key: "featAutoExplore", free: "val5Pages", pro: "valUnlimited", team: "valUnlimited" },
   { key: "featScreenshot", free: true, pro: true, team: true },
   { key: "featSecurity", free: false, pro: true, team: true },
   { key: "featFixGuide", free: false, pro: true, team: true },
-  { key: "featCodeAnalysis", free: false, pro: true, team: true },
-  { key: "featAutoFix", free: false, pro: true, team: true },
-  { key: "featDebugLoop", free: false, pro: true, team: true },
-  { key: "featApiKeys", free: false, pro: true, team: true },
+  { key: "featCodeAnalysis", free: false, pro: true, team: true, comingSoon: true },
+  { key: "featAutoFix", free: false, pro: true, team: true, comingSoon: true },
+  { key: "featDebugLoop", free: false, pro: true, team: true, comingSoon: true },
+  { key: "featApiKeys", free: false, pro: true, team: true, comingSoon: true },
   { key: "featMonthlyTests", free: "val5Tests", pro: "val100Tests", team: "val500Tests" },
   { key: "featConcurrent", free: "val1Concurrent", pro: "val3Concurrent", team: "val10Concurrent" },
 ];
@@ -143,12 +144,20 @@ export default async function LandingPage() {
               <p className="mb-4 text-xs text-gray-500">
                 {t("githubTarget")}
               </p>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {(["githubFeat1", "githubFeat2", "githubFeat3", "githubFeat4", "githubFeat5", "githubFeat6"] as const).map(
+              <ul className="space-y-2 text-sm">
+                {/* Implemented */}
+                <li className="flex items-start gap-2 text-gray-700">
+                  <span className="mt-0.5 text-blue-500">{"\u2713"}</span>
+                  {t("githubFeat1")}
+                </li>
+                {/* Coming soon */}
+                {(["githubFeat2", "githubFeat3", "githubFeat4", "githubFeat5", "githubFeat6"] as const).map(
                   (k) => (
-                    <li key={k} className="flex items-start gap-2">
-                      <span className="mt-0.5 text-blue-500">{"\u2713"}</span>
-                      {t(k)}
+                    <li key={k} className="flex items-start gap-2 text-gray-400">
+                      <span className="mt-0.5 shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                        Soon
+                      </span>
+                      <span>{t(k)}</span>
                     </li>
                   ),
                 )}
@@ -183,10 +192,10 @@ export default async function LandingPage() {
                 )}
               </ul>
               <div className="flex flex-col items-center justify-center rounded-xl bg-gray-900 p-6">
-                <p className="mb-2 text-xs text-gray-400">{t("localCommandLabel")}</p>
-                <code className="text-lg font-bold text-green-400">
-                  {t("localCommand")}
-                </code>
+                <span className="inline-block rounded-full bg-amber-100 px-4 py-1.5 text-sm font-semibold text-amber-700">
+                  Coming Soon
+                </span>
+                <p className="mt-3 text-xs text-gray-400">{t("localComingSoon")}</p>
               </div>
             </div>
           </div>
@@ -239,14 +248,20 @@ export default async function LandingPage() {
                     {(["free", "pro", "team"] as const).map((tier) => {
                       const val = row[tier];
                       const isHighlighted = tier === "pro";
+                      const soon = row.comingSoon && tier !== "free";
                       return (
                         <td
                           key={tier}
                           className={`px-4 py-3 text-center ${isHighlighted ? "bg-blue-50/50 ring-2 ring-inset ring-blue-500" : ""}`}
                         >
-                          {val === true && <span className="text-green-500 font-bold">{"\u2713"}</span>}
-                          {val === false && <span className="text-gray-300">{"\u2014"}</span>}
-                          {typeof val === "string" && (
+                          {soon && (
+                            <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                              Soon
+                            </span>
+                          )}
+                          {!soon && val === true && <span className="text-green-500 font-bold">{"\u2713"}</span>}
+                          {!soon && val === false && <span className="text-gray-300">{"\u2014"}</span>}
+                          {!soon && typeof val === "string" && (
                             <span className="text-gray-700">{t(val)}</span>
                           )}
                         </td>
@@ -324,30 +339,20 @@ export default async function LandingPage() {
       </section>
 
       {/* ============================================================ */}
-      {/* GITHUB INTEGRATION                                            */}
+      {/* GITHUB INTEGRATION — Coming Soon                              */}
       {/* ============================================================ */}
       <section className="bg-white px-4 py-20">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="mb-10 text-center text-2xl font-bold text-gray-900 sm:text-3xl">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="mb-6 text-2xl font-bold text-gray-900 sm:text-3xl">
             {t("githubSetupTitle")}
           </h2>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {([
-              { num: "1", title: "githubStep1Title", desc: "githubStep1Desc", icon: "\ud83d\udd11" },
-              { num: "2", title: "githubStep2Title", desc: "githubStep2Desc", icon: "\ud83d\udcc2" },
-              { num: "3", title: "githubStep3Title", desc: "githubStep3Desc", icon: "\ud83c\udf89" },
-            ] as const).map((step) => (
-              <div key={step.num} className="text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">
-                  {step.icon}
-                </div>
-                <div className="mb-1 text-xs font-bold text-blue-600">Step {step.num}</div>
-                <h3 className="mb-2 text-base font-bold text-gray-900">
-                  {t(step.title)}
-                </h3>
-                <p className="text-sm text-gray-600">{t(step.desc)}</p>
-              </div>
-            ))}
+          <div className="mx-auto max-w-lg rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 p-10">
+            <span className="inline-block rounded-full bg-amber-100 px-4 py-1.5 text-sm font-semibold text-amber-700">
+              Coming Soon
+            </span>
+            <p className="mt-3 text-sm text-gray-500">
+              {t("githubSetupComingSoon")}
+            </p>
           </div>
         </div>
       </section>
