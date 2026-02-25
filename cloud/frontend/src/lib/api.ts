@@ -635,4 +635,145 @@ export async function testAIConfig(
   return res.json();
 }
 
+// -- GitHub Connection --
+
+export interface GitHubConnectionInfo {
+  connected: boolean;
+  owner: string;
+  repo: string;
+  default_branch: string;
+  pat_prefix: string;
+  updated_at: string | null;
+}
+
+export interface GitHubVerifyResult {
+  success: boolean;
+  message: string;
+  full_name: string | null;
+}
+
+export async function getGitHubConnection(): Promise<GitHubConnectionInfo> {
+  const res = await authFetch("/api/settings/github");
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
+}
+
+export async function saveGitHubConnection(
+  pat: string,
+  owner: string,
+  repo: string,
+  defaultBranch: string = "main"
+): Promise<GitHubConnectionInfo> {
+  const res = await authFetch("/api/settings/github", {
+    method: "PUT",
+    body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteGitHubConnection(): Promise<void> {
+  const res = await authFetch("/api/settings/github", { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+}
+
+export async function verifyGitHubConnection(
+  pat: string,
+  owner: string,
+  repo: string,
+  defaultBranch: string = "main"
+): Promise<GitHubVerifyResult> {
+  const res = await authFetch("/api/settings/github/verify", {
+    method: "POST",
+    body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+// -- Fix Guide --
+
+export interface FixGuideFileChange {
+  path: string;
+  action: "modify" | "create" | "delete";
+  original: string;
+  suggested: string;
+  explanation: string;
+}
+
+export interface FixGuideItem {
+  id: number;
+  test_id: number;
+  scenario_id: string;
+  status: string;
+  summary: string | null;
+  files: FixGuideFileChange[];
+  pr_url: string | null;
+  pr_number: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function generateFixGuide(
+  testId: number,
+  scenarioId?: string
+): Promise<FixGuideItem> {
+  const body: Record<string, unknown> = {};
+  if (scenarioId) body.scenario_id = scenarioId;
+  const res = await authFetch(`/api/tests/${testId}/fix-guide`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function listFixGuides(
+  testId: number
+): Promise<FixGuideItem[]> {
+  const res = await authFetch(`/api/tests/${testId}/fix-guides`);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
+}
+
+export async function approveFixGuide(
+  testId: number,
+  guideId: number
+): Promise<FixGuideItem> {
+  const res = await authFetch(`/api/tests/${testId}/fix-guides/${guideId}/approve`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function rejectFixGuide(
+  testId: number,
+  guideId: number
+): Promise<FixGuideItem> {
+  const res = await authFetch(`/api/tests/${testId}/fix-guides/${guideId}/reject`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
 export { API_URL };

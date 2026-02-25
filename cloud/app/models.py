@@ -171,6 +171,74 @@ class UserAIConfig(Base):
     )
 
 
+class FixGuideStatus(enum.StrEnum):
+    """Fix guide lifecycle status."""
+
+    PENDING = "pending"
+    READY = "ready"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PR_CREATED = "pr_created"
+    FAILED = "failed"
+
+
+class GitHubConnection(Base):
+    """User's GitHub repository connection (PAT encrypted)."""
+
+    __tablename__ = "github_connections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String(128), unique=True, index=True, nullable=False
+    )
+    pat_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # Fernet
+    owner: Mapped[str] = mapped_column(String(256), nullable=False)
+    repo: Mapped[str] = mapped_column(String(256), nullable=False)
+    default_branch: Mapped[str] = mapped_column(
+        String(128), default="main", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+
+
+class FixGuide(Base):
+    """AI-generated fix guide for a failed test scenario."""
+
+    __tablename__ = "fix_guides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    test_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    scenario_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    status: Mapped[FixGuideStatus] = mapped_column(
+        Enum(FixGuideStatus), default=FixGuideStatus.PENDING, nullable=False
+    )
+    diff_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pr_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+
+
 class ApiKey(Base):
     """API key for CI/CD authentication (X-API-Key header)."""
 

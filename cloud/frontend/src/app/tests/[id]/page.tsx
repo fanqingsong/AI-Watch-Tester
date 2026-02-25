@@ -4,7 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
-import { getTest, API_URL, type TestItem } from "@/lib/api";
+import {
+  getTest,
+  API_URL,
+  listFixGuides,
+  generateFixGuide,
+  approveFixGuide,
+  rejectFixGuide,
+  type TestItem,
+  type FixGuideItem,
+} from "@/lib/api";
 
 interface StepResult {
   step: number;
@@ -184,6 +193,11 @@ export default function TestDetailPage() {
   const [showWarnings, setShowWarnings] = useState(false);
   const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set());
 
+  // Fix Guide state
+  const [fixGuides, setFixGuides] = useState<FixGuideItem[]>([]);
+  const [generatingFix, setGeneratingFix] = useState<string | null>(null);
+  const [approvingFix, setApprovingFix] = useState<number | null>(null);
+
   const testId = Number(params.id);
 
   useEffect(() => {
@@ -201,10 +215,50 @@ export default function TestDetailPage() {
       if (data.result_json) {
         setResult(JSON.parse(data.result_json));
       }
+      // Load fix guides
+      try {
+        const guides = await listFixGuides(testId);
+        setFixGuides(guides);
+      } catch {
+        // ignore — fix guides might not exist
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load test");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateFixGuide = async (scenarioId: string) => {
+    setGeneratingFix(scenarioId);
+    try {
+      const guide = await generateFixGuide(testId, scenarioId);
+      setFixGuides((prev) => [guide, ...prev.filter((g) => g.scenario_id !== scenarioId)]);
+    } catch {
+      // error handled by UI
+    } finally {
+      setGeneratingFix(null);
+    }
+  };
+
+  const handleApproveFix = async (guideId: number) => {
+    setApprovingFix(guideId);
+    try {
+      const updated = await approveFixGuide(testId, guideId);
+      setFixGuides((prev) => prev.map((g) => (g.id === guideId ? updated : g)));
+    } catch {
+      // error
+    } finally {
+      setApprovingFix(null);
+    }
+  };
+
+  const handleRejectFix = async (guideId: number) => {
+    try {
+      const updated = await rejectFixGuide(testId, guideId);
+      setFixGuides((prev) => prev.map((g) => (g.id === guideId ? updated : g)));
+    } catch {
+      // error
     }
   };
 
@@ -468,6 +522,20 @@ export default function TestDetailPage() {
               </div>
             ))}
           </div>
+
+          {/* Fix Guide for failed scenario */}
+          {!scenario.passed && (
+            <FixGuideSection
+              scenarioId={scenario.scenario_id}
+              guide={fixGuides.find((g) => g.scenario_id === scenario.scenario_id)}
+              generatingFix={generatingFix}
+              approvingFix={approvingFix}
+              onGenerate={handleGenerateFixGuide}
+              onApprove={handleApproveFix}
+              onReject={handleRejectFix}
+              t={t}
+            />
+          )}
         </div>
       ))}
 
@@ -787,6 +855,223 @@ function ScenarioViewer({
  * Simple YAML parser for machine-generated scenario YAML.
  * Handles the specific format used by AAT scenario generation.
  */
+/* ------------------------------------------------------------------ */
+/* Fix Guide Section                                                    */
+/* ------------------------------------------------------------------ */
+
+const ACTION_BADGE: Record<string, string> = {
+  modify: "bg-amber-100 text-amber-700",
+  create: "bg-green-100 text-green-700",
+  delete: "bg-red-100 text-red-700",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ready: "fixStatusReady",
+  approved: "fixStatusApproved",
+  rejected: "fixStatusRejected",
+  pr_created: "fixStatusPrCreated",
+};
+
+function FixGuideSection({
+  scenarioId,
+  guide,
+  generatingFix,
+  approvingFix,
+  onGenerate,
+  onApprove,
+  onReject,
+  t,
+}: {
+  scenarioId: string;
+  guide: import("@/lib/api").FixGuideItem | undefined;
+  generatingFix: string | null;
+  approvingFix: number | null;
+  onGenerate: (sid: string) => void;
+  onApprove: (gid: number) => void;
+  onReject: (gid: number) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: any;
+}) {
+  const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
+
+  const toggleFile = (idx: number) => {
+    setExpandedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  // No guide yet — show generate button
+  if (!guide) {
+    return (
+      <div className="border-t border-gray-100 px-4 py-3">
+        <button
+          onClick={() => onGenerate(scenarioId)}
+          disabled={generatingFix === scenarioId}
+          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {generatingFix === scenarioId
+            ? t("generatingFix")
+            : t("generateFixGuide")}
+        </button>
+      </div>
+    );
+  }
+
+  // Guide exists
+  return (
+    <div className="border-t border-gray-100 px-4 py-4">
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-gray-900">
+          {t("fixGuideSummary")}
+        </h3>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            guide.status === "pr_created"
+              ? "bg-green-100 text-green-700"
+              : guide.status === "rejected"
+              ? "bg-red-100 text-red-700"
+              : guide.status === "ready"
+              ? "bg-blue-100 text-blue-700"
+              : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          {t(STATUS_LABEL[guide.status] || guide.status)}
+        </span>
+      </div>
+
+      {/* Summary */}
+      {guide.summary && (
+        <p className="mb-3 text-sm text-gray-700">{guide.summary}</p>
+      )}
+
+      {/* File changes */}
+      {guide.files.length > 0 && (
+        <div className="mb-3 space-y-2">
+          {guide.files.map((file, idx) => (
+            <div key={idx} className="rounded border border-gray-200">
+              <button
+                onClick={() => toggleFile(idx)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+              >
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                    ACTION_BADGE[file.action] || "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {t(
+                    file.action === "modify"
+                      ? "fileModify"
+                      : file.action === "create"
+                      ? "fileCreate"
+                      : "fileDelete"
+                  )}
+                </span>
+                <span className="flex-1 font-mono text-xs text-gray-700">
+                  {file.path}
+                </span>
+                <svg
+                  className={`h-4 w-4 text-gray-400 transition-transform ${
+                    expandedFiles.has(idx) ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {expandedFiles.has(idx) && (
+                <div className="border-t border-gray-100 px-3 py-2">
+                  {file.explanation && (
+                    <p className="mb-2 text-xs text-gray-600 italic">
+                      {file.explanation}
+                    </p>
+                  )}
+                  {file.original && (
+                    <div className="mb-2">
+                      <span className="text-[10px] font-medium text-red-600">
+                        {t("originalCode")}
+                      </span>
+                      <pre className="mt-1 max-h-40 overflow-auto rounded bg-red-50 px-2 py-1 text-[11px] font-mono text-red-800 whitespace-pre-wrap">
+                        {file.original}
+                      </pre>
+                    </div>
+                  )}
+                  {file.suggested && (
+                    <div>
+                      <span className="text-[10px] font-medium text-green-600">
+                        {t("suggestedCode")}
+                      </span>
+                      <pre className="mt-1 max-h-40 overflow-auto rounded bg-green-50 px-2 py-1 text-[11px] font-mono text-green-800 whitespace-pre-wrap">
+                        {file.suggested}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* PR link */}
+      {guide.pr_url && (
+        <div className="mb-3 rounded border border-green-200 bg-green-50 px-3 py-2">
+          <span className="text-sm text-green-700">
+            {t("prCreated", { number: guide.pr_number })}
+          </span>
+          <a
+            href={guide.pr_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 text-sm font-medium text-green-700 underline"
+          >
+            {t("viewPR")}
+          </a>
+        </div>
+      )}
+
+      {/* Approve / Reject buttons */}
+      {guide.status === "ready" && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => onApprove(guide.id)}
+            disabled={approvingFix === guide.id}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {approvingFix === guide.id
+              ? t("approvingFix")
+              : t("approveAndCreatePR")}
+          </button>
+          <button
+            onClick={() => onReject(guide.id)}
+            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {t("rejectFix")}
+          </button>
+        </div>
+      )}
+
+      {/* No GitHub connected hint */}
+      {guide.status === "approved" && !guide.pr_url && (
+        <p className="text-xs text-amber-600">{t("noGithubConnected")}</p>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Simple YAML Parser                                                  */
+/* ------------------------------------------------------------------ */
+
 function parseSimpleYaml(yamlStr: string): ParsedScenario[] {
   try {
     // The YAML is a list of scenario objects. Try JSON first (some formats).

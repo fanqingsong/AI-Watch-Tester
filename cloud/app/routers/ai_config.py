@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.config import settings
+from app.crypto import decrypt, encrypt, mask_key, require_encryption
 from app.database import get_db
 from app.models import User, UserAIConfig
 from app.schemas import (
@@ -22,56 +23,6 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["ai-config"])
-
-# ---------------------------------------------------------------------------
-# Fernet helpers
-# ---------------------------------------------------------------------------
-
-_fernet = None
-
-
-def _get_fernet():
-    """Lazy-init Fernet cipher from AWT_ENCRYPTION_KEY."""
-    global _fernet  # noqa: PLW0603
-    if _fernet is not None:
-        return _fernet
-    key = settings.encryption_key
-    if not key:
-        return None
-    from cryptography.fernet import Fernet
-
-    _fernet = Fernet(key.encode() if isinstance(key, str) else key)
-    return _fernet
-
-
-def _encrypt(plain: str) -> str:
-    f = _get_fernet()
-    if f is None:
-        raise RuntimeError("Encryption key not configured")
-    return f.encrypt(plain.encode()).decode()
-
-
-def _decrypt(token: str) -> str:
-    f = _get_fernet()
-    if f is None:
-        raise RuntimeError("Encryption key not configured")
-    return f.decrypt(token.encode()).decode()
-
-
-def _require_encryption():
-    """Raise 503 if encryption key is not set."""
-    if not settings.encryption_key:
-        raise HTTPException(
-            status_code=503,
-            detail="BYOK is not available: encryption key not configured on server.",
-        )
-
-
-def _mask_key(key: str) -> str:
-    """Mask API key: 'sk-proj-abc...xyz' → 'sk-p...xyz'."""
-    if len(key) <= 8:
-        return key[:2] + "..." + key[-2:]
-    return key[:4] + "..." + key[-3:]
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +45,7 @@ async def get_user_ai_config(
     if row is None:
         return None
     try:
-        decrypted = _decrypt(row.api_key_encrypted)
+        decrypted = decrypt(row.api_key_encrypted)
     except Exception:
         logger.warning("Failed to decrypt AI key for user %s", user_id)
         return None
@@ -131,8 +82,8 @@ async def get_ai_config(
 
     # Decrypt just to get prefix
     try:
-        decrypted = _decrypt(row.api_key_encrypted)
-        prefix = _mask_key(decrypted)
+        decrypted = decrypt(row.api_key_encrypted)
+        prefix = mask_key(decrypted)
     except Exception:
         prefix = "***"
 
@@ -152,9 +103,9 @@ async def save_ai_config(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Save (upsert) AI config with encrypted key."""
-    _require_encryption()
+    require_encryption()
 
-    encrypted = _encrypt(body.api_key)
+    encrypted = encrypt(body.api_key)
 
     stmt = select(UserAIConfig).where(UserAIConfig.user_id == user.id)
     result = await db.execute(stmt)
@@ -180,7 +131,7 @@ async def save_ai_config(
         "provider": row.provider,
         "model": row.model,
         "has_key": True,
-        "key_prefix": _mask_key(body.api_key),
+        "key_prefix": mask_key(body.api_key),
         "updated_at": row.updated_at,
     }
 
