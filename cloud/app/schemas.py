@@ -297,6 +297,71 @@ class AIConfigTestResponse(BaseModel):
     model: str | None = None
 
 
+# -- GitHub Connection --
+
+
+class GitHubConnectRequest(BaseModel):
+    """PUT /api/settings/github request body."""
+
+    pat: str  # Personal Access Token (plaintext, encrypted server-side)
+    owner: str
+    repo: str
+    default_branch: str = "main"
+
+
+class GitHubConnectResponse(BaseModel):
+    """GitHub connection status response (PAT masked)."""
+
+    connected: bool
+    owner: str
+    repo: str
+    default_branch: str
+    pat_prefix: str  # "ghp_...abc"
+    updated_at: datetime | None
+
+
+class GitHubVerifyResponse(BaseModel):
+    """POST /api/settings/github/verify response."""
+
+    success: bool
+    message: str
+    full_name: str | None = None  # owner/repo
+
+
+# -- Fix Guide --
+
+
+class FixGuideRequest(BaseModel):
+    """POST /api/tests/{id}/fix-guide request body."""
+
+    scenario_id: str | None = None  # If None, first failed scenario
+
+
+class FixGuideFileChange(BaseModel):
+    """Single file change in a fix guide."""
+
+    path: str
+    action: Literal["modify", "create", "delete"]
+    original: str = ""
+    suggested: str = ""
+    explanation: str = ""
+
+
+class FixGuideResponse(BaseModel):
+    """Fix guide response."""
+
+    id: int
+    test_id: int
+    scenario_id: str
+    status: str
+    summary: str | None
+    files: list[FixGuideFileChange] = []
+    pr_url: str | None = None
+    pr_number: int | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class ApiKeyCreate(BaseModel):
     """POST /api/keys request body."""
 

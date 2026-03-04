@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase";
+import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -66,6 +67,17 @@ export default function SignupPage() {
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
           {t("title")}
         </h1>
+
+        <SocialLoginButtons />
+
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-gray-500">{t("orEmail")}</span>
+          </div>
+        </div>
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
