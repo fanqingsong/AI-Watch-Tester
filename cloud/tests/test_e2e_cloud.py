@@ -153,6 +153,7 @@ def _build_prompt(
         extra_instructions="",
         reference_documents="",
         batch_count=len(batch),
+        language_instruction="",
     )
 
 
