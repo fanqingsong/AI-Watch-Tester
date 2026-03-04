@@ -127,6 +127,19 @@ async def generate_fix_guide_endpoint(
         await db.commit()
         raise HTTPException(status_code=400, detail="no_ai_key_configured")
 
+    # Fetch GitHub connection for source context
+    from app.routers.github import get_user_github
+
+    github_info = None
+    conn, pat = await get_user_github(user.id, db)
+    if conn and pat:
+        github_info = {
+            "pat": pat,
+            "owner": conn.owner,
+            "repo": conn.repo,
+            "branch": conn.default_branch,
+        }
+
     # Generate fix guide
     try:
         from app.fix_guide_ai import generate_fix_guide
@@ -136,6 +149,7 @@ async def generate_fix_guide_endpoint(
             scenario_result=target_scenario,
             target_url=test.target_url,
             ai_config=ai_config,
+            github_info=github_info,
         )
 
         guide.summary = result_data.get("summary", "")
