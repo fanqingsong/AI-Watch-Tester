@@ -69,8 +69,9 @@ class TestLabelPosition:
 
 class TestAssertType:
     def test_all_values(self) -> None:
-        assert len(AssertType) == 5
+        assert len(AssertType) == 6
         assert AssertType.TEXT_VISIBLE == "text_visible"
+        assert AssertType.URL_NOT_CONTAINS == "url_not_contains"
         assert AssertType.SCREENSHOT_MATCH == "screenshot_match"
 
 

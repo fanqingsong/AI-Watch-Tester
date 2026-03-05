@@ -62,6 +62,7 @@ class AssertType(StrEnum):
     TEXT_EQUALS = "text_equals"
     IMAGE_VISIBLE = "image_visible"
     URL_CONTAINS = "url_contains"
+    URL_NOT_CONTAINS = "url_not_contains"
     SCREENSHOT_MATCH = "screenshot_match"
 
 

@@ -68,6 +68,19 @@ class Comparator:
                     action="assert",
                 )
 
+        elif expected.type == AssertType.URL_NOT_CONTAINS:
+            current_url = await engine.get_url()
+            if expected.case_insensitive:
+                found = expected.value.lower() in current_url.lower()
+            else:
+                found = expected.value in current_url
+            if found:
+                raise StepExecutionError(
+                    f"URL should not contain '{expected.value}'. Current: {current_url}",
+                    step=0,
+                    action="assert",
+                )
+
         elif expected.type == AssertType.IMAGE_VISIBLE:
             # IMAGE_VISIBLE is handled at StepExecutor level via assert step.
             # Comparator passes through (no-op for now).
