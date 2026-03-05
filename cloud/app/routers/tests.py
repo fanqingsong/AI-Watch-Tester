@@ -605,6 +605,14 @@ If you generate tests for features the user did NOT ask for, your response is WR
       Bad: "Swag Labs" (site name — visible on login page too)
     - Best practice: combine url assertion + text assertion for maximum reliability.
 
+    **NO PLACEHOLDER ASSERTS**:
+    NEVER use input field placeholder text (e.g., "Username", "Password", "Email",
+    "First Name", "Zip/Postal Code") as a text_visible assert value.
+    Placeholders are inside input elements, NOT visible page text.
+    WRONG: assert text_visible "Username" (this is an input placeholder)
+    RIGHT: assert text_visible "Products" (this is actual page heading text)
+    RIGHT: assert url_contains "/inventory" (URL-based verification)
+
     Example for multi-step signup (step 1 → step 2):
     step N:   find_and_click SUBMIT[form] '다음'
     step N+1: wait 1500ms
