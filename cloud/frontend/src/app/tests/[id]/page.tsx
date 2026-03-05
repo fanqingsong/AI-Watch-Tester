@@ -86,6 +86,7 @@ const IMPACT_STYLES: Record<string, string> = {
 const STATUS_BADGE: Record<string, string> = {
   passed: "bg-green-100 text-green-700",
   done: "bg-green-100 text-green-700",
+  partial: "bg-amber-100 text-amber-700",
   failed: "bg-red-100 text-red-700",
   error: "bg-red-100 text-red-700",
   queued: "bg-yellow-100 text-yellow-700",
@@ -298,6 +299,15 @@ export default function TestDetailPage() {
   const errorCount = consoleLogs.filter((l) => l.level === "error").length;
   const warnCount = consoleLogs.filter((l) => l.level === "warning").length;
 
+  // Compute step-level pass/fail counts from result
+  const allSteps = result?.scenarios?.flatMap((s) => s.steps) ?? [];
+  const stepsPassedCount = allSteps.filter((s) => s.status === "passed").length;
+  const stepsFailedCount = allSteps.filter((s) => s.status === "error" || s.status === "failed").length;
+  const stepsTotalCount = allSteps.length || test.steps_total;
+  const isPartialFail = test.status === "failed" && stepsPassedCount > 0 && stepsFailedCount > 0;
+  const passedPct = stepsTotalCount > 0 ? (stepsPassedCount / stepsTotalCount) * 100 : 0;
+  const failedPct = stepsTotalCount > 0 ? (stepsFailedCount / stepsTotalCount) * 100 : 0;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       {/* Screenshot modal */}
@@ -327,10 +337,14 @@ export default function TestDetailPage() {
         </div>
         <span
           className={`rounded-full px-3 py-1 text-sm font-medium ${
-            STATUS_BADGE[test.status] || "bg-gray-100 text-gray-600"
+            isPartialFail
+              ? STATUS_BADGE.partial
+              : STATUS_BADGE[test.status] || "bg-gray-100 text-gray-600"
           }`}
         >
-          {test.status}
+          {isPartialFail
+            ? `${stepsPassedCount}/${stepsTotalCount} ${t("passed").toLowerCase()}`
+            : test.status}
         </span>
       </div>
 
@@ -347,22 +361,37 @@ export default function TestDetailPage() {
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-gray-600">{t("progress")}</span>
             <span className="text-gray-900">
-              {t("stepsCount", { completed: test.steps_completed, total: test.steps_total })}
+              {isPartialFail
+                ? t("stepsDetail", { passed: stepsPassedCount, failed: stepsFailedCount, total: stepsTotalCount })
+                : t("stepsCount", { completed: test.steps_completed, total: test.steps_total })}
             </span>
           </div>
           <div className="h-2 rounded-full bg-gray-100">
-            <div
-              className={`h-2 rounded-full ${
-                test.status === "done" ? "bg-green-500" : test.status === "failed" ? "bg-red-400" : "bg-blue-500"
-              }`}
-              style={{
-                width: `${
-                  test.steps_total > 0
-                    ? (test.steps_completed / test.steps_total) * 100
-                    : 0
-                }%`,
-              }}
-            />
+            {isPartialFail ? (
+              <div className="flex h-2 overflow-hidden rounded-full">
+                <div
+                  className="h-full bg-green-500 transition-all duration-300"
+                  style={{ width: `${passedPct}%` }}
+                />
+                <div
+                  className="h-full bg-red-400 transition-all duration-300"
+                  style={{ width: `${failedPct}%` }}
+                />
+              </div>
+            ) : (
+              <div
+                className={`h-2 rounded-full ${
+                  test.status === "done" ? "bg-green-500" : test.status === "failed" ? "bg-red-400" : "bg-blue-500"
+                }`}
+                style={{
+                  width: `${
+                    test.steps_total > 0
+                      ? (test.steps_completed / test.steps_total) * 100
+                      : 0
+                  }%`,
+                }}
+              />
+            )}
           </div>
         </div>
       )}

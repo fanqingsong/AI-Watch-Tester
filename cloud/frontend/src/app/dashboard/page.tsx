@@ -255,11 +255,16 @@ export default function DashboardPage() {
     setPhase("executing");
   };
 
-  const handleComplete = (passed: boolean) => {
+  const handleComplete = async (passed: boolean) => {
     setPhase("done");
     setTestPassed(passed);
     if (activeTest) {
-      setActiveTest({ ...activeTest, status: passed ? "done" : "failed" });
+      try {
+        const updated = await getTest(activeTest.id);
+        setActiveTest(updated);
+      } catch {
+        setActiveTest({ ...activeTest, status: passed ? "done" : "failed" });
+      }
     }
   };
 
@@ -1418,25 +1423,34 @@ export default function DashboardPage() {
           )}
 
           {/* Phase: done */}
-          {phase === "done" && (
-            <div className="mt-4 flex items-center gap-3">
-              <span
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                  testPassed
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                {testPassed ? t("passed") : t("failed")}
-              </span>
-              <button
-                onClick={() => router.push(`/tests/${activeTest.id}`)}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                {t("viewDetails")}
-              </button>
-            </div>
-          )}
+          {phase === "done" && (() => {
+            const isPartial = !testPassed && activeTest.steps_completed > 0 && activeTest.steps_total > 0;
+            return (
+              <div className="mt-4 flex items-center gap-3">
+                <span
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    testPassed
+                      ? "bg-green-100 text-green-700"
+                      : isPartial
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {testPassed
+                    ? t("passed")
+                    : isPartial
+                      ? t("partialPassed", { passed: activeTest.steps_completed, total: activeTest.steps_total })
+                      : t("failed")}
+                </span>
+                <button
+                  onClick={() => router.push(`/tests/${activeTest.id}`)}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  {t("viewDetails")}
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
 

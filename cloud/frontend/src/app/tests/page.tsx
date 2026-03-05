@@ -10,6 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
   queued: "bg-yellow-100 text-yellow-700",
   running: "bg-blue-100 text-blue-700",
   done: "bg-green-100 text-green-700",
+  partial: "bg-amber-100 text-amber-700",
   failed: "bg-red-100 text-red-700",
 };
 
@@ -143,10 +144,14 @@ export default function TestsPage() {
               </div>
               <span
                 className={`ml-4 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  STATUS_COLORS[test.status] || "bg-gray-100 text-gray-600"
+                  test.status === "failed" && test.steps_completed > 0 && test.steps_total > 0
+                    ? STATUS_COLORS.partial
+                    : STATUS_COLORS[test.status] || "bg-gray-100 text-gray-600"
                 }`}
               >
-                {test.status}
+                {test.status === "failed" && test.steps_completed > 0 && test.steps_total > 0
+                  ? `${test.steps_completed}/${test.steps_total} ${t("partialPassed")}`
+                  : test.status}
               </span>
             </button>
           ))}

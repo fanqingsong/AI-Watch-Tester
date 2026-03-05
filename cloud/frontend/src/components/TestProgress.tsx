@@ -235,6 +235,11 @@ export default function TestProgress({ testId, onComplete, onScenariosReady }: P
   const progress =
     totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0;
 
+  const passedCount = steps.filter((s) => s.state === "passed").length;
+  const failedCount = steps.filter((s) => s.state === "failed" || s.state === "timeout").length;
+  const passedPct = totalSteps > 0 ? (passedCount / totalSteps) * 100 : 0;
+  const failedPct = totalSteps > 0 ? (failedCount / totalSteps) * 100 : 0;
+
   const renderEventText = (evt: WSEvent): string => {
     switch (evt.type) {
       case "test_start":
@@ -304,6 +309,8 @@ export default function TestProgress({ testId, onComplete, onScenariosReady }: P
                   ? "animate-pulse bg-yellow-400"
                   : status === "passed"
                   ? "bg-green-400"
+                  : status === "failed" && passedCount > 0
+                  ? "bg-amber-400"
                   : "bg-red-400"
               }`}
             />
@@ -318,6 +325,8 @@ export default function TestProgress({ testId, onComplete, onScenariosReady }: P
                 ? t("live")
                 : status === "passed"
                 ? t("passed")
+                : failedCount > 0 && passedCount > 0
+                ? `${passedCount}/${totalSteps} ${t("passedLabel")}`
                 : t("failed")}
             </span>
           </div>
@@ -367,22 +376,53 @@ export default function TestProgress({ testId, onComplete, onScenariosReady }: P
       {/* Progress bar + step count */}
       <div className="rounded-lg border border-gray-200 bg-white p-3">
         <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
-          <span>{t("stepsProgress", { current: currentStep, total: totalSteps })}</span>
-          <span>{progress}%</span>
+          <span>
+            {(status === "passed" || status === "failed") && failedCount > 0
+              ? t("stepsDetail", { passed: passedCount, failed: failedCount, total: totalSteps })
+              : t("stepsProgress", { current: currentStep, total: totalSteps })}
+          </span>
+          {(status === "passed" || status === "failed") && totalSteps > 0 ? (
+            <span className={`font-medium ${
+              failedCount === 0
+                ? "text-green-600"
+                : failedCount === totalSteps
+                ? "text-red-600"
+                : "text-amber-600"
+            }`}>
+              {failedCount === 0
+                ? t("allPassed")
+                : `${passedCount}/${totalSteps} ${t("passedLabel")}`}
+            </span>
+          ) : (
+            <span>{progress}%</span>
+          )}
         </div>
         <div className="h-1.5 rounded-full bg-gray-100">
-          <div
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              status === "passed"
-                ? "bg-green-500"
-                : status === "failed"
-                ? "bg-red-400"
-                : status === "connecting" || status === "waiting"
-                ? "bg-gray-300"
-                : "bg-blue-500"
-            }`}
-            style={{ width: `${status === "passed" || status === "failed" ? 100 : status === "connecting" || status === "waiting" ? 5 : progress}%` }}
-          />
+          {(status === "passed" || status === "failed") && failedCount > 0 ? (
+            <div className="flex h-1.5 overflow-hidden rounded-full">
+              <div
+                className="h-full bg-green-500 transition-all duration-300"
+                style={{ width: `${passedPct}%` }}
+              />
+              <div
+                className="h-full bg-red-400 transition-all duration-300"
+                style={{ width: `${failedPct}%` }}
+              />
+            </div>
+          ) : (
+            <div
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                status === "passed"
+                  ? "bg-green-500"
+                  : status === "failed"
+                  ? "bg-red-400"
+                  : status === "connecting" || status === "waiting"
+                  ? "bg-gray-300"
+                  : "bg-blue-500"
+              }`}
+              style={{ width: `${status === "passed" || status === "failed" ? 100 : status === "connecting" || status === "waiting" ? 5 : progress}%` }}
+            />
+          )}
         </div>
       </div>
 
