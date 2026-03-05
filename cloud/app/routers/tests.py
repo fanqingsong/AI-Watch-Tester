@@ -550,6 +550,11 @@ If you generate tests for features the user did NOT ask for, your response is WR
 8. **NO-SUBSTITUTION RULE**: If the requested feature does NOT exist in the data,
    return an EMPTY array []. NEVER substitute a different feature.
    "회원가입" requested but only "로그인" exists → return [], NOT a login test.
+   CRITICAL: Login and signup are completely DIFFERENT pages with DIFFERENT forms.
+   - /login page → login test only. NEVER generate signup tests here.
+   - /signup or /register page → signup test only. NEVER generate login tests here.
+   - If AUTH page_type is "registration" in observations, it is a SIGNUP page.
+   - If AUTH page_type is "login" in observations, it is a LOGIN page.
 
 9. **TEST INDEPENDENCE**: Each scenario MUST start with navigate to {{{{url}}}}.
 
@@ -588,12 +593,23 @@ Return the scenarios as a JSON array. Each step target should include:
 - "selector": CSS selector from observation data (preferred)
 - "text": visible text label (fallback)
 
+12. **NEGATIVE CHECK — ERROR DETECTION**:
+    After form submission, also consider error states. If the test uses INVALID
+    credentials or data, the assert should detect the ERROR message or ERROR page:
+    - assert text_visible with error text (e.g., "Invalid email", "비밀번호가 틀렸습니다")
+    - assert NOT url_contains "/dashboard" (should NOT navigate away from form)
+    For POSITIVE (happy path) tests with valid data, assert that NO error message
+    appeared and the page transitioned successfully.
+    If the page stays on the same URL after submit AND shows error-like text
+    (e.g., "오류", "error", "invalid", "실패"), the test should be marked FAILED.
+
 FINAL CHECK: Before responding, verify:
 1. Does every scenario match the user's request? (NOT other features)
 2. Does every form-feature test include find_and_type steps?
 3. Does the submit click use SUBMIT[form], not SUBMIT[nav]?
 4. Does every form scenario have an assert step AFTER the submit click?
    If the last step is find_and_click (submit) → ADD wait + assert.
+5. Does the assert distinguish success vs error states?
 Remove any scenario that tests a feature the user did NOT request.\
 """
 

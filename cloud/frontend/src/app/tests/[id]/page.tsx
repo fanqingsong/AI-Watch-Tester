@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import {
   getTest,
@@ -181,6 +181,7 @@ export default function TestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const locale = useLocale();
   const t = useTranslations("testDetail");
   const tc = useTranslations("common");
   const [test, setTest] = useState<TestItem | null>(null);
@@ -234,7 +235,7 @@ export default function TestDetailPage() {
     setGeneratingFix(scenarioId);
     setFixGuideError(null);
     try {
-      const guide = await generateFixGuide(testId, scenarioId);
+      const guide = await generateFixGuide(testId, scenarioId, locale);
       setFixGuides((prev) => [guide, ...prev.filter((g) => g.scenario_id !== scenarioId)]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";

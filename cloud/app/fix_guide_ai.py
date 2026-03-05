@@ -61,7 +61,21 @@ Respond ONLY with valid JSON (no markdown fences) in this format:
 
 If the failure is due to a test configuration issue (not a code bug), still provide
 the JSON with a helpful summary and an empty files array.
+
+IMPORTANT: Write ALL text values (summary, explanation) in {response_language}.
+Code snippets (original, suggested, path) remain in their original language.
 """
+
+# Map locale code → language name for the prompt
+_LOCALE_TO_LANG: dict[str, str] = {
+    "ko": "Korean",
+    "en": "English",
+    "ja": "Japanese",
+    "zh": "Chinese",
+    "vi": "Vietnamese",
+    "th": "Thai",
+    "id": "Indonesian",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +301,7 @@ async def generate_fix_guide(
     ai_config: object,
     *,
     github_info: dict | None = None,
+    locale: str = "en",
 ) -> dict:
     """Generate a fix guide using AI.
 
@@ -296,6 +311,7 @@ async def generate_fix_guide(
         target_url: The test target URL.
         ai_config: AIConfig object with provider/api_key/model.
         github_info: Optional {"pat", "owner", "repo", "branch"} for source context.
+        locale: UI locale code (e.g. "ko", "en") → AI responds in this language.
 
     Returns:
         {"summary": ..., "files": [...]} or raises.
@@ -326,12 +342,15 @@ async def generate_fix_guide(
         except Exception:
             logger.warning("Source context fetch failed", exc_info=True)
 
+    response_language = _LOCALE_TO_LANG.get(locale, locale or "English")
+
     prompt = FIX_GUIDE_PROMPT.format(
         scenario_name=scenario_result.get("scenario_name", "Unknown"),
         scenario_id=scenario_result.get("scenario_id", "unknown"),
         target_url=target_url,
         failed_steps=_format_failed_steps(scenario_result),
         source_context=source_context,
+        response_language=response_language,
     )
 
     # Call adapter's _call_api — returns parsed JSON directly.

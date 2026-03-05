@@ -688,6 +688,11 @@ CRITICAL RULES:
    - tab → test tab switching with actual tab labels
    - carousel → test slide navigation
    - form → test input validation with actual fields
+12. **NEGATIVE CHECK — ERROR DETECTION**: For form tests, consider both success and
+   error states. After submit, if the page stays on the same URL AND shows error text
+   (e.g., "오류", "error", "invalid", "실패"), the test should detect this as failure.
+   Happy-path tests should assert URL change or success text; error-path tests should
+   assert error message visibility.
 
 ## Site Info
 - URL: {target_url}
@@ -737,9 +742,12 @@ CATEGORY "forms" - Form Validation (auto_selected: true, only if forms found):
 - For each form found, generate an input validation test
 - Use actual field names and selectors
 
-CATEGORY "auth" - Authentication (only if login_form detected):
-- Login flow test — requires_auth: true
-- Mark auth_fields needed
+CATEGORY "auth" - Authentication (only if login_form or signup detected):
+- Login and signup are SEPARATE tests — NEVER combine them in one test.
+- If AUTH page_type is "login" in observations → generate login test ONLY for that page.
+- If AUTH page_type is "registration" in observations → generate signup test ONLY for that page.
+- A signup page MUST NOT be used for a login test (different forms, different fields).
+- Mark auth_fields and requires_auth as needed.
 
 CATEGORY "business" - Business Flows (based on detected features):
 - Only for features actually detected in the crawl
@@ -1359,6 +1367,23 @@ def _build_observation_table(observations: list[dict]) -> str:
                         f"    * type={f_type}, selector={f_sel}, "
                         f"placeholder={f_ph!r}, label={f_label!r}, name={f_name!r}"
                     )
+
+        # Auth pattern — tells AI whether this is login or signup
+        auth_info = obs.get("auth_pattern")
+        if auth_info:
+            pt = auth_info.get("page_type", "unknown")
+            pat = auth_info.get("pattern", "")
+            lines.append(f"  - AUTH page_type: {pt} (pattern: {pat})")
+            if pt == "registration":
+                lines.append(
+                    "    ⚠ This is a SIGNUP/REGISTRATION page. "
+                    "Do NOT generate login tests for this page."
+                )
+            elif pt == "login":
+                lines.append(
+                    "    ⚠ This is a LOGIN page. "
+                    "Do NOT generate signup tests for this page."
+                )
 
         # Accordion expanded content
         accordion_detail = obs.get("accordion_detail", {})

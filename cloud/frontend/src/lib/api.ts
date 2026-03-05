@@ -727,10 +727,12 @@ export interface FixGuideItem {
 
 export async function generateFixGuide(
   testId: number,
-  scenarioId?: string
+  scenarioId?: string,
+  locale?: string
 ): Promise<FixGuideItem> {
   const body: Record<string, unknown> = {};
   if (scenarioId) body.scenario_id = scenarioId;
+  if (locale) body.locale = locale;
   const res = await authFetch(`/api/tests/${testId}/fix-guide`, {
     method: "POST",
     body: JSON.stringify(body),

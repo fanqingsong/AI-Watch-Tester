@@ -340,6 +340,7 @@ class FixGuideRequest(BaseModel):
     """POST /api/tests/{id}/fix-guide request body."""
 
     scenario_id: str | None = None  # If None, first failed scenario
+    locale: str = "en"  # UI locale → AI responds in this language
 
 
 class FixGuideFileChange(BaseModel):

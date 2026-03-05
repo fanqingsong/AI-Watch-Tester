@@ -150,6 +150,7 @@ async def generate_fix_guide_endpoint(
             target_url=test.target_url,
             ai_config=ai_config,
             github_info=github_info,
+            locale=body.locale,
         )
 
         guide.summary = result_data.get("summary", "")
