@@ -464,7 +464,7 @@
     "apiKeyLabel": "API 키",
     "apiKeyPlaceholder": "sk-...",
     "model": "모델",
-    "modelPlaceholder": "gpt-4o (비워두면 기본값 사용)",
+    "modelPlaceholder": "gpt-4o-mini (비워두면 기본값 사용)",
     "testConnection": "연결 테스트",
     "testingConnection": "테스트 중...",
     "saveConfig": "저장",

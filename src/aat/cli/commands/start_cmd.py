@@ -102,7 +102,7 @@ async def _start_guided(config_path: str | None) -> None:
     # Model
     default_models = {
         "claude": "claude-sonnet-4-20250514",
-        "openai": "gpt-4o",
+        "openai": "gpt-4o-mini",
         "ollama": "codellama:7b",
     }
     default_model = default_models.get(provider, "")

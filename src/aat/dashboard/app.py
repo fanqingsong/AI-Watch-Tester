@@ -44,7 +44,7 @@ from aat.dashboard.subprocess_manager import ProcessStatus, SubprocessManager
 _ENV_PROVIDER_MAP: list[tuple[str, str, str]] = [
     # (env_var_name, provider_name, default_model)
     ("ANTHROPIC_API_KEY", "claude", "claude-sonnet-4-20250514"),
-    ("OPENAI_API_KEY", "openai", "gpt-4o"),
+    ("OPENAI_API_KEY", "openai", "gpt-4o-mini"),
     ("OLLAMA_HOST", "ollama", "codellama:7b"),
 ]
 

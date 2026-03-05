@@ -187,7 +187,7 @@ async def _test_openai(api_key: str, model: str) -> dict:
         if resp.status_code == 200:
             data = resp.json()
             models = [m["id"] for m in data.get("data", [])]
-            target = model or "gpt-4o"
+            target = model or "gpt-4o-mini"
             available = target in models
             found_msg = (
                 f" Model '{target}' found."

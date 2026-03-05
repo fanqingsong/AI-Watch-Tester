@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_AI_MODELS: dict[str, str] = {
     "claude": "claude-sonnet-4-20250514",
-    "openai": "gpt-4o",
+    "openai": "gpt-4o-mini",
     "ollama": "codellama:7b",
 }
 

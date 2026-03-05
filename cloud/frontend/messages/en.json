@@ -464,7 +464,7 @@
     "apiKeyLabel": "API Key",
     "apiKeyPlaceholder": "sk-...",
     "model": "Model",
-    "modelPlaceholder": "gpt-4o (default if empty)",
+    "modelPlaceholder": "gpt-4o-mini (default if empty)",
     "testConnection": "Test Connection",
     "testingConnection": "Testing...",
     "saveConfig": "Save",
