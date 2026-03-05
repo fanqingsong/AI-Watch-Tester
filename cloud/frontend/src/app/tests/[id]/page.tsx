@@ -892,6 +892,72 @@ function ScenarioViewer({
  * Handles the specific format used by AAT scenario generation.
  */
 /* ------------------------------------------------------------------ */
+/* Diff Safety Analysis                                                 */
+/* ------------------------------------------------------------------ */
+
+interface FixGuideFileChange {
+  path: string;
+  action: string;
+  original?: string;
+  suggested?: string;
+  explanation?: string;
+}
+
+interface DiffStats {
+  totalAdded: number;
+  totalRemoved: number;
+  filesChanged: number;
+  warnings: string[];
+}
+
+function analyzeDiff(files: FixGuideFileChange[]): DiffStats {
+  let totalAdded = 0;
+  let totalRemoved = 0;
+  const warnings: string[] = [];
+
+  for (const file of files) {
+    const origLines = (file.original || "").split("\n").filter(l => l.trim()).length;
+    const sugLines = (file.suggested || "").split("\n").filter(l => l.trim()).length;
+    totalRemoved += origLines;
+    totalAdded += sugLines;
+
+    // 1. Major deletion: >50% of file removed
+    if (file.action === "modify" && origLines > 10) {
+      const deleteRatio = origLines > 0 ? (origLines - sugLines) / origLines : 0;
+      if (deleteRatio > 0.5) {
+        warnings.push("warnMajorDeletion");
+      }
+    }
+
+    // 2. All imports removed
+    if (file.action === "modify" && file.original && file.suggested) {
+      const origImports = (file.original.match(/^(import |from .+ import )/gm) || []).length;
+      const sugImports = (file.suggested.match(/^(import |from .+ import )/gm) || []).length;
+      if (origImports >= 3 && sugImports === 0) {
+        warnings.push("warnImportsRemoved");
+      }
+    }
+
+    // 3. Large block replaced with stub
+    if (file.action === "modify" && origLines > 20 && sugLines < origLines * 0.2) {
+      warnings.push("warnReplacedWithStub");
+    }
+  }
+
+  // 4. Deletions exceed additions by 10x
+  if (totalRemoved > 0 && totalAdded > 0 && totalRemoved > totalAdded * 10) {
+    warnings.push("warnExcessiveDeletion");
+  }
+
+  return {
+    totalAdded,
+    totalRemoved,
+    filesChanged: files.length,
+    warnings: [...new Set(warnings)],
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Fix Guide Section                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -975,7 +1041,9 @@ function FixGuideSection({
     );
   }
 
-  // Guide exists
+  // Guide exists — analyze diff for safety warnings
+  const stats = analyzeDiff(guide.files as FixGuideFileChange[]);
+
   return (
     <div className="border-t border-gray-100 px-4 py-4">
       <div className="mb-3 flex items-center gap-2">
@@ -1002,10 +1070,25 @@ function FixGuideSection({
         <p className="mb-3 text-sm text-gray-700">{guide.summary}</p>
       )}
 
+      {/* Safety warning banner */}
+      {stats.warnings.length > 0 && (
+        <div className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-medium text-amber-800">&#9888;&#65039; {t("fixSafetyTitle")}</p>
+          <ul className="mt-1 list-disc pl-4 text-xs text-amber-700">
+            {stats.warnings.map(w => <li key={w}>{t(w)}</li>)}
+          </ul>
+        </div>
+      )}
+
       {/* File changes */}
       {guide.files.length > 0 && (
         <div className="mb-3 space-y-2">
-          {guide.files.map((file, idx) => (
+          {guide.files.map((file, idx) => {
+            const origLines = (file.original || "").split("\n").filter((l: string) => l.trim()).length;
+            const sugLines = (file.suggested || "").split("\n").filter((l: string) => l.trim()).length;
+            const isHighDeletion = file.action === "modify" && origLines > 10 && origLines > 0 && (origLines - sugLines) / origLines > 0.5;
+
+            return (
             <div key={idx} className="rounded border border-gray-200">
               <button
                 onClick={() => toggleFile(idx)}
@@ -1027,6 +1110,14 @@ function FixGuideSection({
                 <span className="flex-1 font-mono text-xs text-gray-700">
                   {file.path}
                 </span>
+                <span className="text-[10px] text-gray-400">
+                  +{sugLines} / -{origLines}
+                </span>
+                {isHighDeletion && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                    &#9888;&#65039;
+                  </span>
+                )}
                 <svg
                   className={`h-4 w-4 text-gray-400 transition-transform ${
                     expandedFiles.has(idx) ? "rotate-180" : ""
@@ -1073,7 +1164,8 @@ function FixGuideSection({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1096,7 +1188,10 @@ function FixGuideSection({
 
       {/* Approve / Reject buttons */}
       {guide.status === "ready" && (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs ${stats.warnings.length > 0 ? "text-amber-600 font-medium" : "text-gray-500"}`}>
+            {t("diffSummary", { files: stats.filesChanged, added: stats.totalAdded, removed: stats.totalRemoved })}
+          </span>
           <button
             onClick={() => onApprove(guide.id)}
             disabled={approvingFix === guide.id}

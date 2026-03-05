@@ -342,7 +342,13 @@
     "suggestedCode": "수정안",
     "fileModify": "수정",
     "fileCreate": "생성",
-    "fileDelete": "삭제"
+    "fileDelete": "삭제",
+    "fixSafetyTitle": "승인 전 신중히 검토하세요",
+    "warnMajorDeletion": "이 수정은 파일의 대부분을 삭제합니다. 신중히 검토하세요.",
+    "warnImportsRemoved": "모든 import 문이 삭제됩니다. 파일이 동작하지 않을 수 있습니다.",
+    "warnReplacedWithStub": "대량의 코드가 매우 짧은 코드로 교체됩니다.",
+    "warnExcessiveDeletion": "삭제량이 추가량의 10배 이상입니다.",
+    "diffSummary": "{files}개 파일  +{added} / -{removed}"
   },
   "progress": {
     "connecting": "연결 중...",

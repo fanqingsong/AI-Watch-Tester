@@ -342,7 +342,13 @@
     "suggestedCode": "Suggested",
     "fileModify": "Modify",
     "fileCreate": "Create",
-    "fileDelete": "Delete"
+    "fileDelete": "Delete",
+    "fixSafetyTitle": "Review carefully before approving",
+    "warnMajorDeletion": "This change deletes most of the file. Review carefully.",
+    "warnImportsRemoved": "All import statements are removed. The file may not function.",
+    "warnReplacedWithStub": "A large block of code is replaced with a very short snippet.",
+    "warnExcessiveDeletion": "Deletions exceed additions by 10x or more.",
+    "diffSummary": "{files} file(s)  +{added} / -{removed}"
   },
   "progress": {
     "connecting": "Connecting...",
