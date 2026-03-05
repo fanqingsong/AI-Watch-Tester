@@ -1521,6 +1521,14 @@ def build_language_instruction(site_lang: str) -> str:
     Only emitted when the site is detected as English, to prevent
     Korean scenario text on English-language sites.
     """
+    common_suffix = (
+        "- NEVER generate scenarios that CHECK or VERIFY the page language itself.\n"
+        '  WRONG: "Verify that page content is in English"\n'
+        '  WRONG: "Verify page displays Korean text"\n'
+        "  Language verification is NOT a valid E2E test.\n"
+        "- ALL assert values MUST be EXACT text copied from page data or observations.\n"
+        "  NEVER invent assert text — copy-paste only.\n"
+    )
     if site_lang == "en":
         return (
             "\n## ========== LANGUAGE RULE (CRITICAL) ==========\n"
@@ -1531,6 +1539,7 @@ def build_language_instruction(site_lang: str) -> str:
             "- Test data: use English (e.g., 'Test User', 'awttest@example.com')\n"
             "- NEVER use Korean (한글) for ANY generated text — only copy Korean if it\n"
             "  appears verbatim in the page data or observation data.\n"
+            + common_suffix
         )
     if site_lang == "ko":
         return (
@@ -1538,8 +1547,9 @@ def build_language_instruction(site_lang: str) -> str:
             "This is a KOREAN-language website. Use Korean for scenario names,\n"
             "descriptions, and test data where appropriate.\n"
             "Copy form field labels and button text EXACTLY as they appear in the data.\n"
+            + common_suffix
         )
-    return ""
+    return "\n" + common_suffix
 
 
 # ---------------------------------------------------------------------------

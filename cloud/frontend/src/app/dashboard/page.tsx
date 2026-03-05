@@ -125,6 +125,8 @@ export default function DashboardPage() {
   }
 
   const handleConvert = async () => {
+    const normalizedUrl = normalizeUrl(url);
+    if (normalizedUrl !== url) setUrl(normalizedUrl);
     setError("");
     setConverting(true);
     setConvertedYaml("");
@@ -152,7 +154,7 @@ export default function DashboardPage() {
     });
 
     try {
-      const result = await convertScenario(url, customPrompt, "en", undefined, sessionId);
+      const result = await convertScenario(normalizedUrl, customPrompt, "en", undefined, sessionId);
       setConvertedYaml(result.scenario_yaml);
       setConvertedInfo({ count: result.scenarios_count, steps: result.steps_total });
       setConvertValidation(result.validation || []);
@@ -168,6 +170,8 @@ export default function DashboardPage() {
   };
 
   const handleGenerateAdditional = async () => {
+    const normalizedUrl = normalizeUrl(url);
+    if (normalizedUrl !== url) setUrl(normalizedUrl);
     setError("");
     setAdditionalConverting(true);
     setAdditionalYaml("");
@@ -194,7 +198,7 @@ export default function DashboardPage() {
     });
 
     try {
-      const result = await convertScenario(url, additionalPrompt, "en", activeScan?.id, sessionId);
+      const result = await convertScenario(normalizedUrl, additionalPrompt, "en", activeScan?.id, sessionId);
       setAdditionalYaml(result.scenario_yaml);
       setAdditionalInfo({ count: result.scenarios_count, steps: result.steps_total });
       if (result.relevance) {
@@ -211,6 +215,8 @@ export default function DashboardPage() {
   };
 
   const handleRunConverted = async () => {
+    const normalizedUrl = normalizeUrl(url);
+    if (normalizedUrl !== url) setUrl(normalizedUrl);
     setError("");
     setSubmitting(true);
     setActiveTest(null);
@@ -219,7 +225,7 @@ export default function DashboardPage() {
 
     try {
       // Create test with pre-built YAML → goes straight to QUEUED
-      const test = await createTest(url, "auto", convertedYaml);
+      const test = await createTest(normalizedUrl, "auto", convertedYaml);
       setActiveTest(test);
       setPhase("executing");
       setConvertedYaml("");
@@ -275,6 +281,8 @@ export default function DashboardPage() {
 
   // -- Smart Scan handlers --
   const handleStartScan = async () => {
+    const normalizedUrl = normalizeUrl(url);
+    if (normalizedUrl !== url) setUrl(normalizedUrl);
     setError("");
     setScanPhase("scanning");
     planTriggeredRef.current = false;
@@ -286,7 +294,7 @@ export default function DashboardPage() {
     setTestData({});
 
     try {
-      const scan = await startScan(url);
+      const scan = await startScan(normalizedUrl);
       setActiveScan(scan);
 
       const triggerPlan = (scanId: number) => {
@@ -532,7 +540,19 @@ export default function DashboardPage() {
 
   const isBusy = submitting || additionalConverting || (phase !== "idle" && phase !== "done");
 
-  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/.test(url);
+  const normalizeUrl = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const handleUrlBlur = () => {
+    const normalized = normalizeUrl(url);
+    if (normalized !== url) setUrl(normalized);
+  };
+
+  const isLocalhost = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(url.trim());
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -599,6 +619,7 @@ export default function DashboardPage() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            onBlur={handleUrlBlur}
             required
             placeholder={t("urlPlaceholder")}
             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
@@ -608,11 +629,21 @@ export default function DashboardPage() {
         {/* Localhost warning */}
         {isLocalhost && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <strong>{t("localhostWarning")}</strong>{" "}
-            {t("localhostHint", { command: "aat serve" })}{" "}
-            <a href="https://github.com/ksgisang/AI-Watch-Tester#local-mode" target="_blank" rel="noopener noreferrer" className="font-medium text-amber-900 underline">
-              {t("localhostGuide")}
-            </a>
+            <p className="font-semibold">⚠️ {t("localhostWarning")}</p>
+            <ul className="mt-2 list-inside list-disc space-y-1 text-amber-700">
+              <li>
+                {t("localhostOption1")}{" "}
+                <a href="https://ngrok.com/docs/getting-started/" target="_blank" rel="noopener noreferrer" className="font-medium text-amber-900 underline">
+                  {t("localhostNgrokLink")}
+                </a>
+              </li>
+              <li>
+                {t("localhostOption2")}{" "}
+                <a href="https://github.com/ksgisang/AI-Watch-Tester#local-mode" target="_blank" rel="noopener noreferrer" className="font-medium text-amber-900 underline">
+                  {t("localhostGuide")}
+                </a>
+              </li>
+            </ul>
           </div>
         )}
 

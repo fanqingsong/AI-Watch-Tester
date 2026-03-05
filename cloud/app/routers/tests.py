@@ -572,6 +572,19 @@ If you generate tests for features the user did NOT ask for, your response is WR
     b. text_visible: verify NEW content appeared (success message, next step heading)
     c. text_visible: verify the form page CHANGED (step 2 content replaced step 1)
 
+    **LOGIN ASSERT — MUST VERIFY REDIRECT (CRITICAL)**:
+    Login success = the page REDIRECTS to a different URL (e.g., /dashboard, /home, /board).
+    If the URL stays on /login after submit, the login FAILED.
+    EVERY login scenario MUST include a url_contains assert with the REDIRECT TARGET:
+    - assert url_contains "/dashboard" or "/home" or "/board" (the post-login page)
+    - If redirect target is unknown, use url_contains "/" (root) — login pages
+      typically have a path like /login, /signin, so redirecting to / is a valid check
+    WRONG: assert text_visible "Verify login page content" → checks login page itself
+    WRONG: assert text_visible with text that exists on the login page
+    WRONG: only assert text without checking URL change after login
+    RIGHT: assert url_contains "/dashboard" → confirms actual redirect happened
+    RIGHT: assert url_contains "/board" → confirms navigation away from login
+
     Example for multi-step signup (step 1 → step 2):
     step N:   find_and_click SUBMIT[form] '다음'
     step N+1: wait 1500ms
@@ -581,7 +594,8 @@ If you generate tests for features the user did NOT ask for, your response is WR
     Example for login:
     step N:   find_and_click SUBMIT[form] '로그인'
     step N+1: wait 1500ms
-    step N+2: assert url_contains "/dashboard" OR text_visible "환영합니다"
+    step N+2: assert url_contains "/dashboard" (the redirect target, NOT "/login")
+    step N+3: (optional) assert text_visible "환영합니다" (post-login text only)
 
     If you don't know the exact post-submit text, assert url_contains with the
     form page path (e.g., the URL should NO LONGER be the same as before submit).
@@ -603,6 +617,16 @@ Return the scenarios as a JSON array. Each step target should include:
     If the page stays on the same URL after submit AND shows error-like text
     (e.g., "오류", "error", "invalid", "실패"), the test should be marked FAILED.
 
+13. **NO LANGUAGE-CHECKING ASSERTS**:
+    NEVER generate scenarios that verify the LANGUAGE of the page
+    (e.g., "Verify page content is in English", "Check Korean text").
+    Language verification is NOT a valid E2E test.
+    Assert values MUST be EXACT text copied from the Page Data or Observations.
+    WRONG: assert text_visible "page content is in English"
+    WRONG: assert text_visible "Fix it like this" (invented English text)
+    RIGHT: assert text_visible "로그인" (actual text from page data)
+    RIGHT: assert text_visible "Welcome back" (actual text from page data)
+
 FINAL CHECK: Before responding, verify:
 1. Does every scenario match the user's request? (NOT other features)
 2. Does every form-feature test include find_and_type steps?
@@ -610,6 +634,8 @@ FINAL CHECK: Before responding, verify:
 4. Does every form scenario have an assert step AFTER the submit click?
    If the last step is find_and_click (submit) → ADD wait + assert.
 5. Does the assert distinguish success vs error states?
+6. Does every login scenario assert URL change via url_contains (redirect target)?
+7. Is every assert value copied EXACTLY from page data? (no invented text)
 Remove any scenario that tests a feature the user did NOT request.\
 """
 

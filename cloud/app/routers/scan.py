@@ -693,6 +693,13 @@ CRITICAL RULES:
    (e.g., "오류", "error", "invalid", "실패"), the test should detect this as failure.
    Happy-path tests should assert URL change or success text; error-path tests should
    assert error message visibility.
+13. **LOGIN MUST VERIFY REDIRECT**: Login tests MUST assert url_contains with the
+   redirect target (e.g., "/dashboard", "/board"). Login success = user leaves
+   the login page. If URL stays on /login, login FAILED.
+   Test descriptions should say "Verify redirect to dashboard", NOT "Verify login page content".
+14. **NO LANGUAGE-CHECKING TESTS**: NEVER generate tests that verify the page language
+   (e.g., "Verify English content", "Check Korean text"). Language is NOT a test target.
+   All assert text must be EXACT text from crawl data, not invented content.
 
 ## Site Info
 - URL: {target_url}
@@ -1500,9 +1507,16 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
    a. url_contains: verify URL changed after submission
    b. text_visible: verify new content appeared (success message, next step)
    For confirm password fields, use the SAME value as the password: "TestPass123!"
-   **LOGIN REDIRECT RULE**: After LOGIN form submit → the page typically REDIRECTS
+   **LOGIN REDIRECT RULE (CRITICAL)**: After LOGIN form submit → the page REDIRECTS
    (302) to a different page (e.g., /board, /dashboard, /index).
-   Assert the REDIRECTED page content, NOT login page text.
+   Login success = the URL is NO LONGER /login (or the login page path).
+   EVERY login scenario MUST include a url_contains assert with the REDIRECT TARGET:
+   - assert url_contains "/dashboard" or "/board" (use observed after.url)
+   - If redirect target unknown, use url_contains "/" (root page, not /login)
+   WRONG: assert text_visible "Verify login page content" → checks login page itself
+   WRONG: assert text_visible with text on BOTH login page AND destination page
+   RIGHT: assert url_contains "/board" (from observation after.url)
+   RIGHT: assert url_contains "/dashboard" → confirms redirect happened
    Use url_contains or text_visible from the observation "new_text" / "after.url"
    which shows the post-redirect page content. For example, if after.url is "/board"
    and new_text includes "게시판", assert text_visible "게시판" — NOT "로그인".
@@ -1510,6 +1524,16 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
    to login page or main page. Assert the REDIRECTED page (e.g., url_contains "/login"
    or text_visible for login page text). NEVER assert registration form text like
    "1단계" or "계정 정보" — those are from BEFORE submission.
+
+12. **NO LANGUAGE-CHECKING ASSERTS**:
+   NEVER generate scenarios that verify the LANGUAGE of the page
+   (e.g., "Verify page content is in English", "Check Korean text").
+   Language verification is NOT a valid E2E test.
+   Assert values MUST be EXACT text copied from the Observation Table or Crawl Data.
+   WRONG: assert text_visible "page content is in English"
+   WRONG: assert text_visible "Fix it like this" (invented English text)
+   RIGHT: assert text_visible "로그인" (actual text from observation data)
+   RIGHT: assert text_visible "Welcome back" (actual text from crawl data)
 
 ## ========== END ABSOLUTE RULES ==========
 
@@ -1601,6 +1625,9 @@ FINAL CHECK before responding:
    If not, REMOVE that assert step.
 2. Does every form scenario end with assert AFTER submit? If last step is find_and_click (submit),
    ADD wait + assert.
+3. Does every login scenario assert URL change via url_contains (redirect target)?
+   A login test that only checks text on the login page is WRONG.
+4. Is every assert value REAL text from page data? No invented text, no language checks.
 
 Return ONLY valid JSON array.\
 """
