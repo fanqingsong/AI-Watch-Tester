@@ -237,6 +237,7 @@ class ScanExecuteRequest(BaseModel):
     auth_data: dict[str, str] = {}
     test_data: dict[str, str] = {}
     additional_yaml: str = ""
+    force_regenerate: bool = False
 
 
 # -- Documents --

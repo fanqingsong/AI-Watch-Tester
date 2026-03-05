@@ -127,6 +127,28 @@ class Scan(Base):
     )
 
 
+class ScenarioCache(Base):
+    """Cached AI-generated scenarios keyed by (user, url, fingerprint).
+
+    Avoids redundant AI calls when site structure hasn't changed.
+    """
+
+    __tablename__ = "scenario_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    scan_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    selected_tests_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    scenario_yaml: Mapped[str] = mapped_column(Text, nullable=False)
+    steps_total: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+
+
 class Document(Base):
     """User-uploaded reference document (stored as base64)."""
 

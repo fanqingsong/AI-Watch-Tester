@@ -111,7 +111,7 @@ def create_adapter() -> Any:
         pytest.skip("No API key set (OPENAI_API_KEY or AWT_AI_API_KEY)")
 
     provider = os.environ.get("AWT_AI_PROVIDER", "openai")
-    model = DEFAULT_AI_MODELS.get(provider, "gpt-4o")
+    model = DEFAULT_AI_MODELS.get(provider, "gpt-4o-mini")
 
     config = AIConfig(
         provider=provider,

@@ -17,7 +17,8 @@ from app.auth import get_current_user
 from app.config import settings
 from app.crawler import crawl_site, get_scan_limits
 from app.database import get_db
-from app.models import Scan, ScanStatus, User
+from app.models import Scan, ScanStatus, ScenarioCache, User
+from app.scan_diff import compute_scan_fingerprint, compute_tests_hash
 from app.scenario_utils import (
     DEFAULT_AI_MODELS as _DEFAULT_MODELS,
 )
@@ -1847,6 +1848,44 @@ async def execute_scan_tests(
             stuck_test.id, user.id,
         )
 
+    # --- Scenario cache check (skip AI if site unchanged) ---
+    force_regen = getattr(body, "force_regenerate", False)
+    fingerprint = compute_scan_fingerprint(pages, observations)
+    tests_hash = compute_tests_hash(body.selected_tests)
+
+    if not force_regen:
+        cache_hit = (await db.execute(
+            select(ScenarioCache).where(
+                ScenarioCache.user_id == user.id,
+                ScenarioCache.target_url == str(scan.target_url),
+                ScenarioCache.scan_fingerprint == fingerprint,
+                ScenarioCache.selected_tests_hash == tests_hash,
+            ).order_by(ScenarioCache.created_at.desc()).limit(1)
+        )).scalar_one_or_none()
+
+        if cache_hit:
+            test = Test(
+                user_id=user.id,
+                target_url=scan.target_url,
+                status=TestStatus.QUEUED,
+                scenario_yaml=cache_hit.scenario_yaml,
+                steps_total=cache_hit.steps_total,
+            )
+            db.add(test)
+            await db.commit()
+            await db.refresh(test)
+            logger.info(
+                "Cache HIT (scan_id=%d): reusing cached scenarios "
+                "(fingerprint=%s, %d steps). AI calls saved.",
+                scan_id, fingerprint, cache_hit.steps_total,
+            )
+            return {
+                "test_id": test.id,
+                "status": "queued",
+                "cached": True,
+                "message": "No site changes detected — reusing previous scenarios.",
+            }
+
     # Create Test record with GENERATING status (no scenario_yaml yet)
     test = Test(
         user_id=user.id,
@@ -1887,6 +1926,8 @@ async def execute_scan_tests(
         best_auth=best_auth,
         additional_yaml=body.additional_yaml,
         language_instruction=lang_instruction,
+        fingerprint=fingerprint,
+        tests_hash=tests_hash,
     ))
 
     return {"test_id": test_id, "status": "generating"}
@@ -1968,6 +2009,8 @@ async def _bg_generate_scenarios(
     best_auth: dict[str, Any] | None,
     additional_yaml: str,
     language_instruction: str = "",
+    fingerprint: str = "",
+    tests_hash: str = "",
 ) -> None:
     """Background task: parallel AI batch generation + post-processing."""
     from app.database import async_session
@@ -2113,7 +2156,7 @@ async def _bg_generate_scenarios(
 
         total_steps = sum(len(s.steps) for s in scenarios)
 
-        # Update Test record: GENERATING → QUEUED
+        # Update Test record: GENERATING → QUEUED + save to cache
         async with async_session() as session:
             from app.models import Test, TestStatus
 
@@ -2124,6 +2167,23 @@ async def _bg_generate_scenarios(
             test.steps_total = total_steps
             test.status = TestStatus.QUEUED
             test.updated_at = datetime.now(UTC)
+
+            # Save to scenario cache for future reuse
+            if fingerprint and tests_hash:
+                cache_entry = ScenarioCache(
+                    user_id=test.user_id,
+                    target_url=target_url,
+                    scan_fingerprint=fingerprint,
+                    selected_tests_hash=tests_hash,
+                    scenario_yaml=scenario_yaml,
+                    steps_total=total_steps,
+                )
+                session.add(cache_entry)
+                logger.info(
+                    "BG: Cached scenarios (fingerprint=%s, tests=%s)",
+                    fingerprint, tests_hash,
+                )
+
             await session.commit()
 
         logger.info(
