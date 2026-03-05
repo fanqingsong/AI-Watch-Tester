@@ -1713,6 +1713,7 @@ def _extract_site_wide_texts(page_data: list[dict]) -> set[str]:
     visible both before and after login.
     """
     texts: set[str] = set()
+    titles: list[str] = []
     for p in page_data:
         # Navigation menu items — present on every page
         for menu in p.get("nav_menus", []):
@@ -1720,10 +1721,42 @@ def _extract_site_wide_texts(page_data: list[dict]) -> set[str]:
                 t = (item.get("text") or "").strip()
                 if t:
                     texts.add(t.lower())
-        # Page title / meta
+        # Collect titles for common-prefix extraction
         title = (p.get("title") or "").strip()
         if title:
-            texts.add(title.lower())
+            titles.append(title.lower())
+
+    # Extract common title prefix (site name) across pages
+    # e.g., ["swag labs - login", "swag labs - products"] → "swag labs"
+    if len(titles) >= 2:
+        prefix = titles[0]
+        for t in titles[1:]:
+            while prefix and not t.startswith(prefix):
+                prefix = prefix[:-1]
+        # Clean trailing separators (-, |, :, spaces)
+        prefix = prefix.rstrip(" -|:").strip()
+        if prefix and len(prefix) >= 3:
+            texts.add(prefix)
+    elif titles:
+        texts.add(titles[0])
+
+    return texts
+
+
+def _extract_placeholder_texts(page_data: list[dict]) -> set[str]:
+    """Extract form field placeholders/labels from page data.
+
+    These should never be used as text_visible assert values because
+    placeholders are inside input elements, not visible page text.
+    """
+    texts: set[str] = set()
+    for p in page_data:
+        for form in p.get("forms", []):
+            for field in form.get("fields", []):
+                for key in ("placeholder", "label"):
+                    t = (field.get(key) or "").strip()
+                    if t and len(t) >= 3:
+                        texts.add(t.lower())
     return texts
 
 
@@ -1786,6 +1819,50 @@ def _get_login_page_path(scenario: dict | object) -> str:
     return "/"
 
 
+def _find_post_login_url(
+    observed_urls: set[str], login_page_path: str,
+) -> str:
+    """Find a likely post-login URL from observed URLs.
+
+    Returns the best candidate path (not the login page itself),
+    or empty string if none found.
+    """
+    candidates = [
+        u for u in observed_urls
+        if u != login_page_path and u != "/" and len(u) > 1
+    ]
+    if not candidates:
+        return ""
+    # Prefer paths with common post-login keywords
+    for kw in ("inventory", "dashboard", "home", "main", "board", "index"):
+        for c in candidates:
+            if kw in c.lower():
+                return c
+    # Otherwise return the first non-login path
+    return sorted(candidates)[0]
+
+
+def _set_assert_fields(
+    step: dict | object, is_dict: bool,
+    assert_type: str, value: str,
+) -> None:
+    """Set assert_type, value, and expected on a step."""
+    expected = [{
+        "type": assert_type,
+        "value": value,
+        "tolerance": 0.0,
+        "case_insensitive": True,
+    }]
+    if is_dict:
+        step["assert_type"] = assert_type  # type: ignore[index]
+        step["value"] = value  # type: ignore[index]
+        step["expected"] = expected  # type: ignore[index]
+    else:
+        step.__dict__["assert_type"] = assert_type
+        step.__dict__["value"] = value
+        step.__dict__["expected"] = expected
+
+
 def validate_asserts(
     scenarios: list,
     observations: list[dict] | None = None,
@@ -1796,13 +1873,11 @@ def validate_asserts(
     Checks applied to each assert step:
     (a) Must have assert_type AND value — remove if missing.
     (b) value == description — meaningless, remove.
-    (c) url_contains with guessed path not in observed URLs
-        → convert to url_not_contains with login page path.
+    (c-1) url_not_contains with "/" or empty — useless, convert or remove.
+    (c-2) url_contains with guessed path not in observed URLs — convert.
     (d) text_visible with site-wide text (nav items, page title)
         → remove for login scenarios (unreliable).
-
-    Also performs login pre/post text comparison:
-    if assert text is found in pre-login page data, warn and remove.
+    (e) text_visible with form placeholder text — remove.
 
     Returns the (possibly modified) scenarios list.
     """
@@ -1810,6 +1885,7 @@ def validate_asserts(
     page_data = page_data or []
 
     site_wide_texts = _extract_site_wide_texts(page_data)
+    placeholder_texts = _extract_placeholder_texts(page_data)
     observed_urls = _extract_observed_urls(observations)
 
     removed_count = 0
@@ -1882,36 +1958,73 @@ def validate_asserts(
                 removed_count += 1
                 continue
 
-            # (c) url_contains with guessed path
+            # (c-1) url_not_contains with useless value ("/" or empty)
+            if assert_type == "url_not_contains" and is_login:
+                val_stripped = value.strip()
+                if val_stripped in ("", "/"):
+                    # "/" matches every URL → useless. Try converting
+                    # to url_contains with an observed post-login path.
+                    post_login_url = _find_post_login_url(
+                        observed_urls, login_page_path,
+                    )
+                    if post_login_url:
+                        logger.info(
+                            "validate_asserts: converting useless "
+                            "url_not_contains '%s' → url_contains '%s' "
+                            "in '%s'",
+                            val_stripped, post_login_url, sc_name,
+                        )
+                        _set_assert_fields(
+                            step, is_dict,
+                            "url_contains", post_login_url,
+                        )
+                        converted_count += 1
+                    else:
+                        logger.warning(
+                            "validate_asserts: removing useless "
+                            "url_not_contains '%s' in '%s'",
+                            val_stripped, sc_name,
+                        )
+                        if is_dict:
+                            step["_remove"] = True
+                        removed_count += 1
+                    continue
+
+            # (c-2) url_contains with guessed path
             if assert_type == "url_contains" and is_login:
                 val_lower = value.strip().lower()
                 if val_lower in _GUESSED_URL_PATHS and val_lower not in observed_urls:
-                    # Convert to url_not_contains with login page path
-                    new_type = "url_not_contains"
-                    new_value = login_page_path if login_page_path != "/" else "/login"
-                    logger.info(
-                        "validate_asserts: converting guessed url_contains '%s' "
-                        "→ url_not_contains '%s' in '%s'",
-                        value, new_value, sc_name,
+                    # Try observed post-login URL first
+                    post_login_url = _find_post_login_url(
+                        observed_urls, login_page_path,
                     )
-                    if is_dict:
-                        step["assert_type"] = new_type
-                        step["value"] = new_value
-                        step["expected"] = [{
-                            "type": new_type,
-                            "value": new_value,
-                            "tolerance": 0.0,
-                            "case_insensitive": True,
-                        }]
+                    if post_login_url:
+                        logger.info(
+                            "validate_asserts: converting guessed "
+                            "url_contains '%s' → url_contains '%s' "
+                            "in '%s'",
+                            value, post_login_url, sc_name,
+                        )
+                        _set_assert_fields(
+                            step, is_dict,
+                            "url_contains", post_login_url,
+                        )
                     else:
-                        step.__dict__["assert_type"] = new_type
-                        step.__dict__["value"] = new_value
-                        step.__dict__["expected"] = [{
-                            "type": new_type,
-                            "value": new_value,
-                            "tolerance": 0.0,
-                            "case_insensitive": True,
-                        }]
+                        new_value = (
+                            login_page_path
+                            if login_page_path != "/"
+                            else "/login"
+                        )
+                        logger.info(
+                            "validate_asserts: converting guessed "
+                            "url_contains '%s' → url_not_contains '%s' "
+                            "in '%s'",
+                            value, new_value, sc_name,
+                        )
+                        _set_assert_fields(
+                            step, is_dict,
+                            "url_not_contains", new_value,
+                        )
                     converted_count += 1
                     continue
 
@@ -1923,6 +2036,20 @@ def validate_asserts(
                         "validate_asserts: removing login assert with "
                         "site-wide text '%s' in '%s' "
                         "(visible on login page too)",
+                        value, sc_name,
+                    )
+                    if is_dict:
+                        step["_remove"] = True
+                    removed_count += 1
+                    continue
+
+            # (e) text_visible with form placeholder text
+            if assert_type == "text_visible":
+                val_lower = value.strip().lower()
+                if val_lower in placeholder_texts:
+                    logger.warning(
+                        "validate_asserts: removing assert with "
+                        "placeholder text '%s' in '%s'",
                         value, sc_name,
                     )
                     if is_dict:

@@ -1542,6 +1542,15 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
      Good: "Products", "Dashboard", "Logout", "My Account", cart icon text
      Bad: "Swag Labs" (site name — visible on login page too)
    - Best practice: combine url assertion + text assertion for maximum reliability.
+
+   **NO PLACEHOLDER ASSERTS**:
+   NEVER use input field placeholder text (e.g., "Username", "Password", "Email",
+   "First Name", "Zip/Postal Code") as a text_visible assert value.
+   Placeholders are inside input elements, NOT visible page text.
+   WRONG: assert text_visible "Username" (this is an input placeholder)
+   RIGHT: assert text_visible "Products" (this is actual page heading text)
+   RIGHT: assert url_contains "/inventory" (URL-based verification)
+
    **REGISTRATION REDIRECT RULE**: After REGISTRATION form submit → the page redirects
    to login page or main page. Assert the REDIRECTED page (e.g., url_contains "/login"
    or text_visible for login page text). NEVER assert registration form text like
