@@ -100,7 +100,7 @@ warn_unused_ignores = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not e2e'"
 markers = [
     "e2e: End-to-end tests requiring real AI API keys (not run in CI)",
 ]
