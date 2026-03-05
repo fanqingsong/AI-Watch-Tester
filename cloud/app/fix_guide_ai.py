@@ -334,26 +334,28 @@ async def generate_fix_guide(
         source_context=source_context,
     )
 
-    # Use adapter's raw generation if available, otherwise fall back
-    try:
-        response_text = await adapter.generate_raw(prompt)
-    except AttributeError:
-        # Fallback: use generate method with a minimal context
-        response_text = await adapter.generate(
-            system_prompt="You are a code fix assistant. Respond only with JSON.",
-            user_prompt=prompt,
-        )
+    # Call adapter's _call_api — returns parsed JSON directly.
+    # Ollama accepts (system, user_text: str); OpenAI/Claude accept
+    # (system, user_content: list[dict]).
+    system_prompt = "You are a code fix assistant. Respond only with valid JSON."
+    from aat.adapters.ollama import OllamaAdapter
 
-    if not response_text:
+    if isinstance(adapter, OllamaAdapter):
+        result = await adapter._call_api(system_prompt, prompt)  # noqa: SLF001
+    else:
+        user_content = [{"type": "text", "text": prompt}]
+        result = await adapter._call_api(system_prompt, user_content)  # noqa: SLF001
+
+    if not result:
         return {"summary": "AI returned no response.", "files": []}
 
-    result = _extract_json(response_text)
-    if result is None:
-        logger.warning("Failed to parse AI fix guide response: %s", response_text[:200])
-        return {
-            "summary": response_text[:500],
-            "files": [],
-        }
+    # _call_api returns parsed JSON (dict). If it's a string, try parsing.
+    if isinstance(result, str):
+        parsed = _extract_json(result)
+        if parsed is None:
+            logger.warning("Failed to parse AI fix guide response: %s", result[:200])
+            return {"summary": result[:500], "files": []}
+        result = parsed
 
     # Validate structure
     if "summary" not in result:
