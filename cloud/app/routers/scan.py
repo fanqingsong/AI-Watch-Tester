@@ -33,6 +33,7 @@ from app.scenario_utils import (
     inject_login_prefix,
     parse_json,
     validate_and_retry,
+    validate_asserts,
 )
 from app.schemas import (
     ScanExecuteRequest,
@@ -693,10 +694,11 @@ CRITICAL RULES:
    (e.g., "오류", "error", "invalid", "실패"), the test should detect this as failure.
    Happy-path tests should assert URL change or success text; error-path tests should
    assert error message visibility.
-13. **LOGIN MUST VERIFY REDIRECT**: Login tests MUST assert url_contains with the
-   redirect target (e.g., "/dashboard", "/board"). Login success = user leaves
-   the login page. If URL stays on /login, login FAILED.
-   Test descriptions should say "Verify redirect to dashboard", NOT "Verify login page content".
+13. **LOGIN MUST VERIFY REDIRECT**: Login tests MUST verify the user LEFT the login page.
+   If observation shows after.url → assert url_contains with that exact path.
+   If redirect target is unknown → assert url_not_contains with login page path.
+   NEVER guess redirect paths like "/dashboard" unless observed.
+   Test descriptions should say "Verify redirect away from login", NOT "Verify login page content".
 14. **NO LANGUAGE-CHECKING TESTS**: NEVER generate tests that verify the page language
    (e.g., "Verify English content", "Check Korean text"). Language is NOT a test target.
    All assert text must be EXACT text from crawl data, not invented content.
@@ -1473,6 +1475,16 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
 
 6. **CASE INSENSITIVE ASSERT**: All assert steps MUST set "case_insensitive": true.
 
+6.5. **ASSERT FORMAT — MANDATORY FIELDS**:
+   Every assert step MUST include ALL of these fields:
+   - "action": "assert"
+   - "assert_type": "text_visible" | "url_contains" | "url_not_contains"
+   - "value": the EXACT text or URL path to check (NOT the description)
+   - "description": human-readable explanation
+   WRONG: {{"action": "assert", "description": "Verify homepage loads"}}  ← missing assert_type & value
+   RIGHT: {{"action": "assert", "assert_type": "text_visible", "value": "Products", "description": "Verify products page"}}
+   An assert without assert_type + value will be REMOVED automatically.
+
 7. **TEST INDEPENDENCE**: Each scenario MUST start with navigate to target URL.
 
 8. **NO PHANTOM PAGES**: Do NOT assert URL changes to pages not seen in observations.
@@ -1507,19 +1519,28 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
    a. url_contains: verify URL changed after submission
    b. text_visible: verify new content appeared (success message, next step)
    For confirm password fields, use the SAME value as the password: "TestPass123!"
-   **LOGIN REDIRECT RULE (CRITICAL)**: After LOGIN form submit → the page REDIRECTS
-   (302) to a different page (e.g., /board, /dashboard, /index).
-   Login success = the URL is NO LONGER /login (or the login page path).
-   EVERY login scenario MUST include a url_contains assert with the REDIRECT TARGET:
-   - assert url_contains "/dashboard" or "/board" (use observed after.url)
-   - If redirect target unknown, use url_contains "/" (root page, not /login)
-   WRONG: assert text_visible "Verify login page content" → checks login page itself
-   WRONG: assert text_visible with text on BOTH login page AND destination page
-   RIGHT: assert url_contains "/board" (from observation after.url)
-   RIGHT: assert url_contains "/dashboard" → confirms redirect happened
+   **LOGIN REDIRECT RULE (CRITICAL)**:
+   Login success = URL changes away from the login page.
+   - If observation after.url shows the redirect target → use url_contains with that EXACT path.
+   - If redirect target is UNKNOWN → NEVER guess paths like "/dashboard" or "/home".
+     Instead use url_not_contains with the login page path:
+     Example: login page is at "/" → assert text_visible with post-login-only text
+     Example: login page is at "/login" → assert url_not_contains "/login"
+   WRONG: assert url_contains "/dashboard" (guessed — not in observation data)
+   RIGHT: assert url_not_contains "/login" (verifies user LEFT the login page)
+   RIGHT: assert url_contains "/inventory" (EXACT path from observation after.url)
    Use url_contains or text_visible from the observation "new_text" / "after.url"
    which shows the post-redirect page content. For example, if after.url is "/board"
    and new_text includes "게시판", assert text_visible "게시판" — NOT "로그인".
+
+   **LOGIN ASSERT — UNIQUE TEXT RULE**:
+   When asserting login success with text_visible:
+   - NEVER use site-wide text that appears on BOTH the login page AND the post-login page.
+     Site names, logos, navigation items exist on ALL pages → useless for login verification.
+   - ONLY use text that appears EXCLUSIVELY after login:
+     Good: "Products", "Dashboard", "Logout", "My Account", cart icon text
+     Bad: "Swag Labs" (site name — visible on login page too)
+   - Best practice: combine url assertion + text assertion for maximum reliability.
    **REGISTRATION REDIRECT RULE**: After REGISTRATION form submit → the page redirects
    to login page or main page. Assert the REDIRECTED page (e.g., url_contains "/login"
    or text_visible for login page text). NEVER assert registration form text like
@@ -1625,8 +1646,9 @@ FINAL CHECK before responding:
    If not, REMOVE that assert step.
 2. Does every form scenario end with assert AFTER submit? If last step is find_and_click (submit),
    ADD wait + assert.
-3. Does every login scenario assert URL change via url_contains (redirect target)?
+3. Does every login scenario assert URL change (url_contains with observed path, or url_not_contains login path)?
    A login test that only checks text on the login page is WRONG.
+5. Does every assert step have assert_type + value (not just description)?
 4. Is every assert value REAL text from page data? No invented text, no language checks.
 
 Return ONLY valid JSON array.\
@@ -2053,6 +2075,9 @@ async def _bg_generate_scenarios(
             scenarios, observations, user_data,
             target_url=target_url,
         )
+
+        # Validate assert steps (auto-remove/convert bad asserts)
+        scenarios = validate_asserts(scenarios, observations, pages)
 
         # Build a full prompt context for validation retry
         validation_prompt = _EXECUTE_PROMPT.format(

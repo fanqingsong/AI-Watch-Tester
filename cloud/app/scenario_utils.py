@@ -1590,6 +1590,17 @@ def fix_assert_steps(scenarios: list) -> list:
             else:
                 _fix_assert_obj(step)
 
+        # Remove broken assert steps and renumber
+        new_steps = [s for s in steps if not (isinstance(s, dict) and s.get("_remove"))]
+        if len(new_steps) < len(steps):
+            for i, s in enumerate(new_steps, 1):
+                if isinstance(s, dict):
+                    s["step"] = i
+            if isinstance(scenario, dict):
+                scenario["steps"] = new_steps
+            elif hasattr(scenario, "steps"):
+                scenario.steps = new_steps
+
     return scenarios
 
 
@@ -1641,22 +1652,13 @@ def _fix_assert_dict(step: dict) -> None:
         }]
         return
 
-    # Case 4: nothing useful — try description as fallback text assert
+    # Case 4: nothing useful — mark for removal
     desc = step.get("description", "")
-    if desc:
-        step["assert_type"] = "text_visible"
-        step["value"] = desc
-        step["expected"] = [{
-            "type": "text_visible",
-            "value": desc,
-            "tolerance": 0.0,
-            "case_insensitive": True,
-        }]
-        logger.warning(
-            "Assert step had no assert_type/expected/value — "
-            "used description as fallback: '%s'",
-            desc[:60],
-        )
+    logger.warning(
+        "Assert step has no assert_type/expected/value — removing: '%s'",
+        desc[:60],
+    )
+    step["_remove"] = True
 
 
 def _fix_assert_obj(step: object) -> None:
@@ -1694,3 +1696,258 @@ def _fix_assert_obj(step: object) -> None:
             "tolerance": 0.0,
             "case_insensitive": True,
         }]
+
+
+# ---------------------------------------------------------------------------
+# Assert auto-validation layer
+# ---------------------------------------------------------------------------
+
+# URL paths commonly guessed by AI without observation evidence
+_GUESSED_URL_PATHS = {"/dashboard", "/home", "/main", "/index", "/welcome"}
+
+
+def _extract_site_wide_texts(page_data: list[dict]) -> set[str]:
+    """Extract texts that appear on all/most pages (nav items, title, logo).
+
+    These are unreliable for login-success assertions because they are
+    visible both before and after login.
+    """
+    texts: set[str] = set()
+    for p in page_data:
+        # Navigation menu items — present on every page
+        for menu in p.get("nav_menus", []):
+            for item in menu.get("items", []):
+                t = (item.get("text") or "").strip()
+                if t:
+                    texts.add(t.lower())
+        # Page title / meta
+        title = (p.get("title") or "").strip()
+        if title:
+            texts.add(title.lower())
+    return texts
+
+
+def _extract_observed_urls(observations: list[dict]) -> set[str]:
+    """Extract URLs actually seen in observation after.url fields."""
+    urls: set[str] = set()
+    for obs in observations:
+        after = obs.get("after", {})
+        if isinstance(after, dict):
+            url = after.get("url") or ""
+            if url:
+                from urllib.parse import urlparse
+                path = urlparse(url).path
+                if path:
+                    urls.add(path)
+    return urls
+
+
+def _is_login_scenario(scenario: dict | object) -> bool:
+    """Check if a scenario is login-related based on name/description."""
+    name = ""
+    desc = ""
+    if isinstance(scenario, dict):
+        name = (scenario.get("name") or "").lower()
+        desc = (scenario.get("description") or "").lower()
+    else:
+        name = (getattr(scenario, "name", "") or "").lower()
+        desc = (getattr(scenario, "description", "") or "").lower()
+    keywords = ("login", "로그인", "signin", "sign in", "sign-in", "auth")
+    return any(k in name or k in desc for k in keywords)
+
+
+def _get_login_page_path(scenario: dict | object) -> str:
+    """Extract login page URL path from navigate step."""
+    steps: list = []
+    if isinstance(scenario, dict):
+        steps = scenario.get("steps", [])
+    elif hasattr(scenario, "steps"):
+        steps = scenario.steps or []
+
+    for step in steps:
+        action = ""
+        if isinstance(step, dict):
+            action = step.get("action", "")
+        elif hasattr(step, "action"):
+            action = (
+                step.action.value
+                if hasattr(step.action, "value")
+                else str(step.action)
+            )
+        if action == "navigate":
+            val = ""
+            if isinstance(step, dict):
+                val = step.get("value", "")
+            elif hasattr(step, "value"):
+                val = step.value or ""
+            if val:
+                from urllib.parse import urlparse
+                return urlparse(val).path or "/"
+    return "/"
+
+
+def validate_asserts(
+    scenarios: list,
+    observations: list[dict] | None = None,
+    page_data: list[dict] | None = None,
+) -> list:
+    """Validate and auto-fix assert steps after scenario generation.
+
+    Checks applied to each assert step:
+    (a) Must have assert_type AND value — remove if missing.
+    (b) value == description — meaningless, remove.
+    (c) url_contains with guessed path not in observed URLs
+        → convert to url_not_contains with login page path.
+    (d) text_visible with site-wide text (nav items, page title)
+        → remove for login scenarios (unreliable).
+
+    Also performs login pre/post text comparison:
+    if assert text is found in pre-login page data, warn and remove.
+
+    Returns the (possibly modified) scenarios list.
+    """
+    observations = observations or []
+    page_data = page_data or []
+
+    site_wide_texts = _extract_site_wide_texts(page_data)
+    observed_urls = _extract_observed_urls(observations)
+
+    removed_count = 0
+    converted_count = 0
+
+    for sc_idx, scenario in enumerate(scenarios):
+        steps: list = []
+        if isinstance(scenario, dict):
+            steps = scenario.get("steps", [])
+        elif hasattr(scenario, "steps"):
+            steps = scenario.steps or []
+
+        is_login = _is_login_scenario(scenario)
+        login_page_path = _get_login_page_path(scenario) if is_login else "/"
+
+        for step in steps:
+            is_dict = isinstance(step, dict)
+            action = ""
+            if is_dict:
+                action = step.get("action", "")
+            elif hasattr(step, "action"):
+                action = (
+                    step.action.value
+                    if hasattr(step.action, "value")
+                    else str(step.action)
+                )
+
+            if action != "assert":
+                continue
+
+            # --- Extract fields ---
+            if is_dict:
+                assert_type = step.get("assert_type", "")
+                value = step.get("value", "")
+                description = step.get("description", "")
+            else:
+                assert_type = getattr(step, "assert_type", "") or ""
+                if hasattr(assert_type, "value"):
+                    assert_type = assert_type.value
+                value = getattr(step, "value", "") or ""
+                description = getattr(step, "description", "") or ""
+
+            sc_name = ""
+            if isinstance(scenario, dict):
+                sc_name = scenario.get("name", f"scenario-{sc_idx}")
+            else:
+                sc_name = getattr(scenario, "name", f"scenario-{sc_idx}")
+
+            # (a) No assert_type or no value → mark for removal
+            if not assert_type or not value:
+                logger.warning(
+                    "validate_asserts: removing assert without "
+                    "assert_type/value in '%s': desc='%s'",
+                    sc_name, description[:60],
+                )
+                if is_dict:
+                    step["_remove"] = True
+                removed_count += 1
+                continue
+
+            # (b) value == description → meaningless assert
+            if value.strip() == description.strip() and value.strip():
+                logger.warning(
+                    "validate_asserts: removing assert where value equals "
+                    "description in '%s': '%s'",
+                    sc_name, value[:60],
+                )
+                if is_dict:
+                    step["_remove"] = True
+                removed_count += 1
+                continue
+
+            # (c) url_contains with guessed path
+            if assert_type == "url_contains" and is_login:
+                val_lower = value.strip().lower()
+                if val_lower in _GUESSED_URL_PATHS and val_lower not in observed_urls:
+                    # Convert to url_not_contains with login page path
+                    new_type = "url_not_contains"
+                    new_value = login_page_path if login_page_path != "/" else "/login"
+                    logger.info(
+                        "validate_asserts: converting guessed url_contains '%s' "
+                        "→ url_not_contains '%s' in '%s'",
+                        value, new_value, sc_name,
+                    )
+                    if is_dict:
+                        step["assert_type"] = new_type
+                        step["value"] = new_value
+                        step["expected"] = [{
+                            "type": new_type,
+                            "value": new_value,
+                            "tolerance": 0.0,
+                            "case_insensitive": True,
+                        }]
+                    else:
+                        step.__dict__["assert_type"] = new_type
+                        step.__dict__["value"] = new_value
+                        step.__dict__["expected"] = [{
+                            "type": new_type,
+                            "value": new_value,
+                            "tolerance": 0.0,
+                            "case_insensitive": True,
+                        }]
+                    converted_count += 1
+                    continue
+
+            # (d) text_visible with site-wide text (login scenarios only)
+            if assert_type == "text_visible" and is_login:
+                val_lower = value.strip().lower()
+                if val_lower in site_wide_texts:
+                    logger.warning(
+                        "validate_asserts: removing login assert with "
+                        "site-wide text '%s' in '%s' "
+                        "(visible on login page too)",
+                        value, sc_name,
+                    )
+                    if is_dict:
+                        step["_remove"] = True
+                    removed_count += 1
+                    continue
+
+        # --- Remove marked steps and renumber ---
+        new_steps = [
+            s for s in steps
+            if not (isinstance(s, dict) and s.get("_remove"))
+        ]
+        if len(new_steps) < len(steps):
+            for i, s in enumerate(new_steps, 1):
+                if isinstance(s, dict):
+                    s["step"] = i
+            if isinstance(scenario, dict):
+                scenario["steps"] = new_steps
+            elif hasattr(scenario, "steps"):
+                scenario.steps = new_steps
+
+    if removed_count or converted_count:
+        logger.info(
+            "validate_asserts summary: %d removed, %d converted",
+            removed_count, converted_count,
+        )
+
+    return scenarios

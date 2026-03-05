@@ -70,12 +70,22 @@ pre-commit run --all-files
 
 ---
 
-## Testing
+## Running Tests
 
 ```bash
-make test       # Run all tests
-make test-cov   # Run with coverage report
+# Regular tests (free, no AI calls)
+pytest tests/
+pytest cloud/tests/
+
+# E2E tests (AI API calls, costs money)
+pytest cloud/tests/ -m e2e
 ```
+
+> **Warning**
+> E2E tests call the OpenAI API and may incur costs (~$1-2 per run).
+> Regular tests do not require an API key and are always free to run.
+> Please run regular tests before submitting a PR.
+> E2E tests are run automatically in CI after PR review.
 
 ### Test Writing Rules
 

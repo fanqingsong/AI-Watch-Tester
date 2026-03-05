@@ -40,6 +40,7 @@ from app.scenario_utils import (
     fix_field_targets,
     fix_form_submit_steps,
     validate_and_retry,
+    validate_asserts,
 )
 from app.scenario_utils import (
     parse_json as _parse_json,
@@ -547,7 +548,17 @@ If you generate tests for features the user did NOT ask for, your response is WR
 
 7. **CASE INSENSITIVE ASSERT**: All assert steps MUST set "case_insensitive": true.
 
-8. **NO-SUBSTITUTION RULE**: If the requested feature does NOT exist in the data,
+8. **ASSERT FORMAT — MANDATORY FIELDS**:
+   Every assert step MUST include ALL of these fields:
+   - "action": "assert"
+   - "assert_type": "text_visible" | "url_contains" | "url_not_contains"
+   - "value": the EXACT text or URL path to check (NOT the description)
+   - "description": human-readable explanation
+   WRONG: {{"action": "assert", "description": "Verify homepage loads"}}
+   RIGHT: {{"action": "assert", "assert_type": "text_visible", "value": "Products", "description": "Verify products page"}}
+   An assert without assert_type + value will be REMOVED automatically.
+
+9. **NO-SUBSTITUTION RULE**: If the requested feature does NOT exist in the data,
    return an EMPTY array []. NEVER substitute a different feature.
    "회원가입" requested but only "로그인" exists → return [], NOT a login test.
    CRITICAL: Login and signup are completely DIFFERENT pages with DIFFERENT forms.
@@ -556,13 +567,13 @@ If you generate tests for features the user did NOT ask for, your response is WR
    - If AUTH page_type is "registration" in observations, it is a SIGNUP page.
    - If AUTH page_type is "login" in observations, it is a LOGIN page.
 
-9. **TEST INDEPENDENCE**: Each scenario MUST start with navigate to {{{{url}}}}.
+10. **TEST INDEPENDENCE**: Each scenario MUST start with navigate to {{{{url}}}}.
 
-10. For form fields, use EXACT selectors/placeholders from the Form Fields section.
+11. For form fields, use EXACT selectors/placeholders from the Form Fields section.
     For dummy data: email → "awttest@example.com", password → "TestPass123!"
     For confirm password fields, use THE SAME value as the password: "TestPass123!"
 
-11. **OUTCOME VERIFICATION — MANDATORY (NEVER SKIP)**:
+12. **OUTCOME VERIFICATION — MANDATORY (NEVER SKIP)**:
     Every form-based scenario MUST end with an assert step AFTER the submit click.
     A test that clicks submit and stops is MEANINGLESS — it only proves the button exists.
     The assert verifies the RESULT of the submission:
@@ -573,17 +584,26 @@ If you generate tests for features the user did NOT ask for, your response is WR
     c. text_visible: verify the form page CHANGED (step 2 content replaced step 1)
 
     **LOGIN ASSERT — MUST VERIFY REDIRECT (CRITICAL)**:
-    Login success = the page REDIRECTS to a different URL (e.g., /dashboard, /home, /board).
-    If the URL stays on /login after submit, the login FAILED.
-    EVERY login scenario MUST include a url_contains assert with the REDIRECT TARGET:
-    - assert url_contains "/dashboard" or "/home" or "/board" (the post-login page)
-    - If redirect target is unknown, use url_contains "/" (root) — login pages
-      typically have a path like /login, /signin, so redirecting to / is a valid check
-    WRONG: assert text_visible "Verify login page content" → checks login page itself
+    Login success = URL changes away from the login page.
+    - If observation after.url shows the redirect target → use url_contains with that EXACT path.
+    - If redirect target is UNKNOWN → NEVER guess paths like "/dashboard" or "/home".
+      Instead use url_not_contains with the login page path:
+      Example: login page is at "/" → assert text_visible with post-login-only text
+      Example: login page is at "/login" → assert url_not_contains "/login"
+    WRONG: assert url_contains "/dashboard" (guessed — not in observation data)
     WRONG: assert text_visible with text that exists on the login page
     WRONG: only assert text without checking URL change after login
-    RIGHT: assert url_contains "/dashboard" → confirms actual redirect happened
-    RIGHT: assert url_contains "/board" → confirms navigation away from login
+    RIGHT: assert url_not_contains "/login" (verifies user LEFT the login page)
+    RIGHT: assert url_contains "/inventory" (EXACT path from observation after.url)
+
+    **LOGIN ASSERT — UNIQUE TEXT RULE**:
+    When asserting login success with text_visible:
+    - NEVER use site-wide text that appears on BOTH the login page AND the post-login page.
+      Site names, logos, navigation items exist on ALL pages → useless for login verification.
+    - ONLY use text that appears EXCLUSIVELY after login:
+      Good: "Products", "Dashboard", "Logout", "My Account", cart icon text
+      Bad: "Swag Labs" (site name — visible on login page too)
+    - Best practice: combine url assertion + text assertion for maximum reliability.
 
     Example for multi-step signup (step 1 → step 2):
     step N:   find_and_click SUBMIT[form] '다음'
@@ -594,8 +614,8 @@ If you generate tests for features the user did NOT ask for, your response is WR
     Example for login:
     step N:   find_and_click SUBMIT[form] '로그인'
     step N+1: wait 1500ms
-    step N+2: assert url_contains "/dashboard" (the redirect target, NOT "/login")
-    step N+3: (optional) assert text_visible "환영합니다" (post-login text only)
+    step N+2: assert url_not_contains "/login" (verifies user LEFT the login page)
+    step N+3: (optional) assert text_visible "Products" (post-login-only text)
 
     If you don't know the exact post-submit text, assert url_contains with the
     form page path (e.g., the URL should NO LONGER be the same as before submit).
@@ -607,7 +627,7 @@ Return the scenarios as a JSON array. Each step target should include:
 - "selector": CSS selector from observation data (preferred)
 - "text": visible text label (fallback)
 
-12. **NEGATIVE CHECK — ERROR DETECTION**:
+13. **NEGATIVE CHECK — ERROR DETECTION**:
     After form submission, also consider error states. If the test uses INVALID
     credentials or data, the assert should detect the ERROR message or ERROR page:
     - assert text_visible with error text (e.g., "Invalid email", "비밀번호가 틀렸습니다")
@@ -617,7 +637,7 @@ Return the scenarios as a JSON array. Each step target should include:
     If the page stays on the same URL after submit AND shows error-like text
     (e.g., "오류", "error", "invalid", "실패"), the test should be marked FAILED.
 
-13. **NO LANGUAGE-CHECKING ASSERTS**:
+14. **NO LANGUAGE-CHECKING ASSERTS**:
     NEVER generate scenarios that verify the LANGUAGE of the page
     (e.g., "Verify page content is in English", "Check Korean text").
     Language verification is NOT a valid E2E test.
@@ -634,8 +654,9 @@ FINAL CHECK: Before responding, verify:
 4. Does every form scenario have an assert step AFTER the submit click?
    If the last step is find_and_click (submit) → ADD wait + assert.
 5. Does the assert distinguish success vs error states?
-6. Does every login scenario assert URL change via url_contains (redirect target)?
+6. Does every login scenario assert URL change (url_contains with observed path, or url_not_contains login path)?
 7. Is every assert value copied EXACTLY from page data? (no invented text)
+8. Does every assert step have assert_type + value (not just description)?
 Remove any scenario that tests a feature the user did NOT request.\
 """
 
@@ -988,6 +1009,11 @@ async def convert_scenario(
 
     # Ensure every form scenario has assert/wait after submit
     scenarios = ensure_post_submit_assert(scenarios)
+
+    # Validate assert steps (auto-remove/convert bad asserts)
+    scenarios = validate_asserts(
+        scenarios, observations_raw, page_list_for_validation,
+    )
 
     # Log final scenario after all fixes
     for sc in scenarios:
