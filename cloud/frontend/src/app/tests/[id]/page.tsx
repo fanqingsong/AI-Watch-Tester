@@ -196,6 +196,7 @@ export default function TestDetailPage() {
   // Fix Guide state
   const [fixGuides, setFixGuides] = useState<FixGuideItem[]>([]);
   const [generatingFix, setGeneratingFix] = useState<string | null>(null);
+  const [fixGuideError, setFixGuideError] = useState<{ scenarioId: string; message: string } | null>(null);
   const [approvingFix, setApprovingFix] = useState<number | null>(null);
 
   const testId = Number(params.id);
@@ -231,11 +232,13 @@ export default function TestDetailPage() {
 
   const handleGenerateFixGuide = async (scenarioId: string) => {
     setGeneratingFix(scenarioId);
+    setFixGuideError(null);
     try {
       const guide = await generateFixGuide(testId, scenarioId);
       setFixGuides((prev) => [guide, ...prev.filter((g) => g.scenario_id !== scenarioId)]);
-    } catch {
-      // error handled by UI
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setFixGuideError({ scenarioId, message: msg });
     } finally {
       setGeneratingFix(null);
     }
@@ -246,8 +249,9 @@ export default function TestDetailPage() {
     try {
       const updated = await approveFixGuide(testId, guideId);
       setFixGuides((prev) => prev.map((g) => (g.id === guideId ? updated : g)));
-    } catch {
-      // error
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Approve failed";
+      setFixGuideError({ scenarioId: "", message: msg });
     } finally {
       setApprovingFix(null);
     }
@@ -257,8 +261,9 @@ export default function TestDetailPage() {
     try {
       const updated = await rejectFixGuide(testId, guideId);
       setFixGuides((prev) => prev.map((g) => (g.id === guideId ? updated : g)));
-    } catch {
-      // error
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Reject failed";
+      setFixGuideError({ scenarioId: "", message: msg });
     }
   };
 
@@ -529,6 +534,7 @@ export default function TestDetailPage() {
               scenarioId={scenario.scenario_id}
               guide={fixGuides.find((g) => g.scenario_id === scenario.scenario_id)}
               generatingFix={generatingFix}
+              fixError={fixGuideError?.scenarioId === scenario.scenario_id ? fixGuideError.message : null}
               approvingFix={approvingFix}
               onGenerate={handleGenerateFixGuide}
               onApprove={handleApproveFix}
@@ -876,6 +882,7 @@ function FixGuideSection({
   scenarioId,
   guide,
   generatingFix,
+  fixError,
   approvingFix,
   onGenerate,
   onApprove,
@@ -885,6 +892,7 @@ function FixGuideSection({
   scenarioId: string;
   guide: import("@/lib/api").FixGuideItem | undefined;
   generatingFix: string | null;
+  fixError: string | null;
   approvingFix: number | null;
   onGenerate: (sid: string) => void;
   onApprove: (gid: number) => void;
@@ -903,10 +911,25 @@ function FixGuideSection({
     });
   };
 
-  // No guide yet — show generate button
+  // Translate backend error codes to user-friendly messages
+  const getErrorHint = (msg: string): string => {
+    if (msg.includes("no_ai_key_configured")) return t("fixErrorNoAiKey");
+    if (msg.includes("502") || msg.includes("generation failed")) return t("fixErrorGenFailed");
+    if (msg.includes("503")) return t("fixErrorService");
+    if (msg.includes("timeout") || msg.includes("Timeout")) return t("fixErrorTimeout");
+    return t("fixErrorGeneric");
+  };
+
+  // No guide yet — show generate button (or error + retry)
   if (!guide) {
     return (
       <div className="border-t border-gray-100 px-4 py-3">
+        {fixError && (
+          <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2">
+            <p className="text-sm font-medium text-red-700">{t("fixGuideFailed")}</p>
+            <p className="mt-1 text-xs text-red-600">{getErrorHint(fixError)}</p>
+          </div>
+        )}
         <button
           onClick={() => onGenerate(scenarioId)}
           disabled={generatingFix === scenarioId}
@@ -914,6 +937,8 @@ function FixGuideSection({
         >
           {generatingFix === scenarioId
             ? t("generatingFix")
+            : fixError
+            ? t("retryFixGuide")
             : t("generateFixGuide")}
         </button>
       </div>
