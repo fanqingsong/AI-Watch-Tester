@@ -476,7 +476,8 @@
     "githubSaved": "GitHub 연결이 저장되었습니다!",
     "githubRemoved": "GitHub 연결이 삭제되었습니다.",
     "githubVerifySuccess": "저장소에 접근 가능합니다!",
-    "githubVerifyFailed": "저장소에 접근할 수 없습니다: {error}"
+    "githubVerifyFailed": "저장소에 접근할 수 없습니다: {error}",
+    "patKeptHint": "비워두면 저장된 토큰을 유지합니다. 변경할 때만 새 토큰을 입력하세요."
   },
   "fileUpload": {
     "dropHint": "문서를 여기에 드롭하거나 클릭하여 찾기",

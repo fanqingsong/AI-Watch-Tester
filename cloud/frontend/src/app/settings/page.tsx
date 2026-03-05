@@ -147,13 +147,16 @@ export default function SettingsPage() {
 
   const handleVerifyGitHub = async () => {
     const parsed = parseRepo(ghRepo);
-    if (!parsed || (!ghPat.trim() && !ghConn?.connected)) return;
+    if (!parsed) return;
+    // If no new PAT entered and no saved connection, cannot verify
+    if (!ghPat.trim() && !ghConn?.connected) return;
     setGhVerifying(true);
     setGhVerifyResult(null);
     setGhError("");
     try {
-      const patToUse = ghPat.trim() || "existing";
-      const result = await verifyGitHubConnection(patToUse, parsed.owner, parsed.repo, ghBranch);
+      // Send empty string when PAT unchanged — backend uses stored PAT
+      const patToSend = ghPat.trim();
+      const result = await verifyGitHubConnection(patToSend, parsed.owner, parsed.repo, ghBranch);
       setGhVerifyResult(result);
     } catch (err) {
       setGhError(err instanceof Error ? err.message : "Verify failed");
@@ -164,12 +167,15 @@ export default function SettingsPage() {
 
   const handleSaveGitHub = async () => {
     const parsed = parseRepo(ghRepo);
-    if (!parsed || !ghPat.trim()) return;
+    if (!parsed) return;
+    // New connection requires PAT; existing connection can save without it
+    if (!ghPat.trim() && !ghConn?.connected) return;
     setGhSaving(true);
     setGhError("");
     setGhMessage("");
     try {
-      const conn = await saveGitHubConnection(ghPat, parsed.owner, parsed.repo, ghBranch);
+      // Send empty string when PAT unchanged — backend keeps stored PAT
+      const conn = await saveGitHubConnection(ghPat.trim(), parsed.owner, parsed.repo, ghBranch);
       setGhConn(conn);
       setGhPat("");
       setGhMessage(t("githubSaved"));
@@ -316,6 +322,9 @@ export default function SettingsPage() {
               )}
             </button>
           </div>
+          {ghConn?.connected && !ghPat.trim() && (
+            <p className="mt-1 text-xs text-gray-400">{t("patKeptHint")}</p>
+          )}
         </div>
 
         {/* Repository */}
@@ -374,7 +383,7 @@ export default function SettingsPage() {
           </button>
           <button
             onClick={handleSaveGitHub}
-            disabled={ghSaving || !ghPat.trim() || !ghRepo.includes("/")}
+            disabled={ghSaving || (!ghPat.trim() && !ghConn?.connected) || !ghRepo.includes("/")}
             className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {ghSaving ? t("savingGithub") : t("saveGithub")}

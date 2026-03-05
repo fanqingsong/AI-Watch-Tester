@@ -476,7 +476,8 @@
     "githubSaved": "GitHub connection saved!",
     "githubRemoved": "GitHub connection removed.",
     "githubVerifySuccess": "Repository accessible!",
-    "githubVerifyFailed": "Cannot access repository: {error}"
+    "githubVerifyFailed": "Cannot access repository: {error}",
+    "patKeptHint": "Leave empty to keep the saved token. Enter a new token only to change it."
   },
   "fileUpload": {
     "dropHint": "Drop spec documents here or click to browse",

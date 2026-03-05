@@ -664,6 +664,7 @@ export async function saveGitHubConnection(
   repo: string,
   defaultBranch: string = "main"
 ): Promise<GitHubConnectionInfo> {
+  // pat="" signals backend to keep the stored PAT
   const res = await authFetch("/api/settings/github", {
     method: "PUT",
     body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),
@@ -689,6 +690,7 @@ export async function verifyGitHubConnection(
   repo: string,
   defaultBranch: string = "main"
 ): Promise<GitHubVerifyResult> {
+  // pat="" signals backend to use the stored PAT
   const res = await authFetch("/api/settings/github/verify", {
     method: "POST",
     body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),

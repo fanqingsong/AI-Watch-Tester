@@ -301,9 +301,14 @@ class AIConfigTestResponse(BaseModel):
 
 
 class GitHubConnectRequest(BaseModel):
-    """PUT /api/settings/github request body."""
+    """PUT /api/settings/github & POST /verify request body.
 
-    pat: str  # Personal Access Token (plaintext, encrypted server-side)
+    pat can be omitted (empty string or None) when the user already has
+    a saved connection and only wants to change repo/branch.  The backend
+    will fall back to the stored PAT in that case.
+    """
+
+    pat: str = ""  # empty → reuse stored PAT
     owner: str
     repo: str
     default_branch: str = "main"

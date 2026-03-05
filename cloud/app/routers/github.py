@@ -141,26 +141,38 @@ async def save_github_connection(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Save (upsert) GitHub connection with encrypted PAT."""
+    """Save (upsert) GitHub connection with encrypted PAT.
+
+    If ``body.pat`` is empty and a connection already exists, only the
+    repo/branch fields are updated — the stored PAT is kept as-is.
+    """
     require_encryption()
 
-    encrypted = encrypt(body.pat)
+    pat = body.pat.strip() if body.pat else ""
 
     stmt = select(GitHubConnection).where(GitHubConnection.user_id == user.id)
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
 
     if row is None:
+        # New connection — PAT is required
+        if not pat:
+            raise HTTPException(
+                status_code=400,
+                detail="PAT is required for a new connection.",
+            )
         row = GitHubConnection(
             user_id=user.id,
-            pat_encrypted=encrypted,
+            pat_encrypted=encrypt(pat),
             owner=body.owner,
             repo=body.repo,
             default_branch=body.default_branch,
         )
         db.add(row)
     else:
-        row.pat_encrypted = encrypted
+        # Existing connection — update PAT only if provided
+        if pat:
+            row.pat_encrypted = encrypt(pat)
         row.owner = body.owner
         row.repo = body.repo
         row.default_branch = body.default_branch
@@ -168,12 +180,14 @@ async def save_github_connection(
     await db.commit()
     await db.refresh(row)
 
+    # Derive display prefix
+    display_pat = pat if pat else decrypt(row.pat_encrypted)
     return {
         "connected": True,
         "owner": row.owner,
         "repo": row.repo,
         "default_branch": row.default_branch,
-        "pat_prefix": mask_key(body.pat),
+        "pat_prefix": mask_key(display_pat),
         "updated_at": row.updated_at,
     }
 
@@ -196,10 +210,27 @@ async def delete_github_connection(
 async def verify_github_connection(
     body: GitHubConnectRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Verify PAT has access to the repository."""
+    """Verify PAT has access to the repository.
+
+    If ``body.pat`` is empty, the stored PAT is used instead so users can
+    verify after changing only the repo/branch.
+    """
+    pat = body.pat.strip() if body.pat else ""
+    if not pat:
+        # Fall back to stored PAT
+        conn, stored_pat = await get_user_github(user.id, db)
+        if conn is None or stored_pat is None:
+            return {
+                "success": False,
+                "message": "No saved token. Please enter your PAT.",
+                "full_name": None,
+            }
+        pat = stored_pat
+
     try:
-        return await _verify_github(body.pat, body.owner, body.repo)
+        return await _verify_github(pat, body.owner, body.repo)
     except Exception as exc:
         return {
             "success": False,
