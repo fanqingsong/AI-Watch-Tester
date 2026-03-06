@@ -229,22 +229,9 @@ def match_elements_to_patterns(
                     "context": f"form({form_selector or 'unknown'})",
                 })
 
-        # Match form-level pattern
-        for form in page.get("forms", []):
-            if form.get("fields"):
-                dedup_key = f"form:{form.get('selector') or form.get('action', '')}"
-                if dedup_key not in seen_keys:
-                    seen_keys.add(dedup_key)
-                    field_names = [
-                        f.get("label") or f.get("placeholder") or f.get("name") or "field"
-                        for f in form.get("fields", [])
-                    ]
-                    matched.append({
-                        "pattern_key": "form",
-                        "element_info": ", ".join(field_names[:5]),
-                        "tests": ELEMENT_TEST_PATTERNS["form"]["tests"],
-                        "selector": form.get("selector"),
-                    })
+        # Note: form-level "빈 폼 제출"/"정상 제출" tests are now generated
+        # by build_pattern_tests() as consolidated per-form tests, so we skip
+        # the form-level pattern here to avoid duplicates.
 
     # 2. Match observations — accordion, modal, tab, etc.
     for obs in observations:
@@ -301,6 +288,12 @@ def build_pattern_tests(
     """Build a test category from matched patterns.
 
     Returns a category dict for the plan, or None if no matches.
+
+    To avoid test explosion (N fields × M test types), input field tests are
+    consolidated per form: one representative test per *test type* (e.g. one
+    "empty submit" covering all fields, one "valid input" covering all fields,
+    one "type-specific error" for the most interesting field).  Non-input
+    patterns (accordion, modal, nav, etc.) are kept individually.
     """
     if not matched:
         return None
@@ -309,19 +302,108 @@ def build_pattern_tests(
     tests: list[dict[str, Any]] = []
     tid = 100  # Start from 100 to avoid collision with other plan IDs
 
+    # Separate input-field matches from non-input matches
+    _INPUT_KEYS = {
+        "input[type=text]", "input[type=email]", "input[type=password]",
+        "input[type=tel]", "input[type=number]", "input[type=checkbox]",
+        "input[type=radio]", "input[type=file]", "input[type=date]",
+        "input[type=search]", "select", "textarea",
+    }
+
+    # Group input fields by form context
+    form_fields: dict[str, list[dict[str, Any]]] = {}
+    non_input: list[dict[str, Any]] = []
+
     for m in matched:
+        if m["pattern_key"] in _INPUT_KEYS:
+            ctx = m.get("context") or "default_form"
+            form_fields.setdefault(ctx, []).append(m)
+        else:
+            non_input.append(m)
+
+    # --- Consolidated input field tests (per form) ---
+    for _ctx, fields in form_fields.items():
+        field_names = [f["element_info"] for f in fields]
+        summary_label = ", ".join(field_names[:4])
+        if len(field_names) > 4:
+            summary_label += f" (+{len(field_names) - 4})"
+        first_selector = next((f.get("selector") for f in fields if f.get("selector")), None)
+
+        # 1. Empty submit (covers all required fields at once)
+        tests.append({
+            "id": f"p{tid}",
+            "name": f"{summary_label} — {'빈 폼 제출' if ko else 'Empty Form Submit'}",
+            "description": (
+                "모든 필드 비우고 제출 → 필수 필드 에러 확인" if ko
+                else "Submit with all fields empty → verify required field errors"
+            ),
+            "priority": "medium",
+            "estimated_time": 15,
+            "requires_auth": False,
+            "selected": True,
+            "actual_elements": [first_selector] if first_selector else field_names[:3],
+            "pattern_key": "form",
+        })
+        tid += 1
+
+        # 2. Valid input (covers all fields with correct values)
+        tests.append({
+            "id": f"p{tid}",
+            "name": f"{summary_label} — {'정상 입력 제출' if ko else 'Valid Input Submit'}",
+            "description": (
+                "모든 필드에 올바른 값 입력 → 제출 성공 확인" if ko
+                else "Fill all fields with valid values → verify successful submission"
+            ),
+            "priority": "medium",
+            "estimated_time": 15,
+            "requires_auth": False,
+            "selected": True,
+            "actual_elements": [first_selector] if first_selector else field_names[:3],
+            "pattern_key": "form",
+        })
+        tid += 1
+
+        # 3. Type-specific error (pick the most interesting field)
+        # Priority: email > tel > number > password > text
+        _TYPE_PRIORITY = {
+            "input[type=email]": 5, "input[type=tel]": 4,
+            "input[type=number]": 3, "input[type=password]": 2,
+            "input[type=text]": 1,
+        }
+        best_field = max(fields, key=lambda f: _TYPE_PRIORITY.get(f["pattern_key"], 0))
+        best_tests = ELEMENT_TEST_PATTERNS.get(best_field["pattern_key"], {}).get("tests", [])
+        # Find the "error" test case (not 빈값, not 정상)
+        error_test = next(
+            (t for t in best_tests if t["name"] not in ("빈값 제출", "정상 입력")),
+            None,
+        )
+        if error_test:
+            tests.append({
+                "id": f"p{tid}",
+                "name": f"{best_field['element_info']} — {error_test['name']}",
+                "description": f"{error_test['action']} → {error_test['assert']}",
+                "priority": "medium",
+                "estimated_time": 15,
+                "requires_auth": False,
+                "selected": True,
+                "actual_elements": (
+                    [best_field["selector"]] if best_field.get("selector")
+                    else [best_field["element_info"]]
+                ),
+                "pattern_key": best_field["pattern_key"],
+            })
+            tid += 1
+
+    # --- Non-input patterns (accordion, modal, nav, form-level, etc.) ---
+    for m in non_input:
         pattern_key = m["pattern_key"]
         element_info = m["element_info"]
         selector = m.get("selector")
 
         for t in m["tests"]:
-            test_name = (
-                f"{element_info} — {t['name']}" if ko
-                else f"{element_info} — {t['name']}"
-            )
             tests.append({
                 "id": f"p{tid}",
-                "name": test_name,
+                "name": f"{element_info} — {t['name']}",
                 "description": f"{t['action']} → {t['assert']}",
                 "priority": "medium",
                 "estimated_time": 15,

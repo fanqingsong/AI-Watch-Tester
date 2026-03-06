@@ -338,11 +338,12 @@ export interface ScanPlanResult {
 
 export async function generateScanPlan(
   scanId: number,
-  language: "ko" | "en" = "en"
+  language: "ko" | "en" = "en",
+  useAiPlan: boolean = false
 ): Promise<ScanPlanResult> {
   const res = await authFetch(`/api/scan/${scanId}/plan`, {
     method: "POST",
-    body: JSON.stringify({ language }),
+    body: JSON.stringify({ language, use_ai_plan: useAiPlan }),
   });
   if (!res.ok) {
     const err = await res.json();

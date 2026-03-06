@@ -381,7 +381,8 @@ export default function DashboardPage() {
     try {
       const locale = (typeof window !== "undefined" && document.documentElement.lang) || "en";
       const lang = locale.startsWith("ko") ? "ko" : "en";
-      const result = await generateScanPlan(scanId, lang as "ko" | "en");
+      const useAiPlan = typeof window !== "undefined" && localStorage.getItem("awt_use_ai_plan") === "true";
+      const result = await generateScanPlan(scanId, lang as "ko" | "en", useAiPlan);
       setPlanCategories(result.categories);
 
       // Auto-select tests marked as selected or in auto_selected categories

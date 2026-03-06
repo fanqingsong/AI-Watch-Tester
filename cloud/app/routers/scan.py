@@ -961,45 +961,47 @@ async def generate_plan(
         special_instructions=special_instructions,
     )
 
-    # Try AI plan generation, fall back to default plan on failure
+    # Generate plan: default (code-only) or AI-assisted
     plan = None
     lang = body.language or "en"
 
-    try:
-        from aat.adapters import ADAPTER_REGISTRY
-        from aat.core.models import AIConfig
-        from app.routers.ai_config import get_user_ai_config
+    if body.use_ai_plan:
+        # AI plan mode (advanced option — off by default)
+        try:
+            from aat.adapters import ADAPTER_REGISTRY
+            from aat.core.models import AIConfig
+            from app.routers.ai_config import get_user_ai_config
 
-        user_cfg = await get_user_ai_config(user.id, db)
-        if user_cfg:
-            ai_config = AIConfig(
-                provider=user_cfg["provider"],
-                api_key=user_cfg["api_key"],
-                model=user_cfg["model"] or _DEFAULT_MODELS.get(user_cfg["provider"], ""),
-            )
-        else:
-            ai_config = AIConfig(
-                provider=settings.ai_provider,
-                api_key=settings.ai_api_key,
-                model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
-            )
-        adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
-        if adapter_cls is None:
-            raise ValueError(f"Unknown AI provider: {ai_config.provider}")
+            user_cfg = await get_user_ai_config(user.id, db)
+            if user_cfg:
+                ai_config = AIConfig(
+                    provider=user_cfg["provider"],
+                    api_key=user_cfg["api_key"],
+                    model=user_cfg["model"] or _DEFAULT_MODELS.get(user_cfg["provider"], ""),
+                )
+            else:
+                ai_config = AIConfig(
+                    provider=settings.ai_provider,
+                    api_key=settings.ai_api_key,
+                    model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
+                )
+            adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
+            if adapter_cls is None:
+                raise ValueError(f"Unknown AI provider: {ai_config.provider}")
 
-        adapter = adapter_cls(ai_config)
-        raw_response = await _ai_raw_call(adapter, plan_user, system_prompt=_PLAN_SYSTEM)
-        plan = _extract_json(raw_response)
+            adapter = adapter_cls(ai_config)
+            raw_response = await _ai_raw_call(adapter, plan_user, system_prompt=_PLAN_SYSTEM)
+            plan = _extract_json(raw_response)
 
-        categories = plan.get("categories", [])
-        if not categories:
-            logger.warning("AI returned no categories, using default plan")
+            categories = plan.get("categories", [])
+            if not categories:
+                logger.warning("AI returned no categories, using default plan")
+                plan = None
+        except Exception as exc:
+            logger.warning("AI plan generation failed (%s), using default plan", exc)
             plan = None
-    except Exception as exc:
-        logger.warning("AI plan generation failed (%s), using default plan", exc)
-        plan = None
 
-    # Fallback: generate plan from crawl data without AI
+    # Default path: generate plan from crawl data without AI
     if plan is None:
         plan = _generate_default_plan(
             scan, pages, broken, features, summary, lang, observations,
@@ -1088,11 +1090,41 @@ def _generate_default_plan(
     ko = language == "ko"
     categories = []
 
+    # -- Feature false-positive filter (site_type ↔ feature cross-validation) --
+    site_type_info = summary.get("site_type") or {}
+    site_type_name = (
+        site_type_info.get("type", "unknown") if isinstance(site_type_info, dict) else "unknown"
+    )
+    # Infer site_type from features when crawl detection returns "unknown"
+    if site_type_name == "unknown":
+        _feat = set(features)
+        if _feat & {"cart", "filter_sort"} or (
+            "product_list" in _feat and not _feat & {"admin_panel", "board_write"}
+        ):
+            site_type_name = "ecommerce"
+        elif _feat & {"login_form", "signup", "admin_panel"} and not _feat & {"cart", "blog"}:
+            site_type_name = "saas"
+        elif "blog" in _feat:
+            site_type_name = "blog"
+        elif "board_write" in _feat and "login_form" not in _feat:
+            site_type_name = "community"
+
+    # Features that are contextually invalid for certain site types
+    _FEATURE_BLOCKLIST: dict[str, set[str]] = {
+        "finance": {"board_write", "blog", "review_form", "product_list"},
+        "saas": {"board_write", "blog", "product_list", "review_form"},
+        "corporate": {"board_write", "product_list", "review_form", "cart"},
+        "portfolio": {"board_write", "product_list", "review_form", "cart", "filter_sort"},
+    }
+    blocked = _FEATURE_BLOCKLIST.get(site_type_name, set())
+    features = [f for f in features if f not in blocked]
+    feature_set = set(features)
+
     # 1. Basic health check (always)
     basic_tests = []
     tid = 1
 
-    # Broken links
+    # Broken links (always include — link health check even without known broken links)
     if broken:
         basic_tests.append({
             "id": f"t{tid}",
@@ -1108,6 +1140,29 @@ def _generate_default_plan(
             "actual_elements": [b.get("url", "") for b in broken[:5]],
         })
         tid += 1
+    else:
+        # Even without known broken links, include a link health check
+        all_links = []
+        for p in pages:
+            for link in p.get("links", [])[:20]:
+                href = link.get("href", "")
+                if href and href.startswith("http"):
+                    all_links.append(href)
+        if all_links:
+            basic_tests.append({
+                "id": f"t{tid}",
+                "name": "링크 헬스 체크" if ko else "Link Health Check",
+                "description": (
+                    f"페이지 내 {len(all_links)}개 링크가 정상 응답하는지 확인" if ko
+                    else f"Verify {len(all_links)} page links return valid responses"
+                ),
+                "priority": "medium",
+                "estimated_time": max(5, 2 * len(all_links)),
+                "requires_auth": False,
+                "selected": True,
+                "actual_elements": all_links[:5],
+            })
+            tid += 1
 
     # Nav menu tests
     nav_items = []
@@ -1142,6 +1197,35 @@ def _generate_default_plan(
             "actual_elements": [f"{n['text']} ({n['href']})" for n in unique_nav[:10]],
         })
         tid += 1
+    else:
+        # Fallback: extract navigable links from page as pseudo-nav
+        fallback_links = []
+        for p in pages:
+            for link in p.get("links", []):
+                text = (link.get("text") or "").strip()
+                href = link.get("href", "")
+                if text and href and len(text) < 50 and href.startswith(("http", "/")):
+                    if href not in seen_hrefs:
+                        seen_hrefs.add(href)
+                        fallback_links.append({"text": text, "href": href})
+                if len(fallback_links) >= 10:
+                    break
+        if fallback_links:
+            basic_tests.append({
+                "id": f"t{tid}",
+                "name": "주요 링크 탐색" if ko else "Key Link Navigation",
+                "description": (
+                    f"발견된 {len(fallback_links)}개 주요 링크의 페이지 이동 확인"
+                    if ko
+                    else f"Navigate {len(fallback_links)} discovered links and verify page loads"
+                ),
+                "priority": "medium",
+                "estimated_time": 10 * len(fallback_links),
+                "requires_auth": False,
+                "selected": True,
+                "actual_elements": [f"{n['text']} ({n['href']})" for n in fallback_links[:10]],
+            })
+            tid += 1
 
     # Page load test
     basic_tests.append({
@@ -1205,12 +1289,6 @@ def _generate_default_plan(
         })
 
     # 3. Business tests from templates (based on site type + cross-cutting features)
-    site_type_info = summary.get("site_type") or {}
-    site_type_name = (
-        site_type_info.get("type", "unknown") if isinstance(site_type_info, dict) else "unknown"
-    )
-    feature_set = set(features)
-
     def _add_template(tmpl: dict, covered: set[str]) -> dict[str, Any] | None:
         """Convert a template to a test entry if its required feature is detected."""
         req_feat = tmpl.get("requires_feature", "")
@@ -1879,78 +1957,110 @@ async def _bg_generate_scenarios(
     try:
         adapter = adapter_cls(ai_config)
 
-        # --- Build batch prompts ---
-        batches = _chunk_tests(selected_details, batch_size=3)
-        logger.info(
-            "BG: Splitting %d tests into %d batches (test_id=%d)",
-            len(selected_details), len(batches), test_id,
+        # --- Tier 1: Pattern-based scenario builder (no AI) ---
+        from app.scenario_builder import build_scenarios_from_observations
+
+        pattern_scenarios_raw, ai_tests = build_scenarios_from_observations(
+            selected_details, observations, target_url, user_data,
         )
 
-        batch_prompts: list[str] = []
-        for batch_idx, batch in enumerate(batches):
-            batch_selected_str = _trunc(batch, selected_limit)
-            batch_prompt = _EXECUTE_USER.format(
-                target_url=target_url,
-                crawl_data=crawl_data_str,
-                observation_table=observation_table,
-                selected_tests=batch_selected_str,
-                user_data=user_data_str,
-                extra_instructions=extra_str,
-                reference_documents=ref_docs_str,
-                batch_count=len(batch),
-                language_instruction=language_instruction,
+        # Convert pattern-built dicts to Scenario model objects
+        from aat.core.models import Scenario as ScenarioModel
+
+        pattern_scenarios: list = []
+        for sc_dict in pattern_scenarios_raw:
+            try:
+                pattern_scenarios.append(ScenarioModel.model_validate(sc_dict))
+            except Exception as exc:
+                logger.warning("Pattern scenario validation failed: %s", exc)
+                # Find the matching test detail and route to AI
+                sc_name = sc_dict.get("name", "")
+                matched = next(
+                    (t for t in selected_details if t.get("name") == sc_name),
+                    None,
+                )
+                if matched and matched not in ai_tests:
+                    ai_tests.append(matched)
+
+        logger.info(
+            "BG: Pattern builder produced %d scenarios, %d tests → AI (test_id=%d)",
+            len(pattern_scenarios), len(ai_tests), test_id,
+        )
+
+        # --- Tier 3: AI generation for remaining tests ---
+        ai_scenarios: list = []
+        if ai_tests:
+            batches = _chunk_tests(ai_tests, batch_size=3)
+            logger.info(
+                "BG: Splitting %d AI tests into %d batches (test_id=%d)",
+                len(ai_tests), len(batches), test_id,
             )
 
-            estimated_total = (len(batch_prompt) + len(_EXECUTE_SYSTEM)) // 3
-            if estimated_total > max_input_tokens:
-                logger.warning(
-                    "BG: Batch %d prompt %d tokens (limit %d), trimming",
-                    batch_idx, estimated_total, max_input_tokens,
-                )
-                trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
+            batch_prompts: list[str] = []
+            for batch_idx, batch in enumerate(batches):
+                batch_selected_str = _trunc(batch, selected_limit)
                 batch_prompt = _EXECUTE_USER.format(
                     target_url=target_url,
-                    crawl_data=compress_crawl_data(crawl_context, max_chars=2000),
-                    observation_table=trimmed_obs,
-                    selected_tests=_trunc(batch, 2000),
+                    crawl_data=crawl_data_str,
+                    observation_table=observation_table,
+                    selected_tests=batch_selected_str,
                     user_data=user_data_str,
                     extra_instructions=extra_str,
-                    reference_documents=ref_docs_str[:3000],
+                    reference_documents=ref_docs_str,
                     batch_count=len(batch),
                     language_instruction=language_instruction,
                 )
-            batch_prompts.append(batch_prompt)
 
-        # --- Parallel AI calls via asyncio.gather ---
-        tasks = [
-            _gen_one_batch(
-                adapter=adapter,
-                prompt=batch_prompts[i],
-                batch_idx=i,
-                observations=observations,
-                crawl_context=crawl_context,
-                user_data_str=user_data_str,
-                extra_str=extra_str,
-                ref_docs_str=ref_docs_str,
-                target_url=target_url,
-                batch=batch,
-                language_instruction=language_instruction,
-            )
-            for i, batch in enumerate(batches)
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+                estimated_total = (len(batch_prompt) + len(_EXECUTE_SYSTEM)) // 3
+                if estimated_total > max_input_tokens:
+                    logger.warning(
+                        "BG: Batch %d prompt %d tokens (limit %d), trimming",
+                        batch_idx, estimated_total, max_input_tokens,
+                    )
+                    trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
+                    batch_prompt = _EXECUTE_USER.format(
+                        target_url=target_url,
+                        crawl_data=compress_crawl_data(crawl_context, max_chars=2000),
+                        observation_table=trimmed_obs,
+                        selected_tests=_trunc(batch, 2000),
+                        user_data=user_data_str,
+                        extra_instructions=extra_str,
+                        reference_documents=ref_docs_str[:3000],
+                        batch_count=len(batch),
+                        language_instruction=language_instruction,
+                    )
+                batch_prompts.append(batch_prompt)
 
-        all_scenarios: list = []
-        for batch_idx, result in enumerate(results):
-            if isinstance(result, BaseException):
-                logger.exception(
-                    "BG: Batch %d failed (test_id=%d): %s",
-                    batch_idx, test_id, result,
+            # --- Parallel AI calls via asyncio.gather ---
+            tasks = [
+                _gen_one_batch(
+                    adapter=adapter,
+                    prompt=batch_prompts[i],
+                    batch_idx=i,
+                    observations=observations,
+                    crawl_context=crawl_context,
+                    user_data_str=user_data_str,
+                    extra_str=extra_str,
+                    ref_docs_str=ref_docs_str,
+                    target_url=target_url,
+                    batch=batch,
+                    language_instruction=language_instruction,
                 )
-                raise result
-            all_scenarios.extend(result)
+                for i, batch in enumerate(batches)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Renumber SC-IDs sequentially across batches
+            for batch_idx, result in enumerate(results):
+                if isinstance(result, BaseException):
+                    logger.exception(
+                        "BG: Batch %d failed (test_id=%d): %s",
+                        batch_idx, test_id, result,
+                    )
+                    raise result
+                ai_scenarios.extend(result)
+
+        # Merge pattern + AI scenarios, renumber SC-IDs sequentially
+        all_scenarios: list = list(pattern_scenarios) + ai_scenarios
         for i, sc in enumerate(all_scenarios, 1):
             if hasattr(sc, "id"):
                 sc.__dict__["id"] = f"SC-{i:03d}"
@@ -1958,7 +2068,7 @@ async def _bg_generate_scenarios(
         scenarios = all_scenarios
 
         if not scenarios:
-            raise ValueError("AI generated no scenarios")
+            raise ValueError("No scenarios generated (pattern + AI both empty)")
 
         # === Post-processing pipeline ===
         scenarios = fix_assert_steps(scenarios)

@@ -497,7 +497,13 @@
     "githubRemoved": "GitHub connection removed.",
     "githubVerifySuccess": "Repository accessible!",
     "githubVerifyFailed": "Cannot access repository: {error}",
-    "patKeptHint": "Leave empty to keep the saved token. Enter a new token only to change it."
+    "patKeptHint": "Leave empty to keep the saved token. Enter a new token only to change it.",
+    "advancedTitle": "Advanced Options",
+    "advancedDesc": "Fine-tune test plan generation behavior.",
+    "useAiPlan": "Use AI Test Plan",
+    "useAiPlanDesc": "When enabled, test plans are generated using AI instead of the default pattern-based approach. Costs more credits but may produce more contextual results.",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "fileUpload": {
     "dropHint": "Drop spec documents here or click to browse",

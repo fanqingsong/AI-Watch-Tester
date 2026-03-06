@@ -497,7 +497,13 @@
     "githubRemoved": "GitHub 연결이 삭제되었습니다.",
     "githubVerifySuccess": "저장소에 접근 가능합니다!",
     "githubVerifyFailed": "저장소에 접근할 수 없습니다: {error}",
-    "patKeptHint": "비워두면 저장된 토큰을 유지합니다. 변경할 때만 새 토큰을 입력하세요."
+    "patKeptHint": "비워두면 저장된 토큰을 유지합니다. 변경할 때만 새 토큰을 입력하세요.",
+    "advancedTitle": "고급 옵션",
+    "advancedDesc": "테스트 계획 생성 방식을 조정합니다.",
+    "useAiPlan": "AI 테스트 계획 사용",
+    "useAiPlanDesc": "활성화하면 기본 패턴 기반 방식 대신 AI로 테스트 계획을 생성합니다. 크레딧을 더 소모하지만 더 맥락에 맞는 결과를 얻을 수 있습니다.",
+    "enabled": "사용",
+    "disabled": "사용 안 함"
   },
   "fileUpload": {
     "dropHint": "문서를 여기에 드롭하거나 클릭하여 찾기",

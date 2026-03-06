@@ -221,6 +221,7 @@ class ScanPlanRequest(BaseModel):
     """POST /api/scan/{scan_id}/plan request body."""
 
     language: Literal["ko", "en"] = "en"
+    use_ai_plan: bool = False
 
 
 class ScanPlanResponse(BaseModel):

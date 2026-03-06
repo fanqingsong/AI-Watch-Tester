@@ -57,11 +57,10 @@ def test_match_form_fields() -> None:
     }]
     matched = match_elements_to_patterns(pages, [])
 
-    # Should match email, password, and form-level
+    # Should match email and password (form-level pattern removed; consolidated in build_pattern_tests)
     pattern_keys = [m["pattern_key"] for m in matched]
     assert "input[type=email]" in pattern_keys
     assert "input[type=password]" in pattern_keys
-    assert "form" in pattern_keys
 
 
 def test_match_accordion_observations() -> None:

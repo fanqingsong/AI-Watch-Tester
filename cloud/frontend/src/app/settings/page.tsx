@@ -51,6 +51,9 @@ export default function SettingsPage() {
   const [ghMessage, setGhMessage] = useState("");
   const [ghError, setGhError] = useState("");
 
+  // Advanced Options state
+  const [useAiPlan, setUseAiPlan] = useState(false);
+
   // AI Config state
   const [aiConfig, setAiConfig] = useState<AIConfigInfo | null>(null);
   const [aiProvider, setAiProvider] = useState("openai");
@@ -104,8 +107,15 @@ export default function SettingsPage() {
       loadAIConfig();
       loadGitHub();
       fetchBilling().then(setBilling).catch(() => {});
+      // Load AI plan toggle from localStorage
+      setUseAiPlan(localStorage.getItem("awt_use_ai_plan") === "true");
     }
   }, [user]);
+
+  const handleToggleAiPlan = (checked: boolean) => {
+    setUseAiPlan(checked);
+    localStorage.setItem("awt_use_ai_plan", checked ? "true" : "false");
+  };
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return;
@@ -527,6 +537,34 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Advanced Options Section */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">
+          {t("advancedTitle")}
+        </h2>
+        <p className="mb-4 text-sm text-gray-500">{t("advancedDesc")}</p>
+
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-700">{t("useAiPlan")}</p>
+            <p className="text-xs text-gray-500">{t("useAiPlanDesc")}</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={useAiPlan}
+            onClick={() => handleToggleAiPlan(!useAiPlan)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${useAiPlan ? "bg-blue-600" : "bg-gray-200"}`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200 ${useAiPlan ? "translate-x-5" : "translate-x-0"}`}
+            />
+          </button>
+        </div>
+        <p className={`mt-2 text-xs ${useAiPlan ? "text-blue-600" : "text-gray-400"}`}>
+          {useAiPlan ? t("enabled") : t("disabled")}
+        </p>
       </div>
 
       {/* API Keys Section */}
