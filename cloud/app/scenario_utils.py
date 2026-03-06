@@ -55,13 +55,80 @@ def parse_json(text: str | None) -> Any:
 # Observation compression
 # ---------------------------------------------------------------------------
 
+def _extract_path(url: str, base_url: str = "") -> str:
+    """Extract path from URL, stripping base to save tokens."""
+    if not url:
+        return ""
+    if base_url and url.startswith(base_url):
+        path = url[len(base_url):]
+        return path if path else "/"
+    # Strip scheme+host
+    if "://" in url:
+        after = url.split("://", 1)[1]
+        slash = after.find("/")
+        return after[slash:] if slash >= 0 else "/"
+    return url
+
+
+def _element_tag(elem: dict) -> str:
+    """Convert element dict to compact tag: TYPE:selector|'text'."""
+    etype = elem.get("type", "")
+    sel = elem.get("selector", "?")
+    txt = elem.get("text", "")
+    tag = {
+        "link": "LINK", "button": "BTN", "submit_button": "SUBMIT",
+        "nav_item": "NAV", "input": "INPUT",
+    }.get(etype, etype.upper() if etype else "EL")
+    return f"{tag}:{sel}|'{txt}'"
+
+
+def _field_tag(f: dict) -> str:
+    """Convert form field to compact tag."""
+    sel = f.get("selector", "?")
+    if f.get("type") == "submit_button":
+        ctx = f.get("context", "")
+        ctx_tag = f"[{ctx}]" if ctx else ""
+        label = f.get("label", "")
+        return f"SUBMIT{ctx_tag}:{sel}|'{label}'"
+    ftype = f.get("type", "text")
+    ph = f.get("placeholder", "") or f.get("label", "")
+    return f"INPUT:{ftype}:{sel}|'{ph}'"
+
+
+def _change_tag(ct: str, after_path: str) -> str:
+    """Convert change type to compact arrow notation."""
+    if ct == "page_navigation":
+        return f"→nav:{after_path}"
+    if ct == "modal_opened":
+        return "→modal"
+    if ct == "content_expanded":
+        return "→expand"
+    if ct == "anchor_scroll":
+        return "→scroll"
+    if ct == "section_change":
+        return "→section"
+    if ct == "element_change":
+        return "→changed"
+    if ct == "file_download":
+        return f"→download:{after_path}"
+    return f"→{ct}"
+
+
 def compress_observations_for_ai(
     observations: list[dict],
     max_tokens: int = 15000,
 ) -> str:
-    """Compress observation data into 1-line summaries within token budget."""
+    """Compress observation data into compact tagged format within token budget.
+
+    Format: [N] TAG:selector|'text' →change_type:path | texts:[...]
+    Fields:  INPUT:type:selector|'placeholder', SUBMIT[ctx]:selector|'label'
+    """
     if not observations:
         return "No observations collected."
+
+    # Estimate uncompressed size for logging
+    raw_json = json.dumps(observations, ensure_ascii=False)
+    raw_tokens = len(raw_json) // 3
 
     # 1) Deduplicate by selector+text
     seen: set[str] = set()
@@ -90,74 +157,77 @@ def compress_observations_for_ai(
         return 5
     unique_obs.sort(key=_priority)
 
-    # 3) Build 1-line summaries
-    lines: list[str] = []
-    form_details: list[str] = []
-
+    # Detect base URL for path extraction
+    base_url = ""
     for obs in unique_obs:
+        before = obs.get("before", {}).get("url", "")
+        if before and "://" in before:
+            parts = before.split("://", 1)
+            host_end = parts[1].find("/")
+            base_url = f"{parts[0]}://{parts[1][:host_end]}" if host_end >= 0 else before
+            break
+
+    # 3) Build compact lines
+    lines: list[str] = []
+    all_assert_texts: list[str] = []
+    all_element_texts: list[str] = []
+
+    for idx, obs in enumerate(unique_obs, 1):
         elem = obs.get("element", {})
         change = obs.get("observed_change", {})
         ct = change.get("type", "no_change")
         if ct == "no_change":
             continue
 
-        sel = elem.get("selector", "?")
-        txt = elem.get("text", "?")
+        txt = elem.get("text", "")
+        if txt:
+            all_element_texts.append(txt)
+
         after_url = obs.get("after", {}).get("url", "")
+        after_path = _extract_path(after_url, base_url)
         new_text = change.get("new_text", [])
 
-        summary_parts = [f"'{txt}' ({sel})"]
-        if ct == "page_navigation":
-            summary_parts.append(f"→ navigate {after_url}")
-        elif ct == "modal_opened":
-            summary_parts.append("→ modal opened")
-        elif ct == "content_expanded":
-            summary_parts.append("→ content expanded")
-        elif ct == "anchor_scroll":
-            summary_parts.append("→ section scroll")
-        elif ct == "file_download":
-            summary_parts.append(f"→ file download {after_url}")
-        else:
-            summary_parts.append(f"→ {ct}")
+        # Collect assert texts
+        for nt in new_text:
+            if nt and nt.strip():
+                all_assert_texts.append(nt.strip())
 
+        # Main line: [N] TAG:sel|'text' →change:path | texts:[...]
+        parts = [f"[{idx}] {_element_tag(elem)} {_change_tag(ct, after_path)}"]
         if new_text:
-            texts_preview = json.dumps(new_text[:5], ensure_ascii=False)
-            summary_parts.append(f"assert: {texts_preview}")
+            # Limit to 5 items, compact JSON
+            texts_compact = json.dumps(new_text[:5], ensure_ascii=False, separators=(",", ":"))
+            parts.append(f"texts:{texts_compact}")
+        line = " | ".join(parts)
 
-        lines.append(" | ".join(summary_parts))
+        # Auth pattern inline
+        auth_info = obs.get("auth_pattern")
+        if auth_info:
+            pt = auth_info.get("page_type", "")
+            if pt:
+                line += f" AUTH:{pt}"
 
-        # Form fields in separate section (critical for test generation)
+        lines.append(line)
+
+        # Form fields inline (indented under parent)
         modal_fields = change.get("modal_form_fields", [])
         nav_fields = change.get("navigated_page_fields", [])
         for fields, label in [(modal_fields, "MODAL"), (nav_fields, "PAGE")]:
             if fields:
-                field_strs = []
-                for f in fields:
-                    ctx = f.get("context", "")
-                    ctx_tag = f"[{ctx}]" if ctx else ""
-                    if f.get("type") == "submit_button":
-                        field_strs.append(
-                            f"SUBMIT{ctx_tag}({f.get('selector', '?')}, "
-                            f"{f.get('label', '')!r})"
-                        )
-                    else:
-                        field_strs.append(
-                            f"{f.get('type', 'text')}{ctx_tag}("
-                            f"{f.get('selector', '?')}, "
-                            f"ph={f.get('placeholder', '')!r})"
-                        )
-                form_details.append(
-                    f"  {label} FIELDS after '{txt}': {', '.join(field_strs)}"
-                )
+                ftags = [_field_tag(f) for f in fields]
+                lines.append(f"  {label}: {', '.join(ftags)}")
 
-    # 4) Token budget check (~1 token per 3 chars, conservative)
+    # 4) Build result
     def _build_result() -> str:
-        parts = ["## Observations (compressed)"]
-        parts.extend(lines)
-        if form_details:
-            parts.append("\n## Form Fields (CRITICAL — use EXACT selectors)")
-            parts.extend(form_details)
-        return "\n".join(parts)
+        result_parts = ["## OBS"]
+        result_parts.extend(lines)
+        if all_assert_texts:
+            texts_json = json.dumps(
+                list(dict.fromkeys(all_assert_texts)),  # dedup preserving order
+                ensure_ascii=False, separators=(",", ":"),
+            )
+            result_parts.append(f"ASSERT_TEXTS:{texts_json}")
+        return "\n".join(result_parts)
 
     result = _build_result()
     estimated_tokens = len(result) // 3
@@ -166,6 +236,97 @@ def compress_observations_for_ai(
         lines.pop()
         result = _build_result()
         estimated_tokens = len(result) // 3
+
+    compressed_tokens = len(result) // 3
+    if raw_tokens > 0:
+        reduction = (1 - compressed_tokens / raw_tokens) * 100
+        logger.info(
+            "Observation compressed: %s → %s tokens (-%s%%)",
+            f"{raw_tokens:,}", f"{compressed_tokens:,}", f"{reduction:.0f}",
+        )
+
+    return result
+
+
+def compress_crawl_data(crawl_data: dict, max_chars: int = 12000) -> str:
+    """Compress crawl data (nav_menus, forms, buttons) into compact format.
+
+    Instead of raw JSON, uses tagged format:
+    FORM: selector | fields: INPUT:type:sel|'ph', SUBMIT:sel|'label'
+    BTN: selector|'text'
+    NAV: text→href, text→href
+    """
+    parts: list[str] = []
+
+    # Nav menus — compact: just text→href pairs
+    nav_menus = crawl_data.get("nav_menus", [])
+    if nav_menus:
+        items: list[str] = []
+        seen_nav: set[str] = set()
+        for menu in nav_menus:
+            for item in menu.get("items", []):
+                txt = item.get("text", "")
+                href = item.get("href", "")
+                key = f"{txt}|{href}"
+                if key not in seen_nav and txt:
+                    seen_nav.add(key)
+                    items.append(f"'{txt}'→{href}")
+        if items:
+            parts.append(f"NAV: {', '.join(items[:15])}")
+
+    # Forms — compact: selector + fields
+    forms = crawl_data.get("forms", [])
+    for form in forms:
+        f_sel = form.get("selector", "form")
+        fields = form.get("fields", [])
+        submit = form.get("submit_button", {})
+
+        ftags: list[str] = []
+        for f in fields:
+            ftags.append(_field_tag(f))
+        if submit:
+            s_sel = submit.get("selector", "?")
+            s_txt = submit.get("text", "")
+            ftags.append(f"SUBMIT:{s_sel}|'{s_txt}'")
+
+        parts.append(f"FORM({f_sel}): {', '.join(ftags)}")
+
+    # Buttons — compact list
+    buttons = crawl_data.get("buttons", [])
+    if buttons:
+        btn_strs = [
+            f"BTN:{b.get('selector', '?')}|'{b.get('text', '')}'"
+            for b in buttons[:20]
+        ]
+        parts.append(f"BTNS: {', '.join(btn_strs)}")
+
+    # Links (if present)
+    links = crawl_data.get("links", [])
+    if links:
+        link_strs = [
+            f"'{lnk.get('text', '')}'→{lnk.get('href', '')}"
+            for lnk in links[:10]
+            if lnk.get("text", "").strip()
+        ]
+        if link_strs:
+            parts.append(f"LINKS: {', '.join(link_strs)}")
+
+    result = "\n".join(parts)
+
+    # Truncate if over budget
+    if len(result) > max_chars:
+        result = result[:max_chars] + "\n...(truncated)"
+
+    # Log compression
+    raw_json = json.dumps(crawl_data, ensure_ascii=False)
+    raw_tokens = len(raw_json) // 3
+    compressed_tokens = len(result) // 3
+    if raw_tokens > 0:
+        reduction = (1 - compressed_tokens / raw_tokens) * 100
+        logger.info(
+            "Crawl data compressed: %s → %s tokens (-%s%%)",
+            f"{raw_tokens:,}", f"{compressed_tokens:,}", f"{reduction:.0f}",
+        )
 
     return result
 

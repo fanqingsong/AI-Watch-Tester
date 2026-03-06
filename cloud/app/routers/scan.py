@@ -24,6 +24,7 @@ from app.scenario_utils import (
 )
 from app.scenario_utils import (
     build_language_instruction,
+    compress_crawl_data,
     compress_observations_for_ai,
     detect_site_language,
     enforce_multi_step_order,
@@ -778,18 +779,7 @@ Language: {language}
 - Broken links found: {broken_count}
 
 ## Crawl Data
-
-### Navigation Menus
-{nav_menus_json}
-
-### Forms
-{forms_json}
-
-### Buttons
-{buttons_json}
-
-### Links (sample)
-{links_json}
+{crawl_data}
 
 ### Broken Links
 {broken_links_json}
@@ -945,6 +935,12 @@ async def generate_plan(
 
     # Build AI prompt (system/user split for prompt caching)
     lang = "Korean" if body.language == "ko" else "English"
+    plan_crawl = {
+        "nav_menus": nav_menus,
+        "forms": forms,
+        "buttons": buttons,
+        "links": links_sample,
+    }
     plan_user = _PLAN_USER.format(
         language=lang,
         target_url=scan.target_url,
@@ -952,10 +948,7 @@ async def generate_plan(
         detected_features=", ".join(features) if features else "none",
         site_type=site_type_name,
         site_type_confidence=f"{site_type_conf:.0%}",
-        nav_menus_json=_trunc_json(nav_menus),
-        forms_json=_trunc_json(forms),
-        buttons_json=_trunc_json(buttons),
-        links_json=_trunc_json(links_sample),
+        crawl_data=compress_crawl_data(plan_crawl, max_chars=9000),
         broken_links_json=_trunc_json(broken),
         broken_count=len(broken),
         observations_json=(
@@ -1320,148 +1313,11 @@ def _extract_json(text: str) -> dict:
 
 
 def _build_observation_table(observations: list[dict]) -> str:
-    """Convert raw observations into a structured reference table for AI.
+    """Convert raw observations into compact tagged format for AI.
 
-    Produces a human-readable table that maps:
-    - Element selector + text → what happens when clicked
-    - Observed new_text → what to assert
-    - Modal form fields → selectors for input targeting
+    Uses compress_observations_for_ai() for consistent token-efficient output.
     """
-    if not observations:
-        return "No observations collected. Use crawl data forms/buttons for targets."
-
-    lines: list[str] = []
-    for i, obs in enumerate(observations, 1):
-        elem = obs.get("element", {})
-        change = obs.get("observed_change", {})
-        change_type = change.get("type", "unknown")
-
-        # Skip no_change observations
-        if change_type == "no_change":
-            continue
-
-        sel = elem.get("selector") or "NONE"
-        txt = elem.get("text") or ""
-        etype = elem.get("type") or ""
-
-        lines.append(f"### Observation {i}: {txt}")
-        lines.append(f"  - element.selector: {sel}")
-        lines.append(f"  - element.text: {txt}")
-        lines.append(f"  - element.type: {etype}")
-        lines.append(f"  - change_type: {change_type}")
-        lines.append(f"  - before_url: {obs.get('before', {}).get('url', '')}")
-        lines.append(f"  - after_url: {obs.get('after', {}).get('url', '')}")
-        lines.append(f"  - access_path: {obs.get('access_path', '')}")
-
-        # New text (for assertions)
-        new_text = change.get("new_text", [])
-        if new_text:
-            lines.append(
-                f"  - OBSERVED new_text (use for assert): "
-                f"{json.dumps(new_text[:10], ensure_ascii=False)}"
-            )
-
-        # Modal form fields (for find_and_type targets)
-        modal_fields = change.get("modal_form_fields", [])
-        if modal_fields:
-            lines.append("  - MODAL FORM FIELDS (use these selectors for input):")
-            for f in modal_fields:
-                f_sel = f.get("selector") or "NONE"
-                f_type = f.get("type", "")
-                f_ph = f.get("placeholder", "")
-                f_label = f.get("label", "")
-                f_name = f.get("name", "")
-                if f_type == "submit_button":
-                    lines.append(f"    * SUBMIT BUTTON: selector={f_sel}, label={f_label!r}")
-                else:
-                    lines.append(
-                        f"    * type={f_type}, selector={f_sel}, "
-                        f"placeholder={f_ph!r}, label={f_label!r}, name={f_name!r}"
-                    )
-
-        # Navigated page form fields (login/signup pages reached via click)
-        nav_fields = change.get("navigated_page_fields", [])
-        if nav_fields:
-            lines.append(
-                "  - NAVIGATED PAGE FIELDS (use these EXACT selectors/placeholders for input):"
-            )
-            for f in nav_fields:
-                f_sel = f.get("selector") or "NONE"
-                f_type = f.get("type", "")
-                f_ph = f.get("placeholder", "")
-                f_label = f.get("label", "")
-                f_name = f.get("name", "")
-                if f_type == "submit_button":
-                    lines.append(
-                        f"    * SUBMIT BUTTON: selector={f_sel}, label={f_label!r}"
-                    )
-                else:
-                    lines.append(
-                        f"    * type={f_type}, selector={f_sel}, "
-                        f"placeholder={f_ph!r}, label={f_label!r}, name={f_name!r}"
-                    )
-
-        # Auth pattern — tells AI whether this is login or signup
-        auth_info = obs.get("auth_pattern")
-        if auth_info:
-            pt = auth_info.get("page_type", "unknown")
-            pat = auth_info.get("pattern", "")
-            lines.append(f"  - AUTH page_type: {pt} (pattern: {pat})")
-            if pt == "registration":
-                lines.append(
-                    "    ⚠ This is a SIGNUP/REGISTRATION page. "
-                    "Do NOT generate login tests for this page."
-                )
-            elif pt == "login":
-                lines.append(
-                    "    ⚠ This is a LOGIN page. "
-                    "Do NOT generate signup tests for this page."
-                )
-
-        # Accordion expanded content
-        accordion_detail = obs.get("accordion_detail", {})
-        if accordion_detail:
-            expanded = accordion_detail.get("expanded_text", "")
-            if expanded:
-                lines.append(f"  - ACCORDION expanded_text: {expanded[:300]}")
-
-        # New elements (modals/dialogs)
-        new_elems = change.get("new_elements", [])
-        if new_elems:
-            lines.append(f"  - new_elements: {new_elems}")
-
-        lines.append("")
-
-    # Add summary of all available texts for assertions
-    all_assert_texts: list[str] = []
-    all_element_texts: list[str] = []
-    for obs in observations:
-        elem = obs.get("element", {})
-        change = obs.get("observed_change", {})
-        if change.get("type") == "no_change":
-            continue
-        txt = elem.get("text", "")
-        if txt:
-            all_element_texts.append(txt)
-        for nt in change.get("new_text", []):
-            if nt.strip():
-                all_assert_texts.append(nt.strip())
-    if all_assert_texts or all_element_texts:
-        lines.append("### ===== AVAILABLE DATA SUMMARY =====")
-        if all_element_texts:
-            lines.append(
-                f"Clickable element texts: "
-                f"{json.dumps(all_element_texts, ensure_ascii=False)}"
-            )
-        if all_assert_texts:
-            lines.append(
-                f"Observable texts (valid for assert): "
-                f"{json.dumps(all_assert_texts, ensure_ascii=False)}"
-            )
-        lines.append("REMINDER: Only use texts from above for assert values. NEVER invent text.")
-        lines.append("")
-
-    return "\n".join(lines) if lines else "No meaningful observations."
+    return compress_observations_for_ai(observations, max_tokens=20000)
 
 
 # ---------------------------------------------------------------------------
@@ -1813,7 +1669,7 @@ async def execute_scan_tests(
         s = json.dumps(obj, ensure_ascii=False, indent=2)
         return s[:limit] if len(s) > limit else s
 
-    crawl_data_str = _trunc(crawl_context, crawl_limit)
+    crawl_data_str = compress_crawl_data(crawl_context, max_chars=crawl_limit)
     selected_str = _trunc(selected_details, selected_limit)
 
     logger.info("Token budget (scan_id=%d): obs=%dt, crawl=%dt, selected=%dt, ref=%dt",
@@ -1971,7 +1827,7 @@ async def _gen_one_batch(
                 )
                 retry_prompt = _EXECUTE_USER.format(
                     target_url=target_url,
-                    crawl_data=_trunc(crawl_context, 1500),
+                    crawl_data=compress_crawl_data(crawl_context, max_chars=1500),
                     observation_table=compressed_obs,
                     selected_tests=_trunc(batch, 1500),
                     user_data=user_data_str,
@@ -2054,7 +1910,7 @@ async def _bg_generate_scenarios(
                 trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
                 batch_prompt = _EXECUTE_USER.format(
                     target_url=target_url,
-                    crawl_data=_trunc(crawl_context, 2000),
+                    crawl_data=compress_crawl_data(crawl_context, max_chars=2000),
                     observation_table=trimmed_obs,
                     selected_tests=_trunc(batch, 2000),
                     user_data=user_data_str,
