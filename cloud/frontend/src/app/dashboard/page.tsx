@@ -6,8 +6,10 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import TestProgress from "@/components/TestProgress";
 import ScenarioEditor from "@/components/ScenarioEditor";
+import StepIndicator from "@/components/StepIndicator";
+import ScenarioReview from "@/components/ScenarioReview";
 import {
-  createTest, getTest, fetchBilling, convertScenario, cancelTest,
+  createTest, getTest, fetchBilling, convertScenario, cancelTest, approveTest,
   startScan, getScan, generateScanPlan, executeScanTests, connectScanWS,
   connectConvertWS,
   listDocuments, uploadUserDocument, deleteDocument,
@@ -63,6 +65,7 @@ export default function DashboardPage() {
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [planLoading, setPlanLoading] = useState(false);
   const [scanExecuting, setScanExecuting] = useState(false);
+  const [skipReview, setSkipReview] = useState(false);
   const [scanValidation, setScanValidation] = useState<ValidationItem[]>([]);
   const [scanValidationSummary, setScanValidationSummary] = useState<ValidationSummary | null>(null);
   const scanWsRef = useRef<WebSocket | null>(null);
@@ -245,7 +248,14 @@ export default function DashboardPage() {
       const test = await getTest(testId);
       setActiveTest(test);
       setScenarioYaml(test.scenario_yaml || "");
-      setPhase("review");
+      if (skipReview) {
+        // Auto-approve and go straight to execution
+        await approveTest(testId);
+        setPhase("executing");
+        setSkipReview(false);
+      } else {
+        setPhase("review");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load scenarios";
       setError(translateApiError(msg, te));
@@ -443,19 +453,20 @@ export default function DashboardPage() {
     });
   };
 
-  const handleExecuteScan = async () => {
+  const handleExecuteScan = async (skip = false) => {
     if (!activeScan || (selectedTests.size === 0 && !additionalYaml)) return;
     setError("");
     setScanExecuting(true);
     setScanValidation([]);
     setScanValidationSummary(null);
+    if (skip) setSkipReview(true);
 
     try {
       if (selectedTests.size === 0 && additionalYaml) {
         // Only additional tests, skip scan execution
         const test = await createTest(url, "auto", additionalYaml);
         setActiveTest(test);
-        setPhase("executing");
+        setPhase("generating");
         setScanPhase("executing");
       } else {
         // Unified path: server handles additional_yaml merge in background
@@ -469,7 +480,7 @@ export default function DashboardPage() {
         // Server returns immediately with test_id + status="generating"
         const test = await getTest(result.test_id);
         setActiveTest(test);
-        setPhase("executing");
+        setPhase("generating");
         setScanPhase("executing");
       }
     } catch (err) {
@@ -562,6 +573,24 @@ export default function DashboardPage() {
 
   const isLocalhost = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(url.trim());
 
+  // Step indicator logic (Smart Scan flow only)
+  const computeStep = (): number => {
+    if (phase === "done") return 5;
+    if (phase === "executing") return 4;
+    if (phase === "review" || phase === "generating") return 3;
+    if (scanPhase === "ready" || scanPhase === "plan") return 2;
+    return 1;
+  };
+  const currentStep = computeStep();
+  const completedSteps: number[] = [];
+  if (currentStep > 1) completedSteps.push(1);
+  if (currentStep > 2) completedSteps.push(2);
+  if (currentStep > 3) completedSteps.push(3);
+  if (currentStep > 4) completedSteps.push(4);
+  if (currentStep === 5 && testPassed) completedSteps.push(5);
+  // Show step indicator when scan flow has started (not idle and not in directMode)
+  const showStepIndicator = !directMode && (scanPhase !== "idle" || phase !== "idle");
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       {/* Cloud mode header */}
@@ -614,6 +643,13 @@ export default function DashboardPage() {
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Step Indicator */}
+      {showStepIndicator && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-3">
+          <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />
         </div>
       )}
 
@@ -1276,25 +1312,37 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Execute button */}
-                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
-                      <span className="text-sm text-gray-600">
-                        {selectedTests.size} {ts("selectedTests")}
-                        {additionalInfo && additionalInfo.count > 0 && !(additionalRelevance?.feature_missing) && (
-                          <span className={`ml-1 ${additionalRelevance && !additionalRelevance.valid ? "text-amber-600" : "text-blue-600"}`}>
-                            + {additionalInfo.count}
-                            {additionalRelevance && !additionalRelevance.valid && " \u26A0\uFE0F"}
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleExecuteScan}
-                        disabled={(selectedTests.size === 0 && !additionalYaml) || scanExecuting || isBusy}
-                        className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
-                      >
-                        {scanExecuting ? ts("executing") : ts("runSelected")}
-                      </button>
+                    {/* Execute buttons */}
+                    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">
+                          {selectedTests.size} {ts("selectedTests")}
+                          {additionalInfo && additionalInfo.count > 0 && !(additionalRelevance?.feature_missing) && (
+                            <span className={`ml-1 ${additionalRelevance && !additionalRelevance.valid ? "text-amber-600" : "text-blue-600"}`}>
+                              + {additionalInfo.count}
+                              {additionalRelevance && !additionalRelevance.valid && " \u26A0\uFE0F"}
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleExecuteScan(true)}
+                            disabled={(selectedTests.size === 0 && !additionalYaml) || scanExecuting || isBusy}
+                            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {ts("skipReviewRun")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleExecuteScan(false)}
+                            disabled={(selectedTests.size === 0 && !additionalYaml) || scanExecuting || isBusy}
+                            className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                          >
+                            {scanExecuting ? ts("executing") : ts("generateScenarios")}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Validation results after execute */}
@@ -1400,7 +1448,7 @@ export default function DashboardPage() {
 
           {/* Phase: review */}
           {phase === "review" && scenarioYaml && (
-            <ScenarioEditor
+            <ScenarioReview
               testId={activeTest.id}
               initialYaml={scenarioYaml}
               onApprove={handleApprove}

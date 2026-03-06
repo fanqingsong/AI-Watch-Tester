@@ -612,6 +612,8 @@
     "selectedTests": "selected tests",
     "estimatedTime": "Est. time",
     "runSelected": "Run Selected Tests",
+    "generateScenarios": "Generate Scenarios",
+    "skipReviewRun": "Skip Review & Run",
     "executing": "Generating scenarios...",
     "noTestsSelected": "Select at least one test",
     "priorityHigh": "High",
@@ -670,5 +672,31 @@
     "lastUpdated": "Last updated: February 24, 2026",
     "seeAlso": "See also:",
     "termsLink": "Terms of Service"
+  },
+  "steps": {
+    "step1": "Scan",
+    "step2": "Test Plan",
+    "step3": "Review",
+    "step4": "Execute",
+    "step5": "Results"
+  },
+  "scenarioReview": {
+    "title": "Scenario Review",
+    "scenarioCount": "{count} scenario(s)",
+    "stepsCount": "{count} steps",
+    "patternBadge": "Pattern",
+    "aiBadge": "AI",
+    "delete": "Delete",
+    "deleteConfirm": "Remove this scenario?",
+    "editYaml": "Edit YAML",
+    "visualView": "Visual View",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "save": "Save",
+    "starting": "Starting...",
+    "runTest": "Run Test",
+    "noScenarios": "No scenarios. Go back and regenerate.",
+    "expand": "Show steps",
+    "collapse": "Hide steps"
   }
 }

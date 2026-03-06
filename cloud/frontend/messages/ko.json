@@ -612,6 +612,8 @@
     "selectedTests": "선택된 테스트",
     "estimatedTime": "예상 시간",
     "runSelected": "선택된 테스트 실행",
+    "generateScenarios": "시나리오 생성",
+    "skipReviewRun": "검토 건너뛰고 바로 실행",
     "executing": "시나리오 생성 중...",
     "noTestsSelected": "최소 하나의 테스트를 선택하세요",
     "priorityHigh": "높음",
@@ -670,5 +672,31 @@
     "lastUpdated": "최종 업데이트: 2026년 2월 24일",
     "seeAlso": "함께 보기:",
     "termsLink": "이용약관"
+  },
+  "steps": {
+    "step1": "사이트 스캔",
+    "step2": "테스트 계획",
+    "step3": "시나리오 검토",
+    "step4": "테스트 실행",
+    "step5": "결과 확인"
+  },
+  "scenarioReview": {
+    "title": "시나리오 검토",
+    "scenarioCount": "{count}개 시나리오",
+    "stepsCount": "{count}개 스텝",
+    "patternBadge": "패턴",
+    "aiBadge": "AI",
+    "delete": "삭제",
+    "deleteConfirm": "이 시나리오를 제거하시겠습니까?",
+    "editYaml": "YAML 편집",
+    "visualView": "시각적 보기",
+    "saving": "저장 중...",
+    "saved": "저장됨",
+    "save": "저장",
+    "starting": "시작 중...",
+    "runTest": "테스트 실행",
+    "noScenarios": "시나리오가 없습니다. 뒤로 돌아가 다시 생성해주세요.",
+    "expand": "스텝 보기",
+    "collapse": "스텝 숨기기"
   }
 }
