@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Default model per AI provider
 _DEFAULT_MODELS: dict[str, str] = {
     "claude": "claude-sonnet-4-20250514",
+    "deepseek": "deepseek-chat",
     "openai": "gpt-4o-mini",
     "ollama": "codellama:7b",
 }

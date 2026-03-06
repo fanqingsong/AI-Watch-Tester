@@ -177,7 +177,7 @@ class UserAIConfig(Base):
     user_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     provider: Mapped[str] = mapped_column(
         String(32), nullable=False,
-    )  # openai | anthropic | ollama
+    )  # openai | anthropic | deepseek | ollama
     api_key_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # Fernet encrypted
     model: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(

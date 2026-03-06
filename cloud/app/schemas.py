@@ -268,7 +268,7 @@ class DocumentListResponse(BaseModel):
 class AIConfigRequest(BaseModel):
     """PUT /api/settings/ai-config request body."""
 
-    provider: Literal["openai", "anthropic", "ollama"]
+    provider: Literal["openai", "anthropic", "deepseek", "ollama"]
     api_key: str
     model: str = ""
 
@@ -286,7 +286,7 @@ class AIConfigResponse(BaseModel):
 class AIConfigTestRequest(BaseModel):
     """POST /api/settings/ai-config/test request body."""
 
-    provider: Literal["openai", "anthropic", "ollama"]
+    provider: Literal["openai", "anthropic", "deepseek", "ollama"]
     api_key: str
     model: str = ""
 

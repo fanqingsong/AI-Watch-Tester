@@ -164,6 +164,8 @@ async def test_ai_config(
         return await _test_openai(api_key, model)
     elif provider == "anthropic":
         return await _test_anthropic(api_key, model)
+    elif provider == "deepseek":
+        return await _test_deepseek(api_key, model)
     elif provider == "ollama":
         return await _test_ollama(model)
     else:
@@ -239,6 +241,40 @@ async def _test_anthropic(api_key: str, model: str) -> dict:
             body = resp.json() if ct.startswith("application/json") else {}
             msg = body.get("error", {}).get("message", f"HTTP {resp.status_code}")
             return {"success": False, "message": f"Anthropic API error: {msg}", "model": None}
+    except Exception as exc:
+        return {"success": False, "message": f"Connection failed: {exc}", "model": None}
+
+
+async def _test_deepseek(api_key: str, model: str) -> dict:
+    """Test DeepSeek API connection (OpenAI-compatible endpoint)."""
+    try:
+        import httpx
+
+        target = model or "deepseek-chat"
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://api.deepseek.com/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            models = [m["id"] for m in data.get("data", [])]
+            available = target in models
+            found_msg = (
+                f" Model '{target}' found."
+                if available
+                else f" Model '{target}' not found, but key is valid."
+            )
+            return {
+                "success": True,
+                "message": f"Connected! {len(models)} models available.{found_msg}",
+                "model": target if available else (models[0] if models else target),
+            }
+        elif resp.status_code == 401:
+            return {"success": False, "message": "Invalid API key.", "model": None}
+        else:
+            msg = f"DeepSeek API error: {resp.status_code}"
+            return {"success": False, "message": msg, "model": None}
     except Exception as exc:
         return {"success": False, "message": f"Connection failed: {exc}", "model": None}
 

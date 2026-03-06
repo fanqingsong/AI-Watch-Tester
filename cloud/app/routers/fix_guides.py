@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tests", tags=["fix-guides"])
 
 _DEFAULT_MODELS: dict[str, str] = {
+    "deepseek": "deepseek-chat",
     "openai": "gpt-4o",
     "anthropic": "claude-sonnet-4-20250514",
     "ollama": "codellama:7b",

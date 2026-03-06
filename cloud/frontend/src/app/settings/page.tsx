@@ -448,6 +448,7 @@ export default function SettingsPage() {
           >
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
+            <option value="deepseek">DeepSeek</option>
             <option value="ollama">Ollama (Local)</option>
           </select>
         </div>
@@ -490,7 +491,11 @@ export default function SettingsPage() {
             type="text"
             value={aiModel}
             onChange={(e) => setAiModel(e.target.value)}
-            placeholder={t("modelPlaceholder")}
+            placeholder={
+              aiProvider === "deepseek" ? "deepseek-chat" :
+              aiProvider === "anthropic" ? "claude-sonnet-4-20250514" :
+              t("modelPlaceholder")
+            }
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
