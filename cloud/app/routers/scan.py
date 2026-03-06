@@ -2147,7 +2147,7 @@ async def _bg_generate_scenarios(
 
         total_steps = sum(len(s.steps) for s in scenarios)
 
-        # Update Test record: GENERATING → QUEUED + save to cache
+        # Update Test record: GENERATING → REVIEW (user reviews before execution)
         async with async_session() as session:
             from app.models import Test, TestStatus
 
@@ -2156,7 +2156,7 @@ async def _bg_generate_scenarios(
             )).scalar_one()
             test.scenario_yaml = scenario_yaml
             test.steps_total = total_steps
-            test.status = TestStatus.QUEUED
+            test.status = TestStatus.REVIEW
             test.updated_at = datetime.now(UTC)
 
             # Save to scenario cache for future reuse (exact + fuzzy)
@@ -2188,8 +2188,18 @@ async def _bg_generate_scenarios(
 
             await session.commit()
 
+        # Broadcast scenarios_ready so frontend transitions to review screen
+        from app.ws import ws_manager as _ws
+
+        await _ws.broadcast(test_id, {
+            "type": "scenarios_ready",
+            "test_id": test_id,
+            "steps_total": total_steps,
+            "scenario_count": len(scenarios),
+        })
+
         logger.info(
-            "BG: Scenario generation complete (test_id=%d): %d scenarios, %d steps",
+            "BG: Scenario generation complete → REVIEW (test_id=%d): %d scenarios, %d steps",
             test_id, len(scenarios), total_steps,
         )
 
