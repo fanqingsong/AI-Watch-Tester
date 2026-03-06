@@ -55,12 +55,15 @@ class AIAdapter(ABC):
         self,
         document_text: str,
         images: list[bytes] | None = None,
+        *,
+        system_prompt: str | None = None,
     ) -> list[Scenario]:
         """Generate test scenarios from document analysis.
 
         Args:
             document_text: Spec/design guide text.
             images: Images from the document.
+            system_prompt: Optional override for the default system prompt.
 
         Returns:
             List of generated Scenario objects.

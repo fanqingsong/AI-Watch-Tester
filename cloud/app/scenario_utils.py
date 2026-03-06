@@ -350,6 +350,8 @@ async def validate_and_retry(
     page_data: list[dict] | None,
     adapter: Any,
     prompt_context: str,
+    *,
+    system_prompt: str | None = None,
 ) -> tuple[list, list[dict]]:
     """Validate scenarios and retry once if too many unverified.
 
@@ -388,7 +390,9 @@ async def validate_and_retry(
         )
 
         try:
-            fixed = await adapter.generate_scenarios(retry_prompt)
+            fixed = await adapter.generate_scenarios(
+                retry_prompt, system_prompt=system_prompt,
+            )
             if fixed:
                 scenarios = fixed
                 results = validate_scenarios(

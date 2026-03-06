@@ -208,6 +208,8 @@ class ClaudeAdapter(AIAdapter):
         self,
         document_text: str,
         images: list[bytes] | None = None,
+        *,
+        system_prompt: str | None = None,
     ) -> list[Scenario]:
         """Generate test scenarios from document text."""
         user_content: list[dict[str, Any]] = [
@@ -227,7 +229,7 @@ class ClaudeAdapter(AIAdapter):
                     }
                 )
 
-        data = await self._call_api(_SYSTEM_GENERATE_SCENARIOS, user_content)
+        data = await self._call_api(system_prompt or _SYSTEM_GENERATE_SCENARIOS, user_content)
 
         if not isinstance(data, list):
             msg = "Expected JSON array for scenarios"

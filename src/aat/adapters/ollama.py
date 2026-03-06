@@ -202,12 +202,14 @@ class OllamaAdapter(AIAdapter):
         self,
         document_text: str,
         images: list[bytes] | None = None,
+        *,
+        system_prompt: str | None = None,
     ) -> list[Scenario]:
         """Generate test scenarios from document text."""
         if images:
             logger.info("OllamaAdapter: ignoring %d images (text-only model)", len(images))
 
-        data = await self._call_api(_SYSTEM_GENERATE_SCENARIOS, document_text)
+        data = await self._call_api(system_prompt or _SYSTEM_GENERATE_SCENARIOS, document_text)
 
         # Ollama models may return {scenarios: [...]} instead of [...]
         if isinstance(data, dict):

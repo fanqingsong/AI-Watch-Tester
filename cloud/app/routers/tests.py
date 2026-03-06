@@ -471,7 +471,7 @@ async def upload_document(
 
 logger = logging.getLogger(__name__)
 
-_CONVERT_PROMPT = """\
+_CONVERT_SYSTEM = """\
 You are an E2E test scenario generator.
 
 ## ========== #1 PRIORITY: USER REQUEST (OVERRIDE ALL OTHER RULES) ==========
@@ -491,24 +491,6 @@ If the user asks for a SPECIFIC feature, your response MUST contain:
   4. Assert the expected result
 If you generate tests for features the user did NOT ask for, your response is WRONG.
 
-## Target
-- URL: {url}
-
-## User Request
-{user_prompt}
-
-## Element Summary
-{element_summary}
-
-## Actual Page Data (from real browser visit)
-{page_data}
-
-## Interaction Observations (REAL click results — DO NOT GUESS)
-{observations}
-
-## Reference Documents
-{reference_documents}
-{language_instruction}
 ## ========== RULES ==========
 
 1. **USER REQUEST FIRST**: Generate scenarios ONLY for the user's requested feature.
@@ -666,6 +648,27 @@ FINAL CHECK: Before responding, verify:
 7. Is every assert value copied EXACTLY from page data? (no invented text)
 8. Does every assert step have assert_type + value (not just description)?
 Remove any scenario that tests a feature the user did NOT request.\
+"""
+
+_CONVERT_USER = """\
+## Target
+- URL: {url}
+
+## User Request
+{user_prompt}
+
+## Element Summary
+{element_summary}
+
+## Actual Page Data (from real browser visit)
+{page_data}
+
+## Interaction Observations (REAL click results — DO NOT GUESS)
+{observations}
+
+## Reference Documents
+{reference_documents}
+{language_instruction}\
 """
 
 
@@ -916,7 +919,7 @@ async def convert_scenario(
     lang_instruction = build_language_instruction(site_lang)
     logger.info("Convert: detected site language = %s", site_lang)
 
-    prompt = _CONVERT_PROMPT.format(
+    convert_user = _CONVERT_USER.format(
         url=body.target_url,
         user_prompt=body.user_prompt,
         element_summary=element_summary,
@@ -927,7 +930,9 @@ async def convert_scenario(
     )
 
     try:
-        scenarios = await adapter.generate_scenarios(prompt)
+        scenarios = await adapter.generate_scenarios(
+            convert_user, system_prompt=_CONVERT_SYSTEM,
+        )
     except Exception as exc:
         logger.exception("Scenario conversion failed")
         await _broadcast_convert(body.session_id, {
@@ -980,7 +985,7 @@ async def convert_scenario(
             relevance.get("reason", ""),
         )
         retry_prompt = (
-            f"{prompt}\n\n"
+            f"{convert_user}\n\n"
             "## RELEVANCE CHECK FAILED — REGENERATE\n"
             f"Your previous response did NOT match the user's request.\n"
             f"User asked for: {body.user_prompt}\n"
@@ -992,7 +997,9 @@ async def convert_scenario(
             "Return ONLY valid JSON array."
         )
         try:
-            retry_scenarios = await adapter.generate_scenarios(retry_prompt)
+            retry_scenarios = await adapter.generate_scenarios(
+                retry_prompt, system_prompt=_CONVERT_SYSTEM,
+            )
             if retry_scenarios:
                 scenarios = retry_scenarios
                 relevance = validate_scenario_relevance(
@@ -1051,7 +1058,8 @@ async def convert_scenario(
     if page_list_for_validation is None:
         page_list_for_validation = [pdata_raw] if pdata_raw else None
     scenarios, validation = await validate_and_retry(
-        scenarios, observations_raw, page_list_for_validation, adapter, prompt,
+        scenarios, observations_raw, page_list_for_validation, adapter,
+        convert_user, system_prompt=_CONVERT_SYSTEM,
     )
 
     # Compute validation summary

@@ -51,7 +51,8 @@ if _ENV_FILE.exists():
             os.environ.setdefault(key.strip(), val.strip())
 
 from app.routers.scan import (  # noqa: E402
-    _EXECUTE_PROMPT,
+    _EXECUTE_SYSTEM,
+    _EXECUTE_USER,
     _build_observation_table,
     _chunk_tests,
 )
@@ -132,7 +133,7 @@ def _build_prompt(
     fixture: dict[str, Any],
     batch: list[dict],
 ) -> str:
-    """Build the _EXECUTE_PROMPT for a batch of tests."""
+    """Build the _EXECUTE_USER prompt for a batch of tests."""
     observations = fixture.get("observations", [])
     pages = fixture.get("pages", [])
     target_url = fixture["target_url"]
@@ -144,7 +145,7 @@ def _build_prompt(
     user_data = {**auth_data, **test_data}
     user_data_str = json.dumps(user_data, ensure_ascii=False, indent=2)
 
-    return _EXECUTE_PROMPT.format(
+    return _EXECUTE_USER.format(
         target_url=target_url,
         crawl_data=crawl_str,
         observation_table=observation_table,
@@ -170,7 +171,9 @@ async def generate_raw(fixture: dict[str, Any]) -> list[Scenario]:
             "Calling AI for batch %d/%d (%d tests)...",
             batch_idx + 1, len(batches), len(batch),
         )
-        scenarios = await adapter.generate_scenarios(prompt)
+        scenarios = await adapter.generate_scenarios(
+            prompt, system_prompt=_EXECUTE_SYSTEM,
+        )
         all_scenarios.extend(scenarios)
 
     # Renumber SC-IDs sequentially
@@ -222,6 +225,7 @@ async def generate_and_postprocess(
     pages = fixture.get("pages", [])
     processed, _validation = await validate_and_retry(
         processed, observations, pages, adapter, prompt,
+        system_prompt=_EXECUTE_SYSTEM,
     )
 
     return raw_copy, processed

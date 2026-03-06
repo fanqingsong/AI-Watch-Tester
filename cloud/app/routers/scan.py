@@ -647,7 +647,7 @@ async def get_scan(
 # POST /api/scan/{scan_id}/plan — AI test plan generation
 # ---------------------------------------------------------------------------
 
-_PLAN_PROMPT = """\
+_PLAN_SYSTEM = """\
 You are a senior QA engineer creating a test plan based on actual crawl data and \
 **real interaction observations**.
 
@@ -657,7 +657,7 @@ CRITICAL RULES:
 3. Use EXACT text strings from the crawl data (copy-paste, do not paraphrase).
 4. Group tests by category with clear priority.
 5. For all text assertions, set case_insensitive: true to handle dynamic casing.
-6. Respond in {language}.
+6. Respond in the language specified by the user.
 7. FORM FIELD RULE: For tests involving forms, reference the EXACT field data from crawl data:
    - Use placeholder text as-is (e.g., if placeholder is "이메일", use "이메일" NOT "Email")
    - Use label text as-is (e.g., if label is "비밀번호", keep "비밀번호" NOT "Password")
@@ -704,47 +704,12 @@ CRITICAL RULES:
    (e.g., "Verify English content", "Check Korean text"). Language is NOT a test target.
    All assert text must be EXACT text from crawl data, not invented content.
 
-## Site Info
-- URL: {target_url}
-- Pages scanned: {total_pages}
-- Detected features: {detected_features}
-- Site type: {site_type} (confidence: {site_type_confidence})
-
-## Crawl Data
-
-### Navigation Menus
-{nav_menus_json}
-
-### Forms
-{forms_json}
-
-### Buttons
-{buttons_json}
-
-### Links (sample)
-{links_json}
-
-### Broken Links
-{broken_links_json}
-
-### Interaction Observations (REAL click results — DO NOT GUESS)
-{observations_json}
-
-## Business Test Hints (based on site type)
-{business_hints}
-
-## Reference Documents
-{reference_documents}
-
-## Special Instructions
-{special_instructions}
-
-## Generate Test Plan
+## Output Format
 
 Create a JSON test plan with these categories. Only include categories that have matching data:
 
 CATEGORY "basic" - Basic Health Check (auto_selected: true):
-- broken_link_check: Check all broken links found ({broken_count} found)
+- broken_link_check: Check all broken links found
 - nav_menu_test: Click each navigation menu item and verify page loads
 - page_load_test: Verify all scanned pages load without errors
 
@@ -800,6 +765,46 @@ Return ONLY valid JSON in this exact structure:
         }}
     ]
 }}\
+"""
+
+_PLAN_USER = """\
+Language: {language}
+
+## Site Info
+- URL: {target_url}
+- Pages scanned: {total_pages}
+- Detected features: {detected_features}
+- Site type: {site_type} (confidence: {site_type_confidence})
+- Broken links found: {broken_count}
+
+## Crawl Data
+
+### Navigation Menus
+{nav_menus_json}
+
+### Forms
+{forms_json}
+
+### Buttons
+{buttons_json}
+
+### Links (sample)
+{links_json}
+
+### Broken Links
+{broken_links_json}
+
+### Interaction Observations (REAL click results — DO NOT GUESS)
+{observations_json}
+
+## Business Test Hints (based on site type)
+{business_hints}
+
+## Reference Documents
+{reference_documents}
+
+## Special Instructions
+{special_instructions}\
 """
 
 
@@ -938,9 +943,9 @@ async def generate_plan(
 
     ref_docs = await get_user_doc_text(user.id, db)
 
-    # Build AI prompt
+    # Build AI prompt (system/user split for prompt caching)
     lang = "Korean" if body.language == "ko" else "English"
-    prompt = _PLAN_PROMPT.format(
+    plan_user = _PLAN_USER.format(
         language=lang,
         target_url=scan.target_url,
         total_pages=summary.get("total_pages", len(pages)),
@@ -990,7 +995,7 @@ async def generate_plan(
             raise ValueError(f"Unknown AI provider: {ai_config.provider}")
 
         adapter = adapter_cls(ai_config)
-        raw_response = await _ai_raw_call(adapter, prompt)
+        raw_response = await _ai_raw_call(adapter, plan_user, system_prompt=_PLAN_SYSTEM)
         plan = _extract_json(raw_response)
 
         categories = plan.get("categories", [])
@@ -1032,26 +1037,44 @@ async def generate_plan(
     return {"scan_id": scan_id, "categories": categories}
 
 
-async def _ai_raw_call(adapter: Any, prompt: str) -> str:
-    """Call AI adapter for raw text response."""
+async def _ai_raw_call(
+    adapter: Any,
+    prompt: str,
+    *,
+    system_prompt: str | None = None,
+) -> str:
+    """Call AI adapter for raw text response.
+
+    Args:
+        adapter: AI adapter instance.
+        prompt: User message content.
+        system_prompt: Optional system message (separated for prompt caching).
+    """
     client = getattr(adapter, "_client", None)
     config = getattr(adapter, "_config", None)
     model = config.model if config else ""
 
     # Anthropic-style (ClaudeAdapter._client = AsyncAnthropic)
     if client and hasattr(client, "messages") and hasattr(client.messages, "create"):
-        response = await client.messages.create(
-            model=model,
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": 4096,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        response = await client.messages.create(**kwargs)
         return response.content[0].text if response.content else ""
 
     # OpenAI-style (OpenAIAdapter._client = AsyncOpenAI)
     if client and hasattr(client, "chat"):
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
         response = await client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             temperature=0.3,
         )
         return response.choices[0].message.content or ""
@@ -1445,10 +1468,10 @@ def _build_observation_table(observations: list[dict]) -> str:
 # POST /api/scan/{scan_id}/execute — run selected tests
 # ---------------------------------------------------------------------------
 
-_EXECUTE_PROMPT = """\
-Generate AWT test scenario JSON for the selected tests below.
-Generate EXACTLY ONE scenario per selected test. If {batch_count} tests are listed, return exactly {batch_count} scenarios.
-Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
+_EXECUTE_SYSTEM = """\
+You are an expert QA engineer generating AWT test scenario JSON.
+Generate EXACTLY ONE scenario per selected test. Do NOT merge multiple tests into one scenario. \
+Do NOT skip any selected test.
 
 ## ========== ABSOLUTE RULES (NEVER VIOLATE) ==========
 
@@ -1568,12 +1591,47 @@ Do NOT merge multiple tests into one scenario. Do NOT skip any selected test.
 
 ## ========== END ABSOLUTE RULES ==========
 
+## Output Format
+Return ONLY a valid JSON array. Each object:
+{{
+  "id": "SC-001",
+  "name": "Test name",
+  "description": "Test description",
+  "steps": [
+    {{"step": 1, "action": "navigate", "value": "TARGET_URL", "description": "Navigate to homepage"}},
+    {{"step": 2, "action": "find_and_click", "target": {{"selector": "a[href=\\"#login\\"]", "text": "로그인"}}, "description": "Click login button"}},
+    {{"step": 3, "action": "wait", "value": "1000", "description": "Wait for modal animation"}},
+    {{"step": 4, "action": "find_and_type", "target": {{"selector": "#email", "text": "이메일"}}, "value": "awttest@example.com", "description": "Enter email"}},
+    {{"step": 5, "action": "find_and_click", "target": {{"selector": "button[type=submit]", "text": "로그인"}}, "description": "Click submit button (SUBMIT[form])"}},
+    {{"step": 6, "action": "wait", "value": "1500", "description": "Wait for page transition after form submit"}},
+    {{"step": 7, "action": "assert", "assert_type": "text_visible", "value": "Welcome", "description": "Verify login success", "case_insensitive": true}}
+  ]
+}}
+
+Actions: navigate, find_and_click, find_and_type, assert, wait, scroll
+Target format: {{"selector": "CSS_FROM_OBSERVATION", "text": "VISIBLE_TEXT_FROM_OBSERVATION"}}
+
+FINAL CHECK before responding:
+1. For every assert value, verify it appears verbatim in the Observation Reference Table or Crawl Data.
+   If not, REMOVE that assert step.
+2. Does every form scenario end with assert AFTER submit? If last step is find_and_click (submit),
+   ADD wait + assert.
+3. Does every login scenario assert URL change (url_contains with observed path, or url_not_contains login path)?
+   A login test that only checks text on the login page is WRONG.
+4. Is every assert value REAL text from page data? No invented text, no language checks.
+5. Does every assert step have assert_type + value (not just description)?
+
+Return ONLY valid JSON array.\
+"""
+
+_EXECUTE_USER = """\
 {extra_instructions}
 
 ## Reference Documents
 {reference_documents}
 {language_instruction}
 ## Target URL: {target_url}
+## Batch: {batch_count} test(s) to generate
 
 ## Observation Reference Table
 Each row = one observed interaction. Use these EXACT selectors and texts.
@@ -1591,77 +1649,7 @@ Each row = one observed interaction. Use these EXACT selectors and texts.
 For empty user data fields, use reasonable dummy data:
 - email: use "awttest@example.com"
 - password: use "TestPass123!"
-- text fields: use contextually appropriate text
-
-## Output Format
-Return ONLY a valid JSON array. Each object:
-{{
-  "id": "SC-001",
-  "name": "Test name",
-  "description": "Test description",
-  "steps": [
-    {{
-      "step": 1,
-      "action": "navigate",
-      "value": "{target_url}",
-      "description": "Navigate to homepage"
-    }},
-    {{
-      "step": 2,
-      "action": "find_and_click",
-      "target": {{"selector": "a[href=\\"#login\\"]", "text": "로그인"}},
-      "description": "Click login button"
-    }},
-    {{
-      "step": 3,
-      "action": "wait",
-      "value": "1000",
-      "description": "Wait for modal animation"
-    }},
-    {{
-      "step": 4,
-      "action": "find_and_type",
-      "target": {{"selector": "#email", "text": "이메일"}},
-      "value": "awttest@example.com",
-      "description": "Enter email"
-    }},
-    {{
-      "step": 5,
-      "action": "find_and_click",
-      "target": {{"selector": "button[type=submit]", "text": "로그인"}},
-      "description": "Click submit button (SUBMIT[form])"
-    }},
-    {{
-      "step": 6,
-      "action": "wait",
-      "value": "1500",
-      "description": "Wait for page transition after form submit"
-    }},
-    {{
-      "step": 7,
-      "action": "assert",
-      "assert_type": "text_visible",
-      "value": "Welcome",
-      "description": "Verify login success — text from OBSERVED new_text",
-      "case_insensitive": true
-    }}
-  ]
-}}
-
-Actions: navigate, find_and_click, find_and_type, assert, wait, scroll
-Target format: {{"selector": "CSS_FROM_OBSERVATION", "text": "VISIBLE_TEXT_FROM_OBSERVATION"}}
-
-FINAL CHECK before responding:
-1. For every assert value, verify it appears verbatim in the Observation Reference Table or Crawl Data.
-   If not, REMOVE that assert step.
-2. Does every form scenario end with assert AFTER submit? If last step is find_and_click (submit),
-   ADD wait + assert.
-3. Does every login scenario assert URL change (url_contains with observed path, or url_not_contains login path)?
-   A login test that only checks text on the login page is WRONG.
-5. Does every assert step have assert_type + value (not just description)?
-4. Is every assert value REAL text from page data? No invented text, no language checks.
-
-Return ONLY valid JSON array.\
+- text fields: use contextually appropriate text\
 """
 
 
@@ -1962,7 +1950,9 @@ async def _gen_one_batch(
 
     for attempt in range(2):
         try:
-            batch_scenarios = await adapter.generate_scenarios(prompt)
+            batch_scenarios = await adapter.generate_scenarios(
+                prompt, system_prompt=_EXECUTE_SYSTEM,
+            )
             return batch_scenarios
         except Exception as exc:
             err_msg = str(exc).lower()
@@ -1979,7 +1969,7 @@ async def _gen_one_batch(
                 compressed_obs = compress_observations_for_ai(
                     observations, max_tokens=2000,
                 )
-                retry_prompt = _EXECUTE_PROMPT.format(
+                retry_prompt = _EXECUTE_USER.format(
                     target_url=target_url,
                     crawl_data=_trunc(crawl_context, 1500),
                     observation_table=compressed_obs,
@@ -1990,7 +1980,9 @@ async def _gen_one_batch(
                     batch_count=len(batch),
                     language_instruction=language_instruction,
                 )
-                batch_scenarios = await adapter.generate_scenarios(retry_prompt)
+                batch_scenarios = await adapter.generate_scenarios(
+                    retry_prompt, system_prompt=_EXECUTE_SYSTEM,
+                )
                 return batch_scenarios
             raise
     return []
@@ -2041,7 +2033,7 @@ async def _bg_generate_scenarios(
         batch_prompts: list[str] = []
         for batch_idx, batch in enumerate(batches):
             batch_selected_str = _trunc(batch, selected_limit)
-            batch_prompt = _EXECUTE_PROMPT.format(
+            batch_prompt = _EXECUTE_USER.format(
                 target_url=target_url,
                 crawl_data=crawl_data_str,
                 observation_table=observation_table,
@@ -2053,14 +2045,14 @@ async def _bg_generate_scenarios(
                 language_instruction=language_instruction,
             )
 
-            estimated_total = len(batch_prompt) // 3
+            estimated_total = (len(batch_prompt) + len(_EXECUTE_SYSTEM)) // 3
             if estimated_total > max_input_tokens:
                 logger.warning(
                     "BG: Batch %d prompt %d tokens (limit %d), trimming",
                     batch_idx, estimated_total, max_input_tokens,
                 )
                 trimmed_obs = compress_observations_for_ai(observations, max_tokens=3000)
-                batch_prompt = _EXECUTE_PROMPT.format(
+                batch_prompt = _EXECUTE_USER.format(
                     target_url=target_url,
                     crawl_data=_trunc(crawl_context, 2000),
                     observation_table=trimmed_obs,
@@ -2132,7 +2124,7 @@ async def _bg_generate_scenarios(
         scenarios = validate_asserts(scenarios, observations, pages)
 
         # Build a full prompt context for validation retry
-        validation_prompt = _EXECUTE_PROMPT.format(
+        validation_prompt = _EXECUTE_USER.format(
             target_url=target_url,
             crawl_data=crawl_data_str,
             observation_table=observation_table,
@@ -2146,6 +2138,7 @@ async def _bg_generate_scenarios(
 
         scenarios, _validation = await validate_and_retry(
             scenarios, observations, pages, adapter, validation_prompt,
+            system_prompt=_EXECUTE_SYSTEM,
         )
 
         # Serialize to YAML

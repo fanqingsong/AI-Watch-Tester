@@ -339,6 +339,8 @@ class OpenAIAdapter(AIAdapter):
         self,
         document_text: str,
         images: list[bytes] | None = None,
+        *,
+        system_prompt: str | None = None,
     ) -> list[Scenario]:
         """Generate test scenarios from document text."""
         user_content: list[dict[str, Any]] = [
@@ -359,7 +361,7 @@ class OpenAIAdapter(AIAdapter):
                 )
 
         data = await self._call_api(
-            _SYSTEM_GENERATE_SCENARIOS,
+            system_prompt or _SYSTEM_GENERATE_SCENARIOS,
             user_content,
             json_schema=_SCENARIO_JSON_SCHEMA,
         )
