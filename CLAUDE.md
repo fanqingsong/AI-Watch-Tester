@@ -161,13 +161,11 @@ AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트�
 
 ## Branch Strategy
 
-- **main**: 실서비스 브랜치. 직접 개발 금지. merge 또는 hotfix만.
-- **dev**: 개발 브랜치. 모든 새 기능/수정은 여기서 진행.
-- 작업 시작 전 반드시 `git checkout dev` 확인.
-- dev에서 테스트 완료 후 main에 merge하여 배포.
-- 긴급 수정 시에만 main에서 직접 hotfix 후 dev에 sync.
-- Vercel: main = Production, dev = Preview (미리보기 URL 자동 생성)
-- Render: main만 auto-deploy (dev push로는 배포 안 됨)
+- **main**: 단일 개발+배포 브랜치. 모든 작업은 main에서 직접 진행.
+- **dev**: 보관용 (더 이상 사용하지 않음). main과 동기화된 상태로 유지.
+- 작업 시작 전 반드시 `git checkout main` 확인.
+- Vercel: main = Production
+- Render: main auto-deploy
 
 ---
 
