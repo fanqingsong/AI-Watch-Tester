@@ -149,6 +149,36 @@ class ScenarioCache(Base):
     )
 
 
+class ExecutionPath(Base):
+    """Stored successful execution path for fast-mode replay.
+
+    When a test passes, the exact selectors, values, and asserts are saved.
+    On retest of the same URL, these are replayed without AI (Fast Mode).
+    If a selector breaks, self-healing replaces it with AI-suggested alternative.
+    """
+
+    __tablename__ = "execution_paths"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    scenario_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    scenario_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    scenario_yaml: Mapped[str] = mapped_column(Text, nullable=False)
+    steps_total: Mapped[int] = mapped_column(Integer, default=0)
+    healed_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_passed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+    )
+
+
 class Document(Base):
     """User-uploaded reference document (stored as base64)."""
 

@@ -18,7 +18,7 @@ from app.config import settings
 from app.crawler import crawl_site, get_scan_limits
 from app.database import get_db
 from app.models import Scan, ScanStatus, ScenarioCache, User
-from app.scan_diff import compute_scan_fingerprint, compute_tests_hash
+from app.scan_diff import compute_scan_fingerprint, compute_structure_fingerprint, compute_tests_hash
 from app.scenario_utils import (
     DEFAULT_AI_MODELS as _DEFAULT_MODELS,
 )
@@ -1782,17 +1782,38 @@ async def execute_scan_tests(
     # --- Scenario cache check (skip AI if site unchanged) ---
     force_regen = getattr(body, "force_regenerate", False)
     fingerprint = compute_scan_fingerprint(pages, observations)
+    fuzzy_fingerprint = compute_structure_fingerprint(pages, observations)
     tests_hash = compute_tests_hash(body.selected_tests)
 
+    # Cache TTL: 24 hours
+    cache_ttl = timedelta(hours=24)
+    cache_cutoff = datetime.now(UTC) - cache_ttl
+
     if not force_regen:
+        # 1. Exact fingerprint match (same site structure)
         cache_hit = (await db.execute(
             select(ScenarioCache).where(
                 ScenarioCache.user_id == user.id,
                 ScenarioCache.target_url == str(scan.target_url),
                 ScenarioCache.scan_fingerprint == fingerprint,
                 ScenarioCache.selected_tests_hash == tests_hash,
+                ScenarioCache.created_at > cache_cutoff,
             ).order_by(ScenarioCache.created_at.desc()).limit(1)
         )).scalar_one_or_none()
+
+        # 2. Fuzzy fallback: match by structure fingerprint (ignores minor changes)
+        if cache_hit is None:
+            cache_hit = (await db.execute(
+                select(ScenarioCache).where(
+                    ScenarioCache.user_id == user.id,
+                    ScenarioCache.target_url == str(scan.target_url),
+                    ScenarioCache.scan_fingerprint == fuzzy_fingerprint,
+                    ScenarioCache.selected_tests_hash == tests_hash,
+                    ScenarioCache.created_at > cache_cutoff,
+                ).order_by(ScenarioCache.created_at.desc()).limit(1)
+            )).scalar_one_or_none()
+            if cache_hit:
+                logger.info("Cache FUZZY HIT (scan_id=%d): structure unchanged", scan_id)
 
         if cache_hit:
             test = Test(
@@ -1858,6 +1879,7 @@ async def execute_scan_tests(
         additional_yaml=body.additional_yaml,
         language_instruction=lang_instruction,
         fingerprint=fingerprint,
+        fuzzy_fingerprint=fuzzy_fingerprint,
         tests_hash=tests_hash,
     ))
 
@@ -1945,6 +1967,7 @@ async def _bg_generate_scenarios(
     additional_yaml: str,
     language_instruction: str = "",
     fingerprint: str = "",
+    fuzzy_fingerprint: str = "",
     tests_hash: str = "",
 ) -> None:
     """Background task: parallel AI batch generation + post-processing."""
@@ -2136,7 +2159,7 @@ async def _bg_generate_scenarios(
             test.status = TestStatus.QUEUED
             test.updated_at = datetime.now(UTC)
 
-            # Save to scenario cache for future reuse
+            # Save to scenario cache for future reuse (exact + fuzzy)
             if fingerprint and tests_hash:
                 cache_entry = ScenarioCache(
                     user_id=test.user_id,
@@ -2147,9 +2170,20 @@ async def _bg_generate_scenarios(
                     steps_total=total_steps,
                 )
                 session.add(cache_entry)
+                # Also save with fuzzy fingerprint for structure-level matching
+                if fuzzy_fingerprint and fuzzy_fingerprint != fingerprint:
+                    fuzzy_entry = ScenarioCache(
+                        user_id=test.user_id,
+                        target_url=target_url,
+                        scan_fingerprint=fuzzy_fingerprint,
+                        selected_tests_hash=tests_hash,
+                        scenario_yaml=scenario_yaml,
+                        steps_total=total_steps,
+                    )
+                    session.add(fuzzy_entry)
                 logger.info(
-                    "BG: Cached scenarios (fingerprint=%s, tests=%s)",
-                    fingerprint, tests_hash,
+                    "BG: Cached scenarios (exact=%s, fuzzy=%s, tests=%s)",
+                    fingerprint, fuzzy_fingerprint, tests_hash,
                 )
 
             await session.commit()

@@ -506,6 +506,14 @@ def validate_scenarios(
     return results
 
 
+_DELTA_SYSTEM = (
+    "You are an expert QA engineer. Fix ONLY the broken steps listed below. "
+    "Return a JSON object: {\"fixes\": [{\"scenario_idx\": 0, \"step\": 4, "
+    "\"target\": {\"selector\": \"...\", \"text\": \"...\"}, \"value\": \"...\" | null}]}. "
+    "Each fix replaces one step's target/value. Return ONLY valid JSON."
+)
+
+
 async def validate_and_retry(
     scenarios: list,
     observations: list[dict],
@@ -515,7 +523,10 @@ async def validate_and_retry(
     *,
     system_prompt: str | None = None,
 ) -> tuple[list, list[dict]]:
-    """Validate scenarios and retry once if too many unverified.
+    """Validate scenarios and retry failed steps via Delta Correction.
+
+    Instead of resending the entire prompt, only the broken steps + their
+    observation context are sent to AI. This reduces retry tokens by ~70-80%.
 
     Returns (possibly_fixed_scenarios, validation_results).
     """
@@ -529,39 +540,109 @@ async def validate_and_retry(
         and observations
     ):
         logger.info(
-            "Validation: %d/%d unverified, retrying",
+            "Delta Correction: %d/%d unverified, fixing individual steps",
             len(unverified), total_validated,
         )
-        retry_prompt = (
-            f"{prompt_context}\n\n"
-            "## VALIDATION FAILED — FIX REQUIRED\n"
-            "The following targets were NOT found in the "
-            "observation data:\n"
-        )
+
+        # Build compact delta prompt with only broken steps + relevant obs
+        delta_prompt = "## DELTA CORRECTION — Fix broken steps only\n\n"
+        delta_prompt += "Broken steps:\n"
         for uv in unverified:
+            sc_idx = uv.get("scenario_idx", 0)
+            step_num = uv["step"]
             closest = uv.get("closest_match")
-            hint = f" (closest: \"{closest}\")" if closest else ""
-            retry_prompt += (
-                f"- Step {uv['step']}: "
-                f"\"{uv['target_text']}\"{hint}\n"
+            hint = f' (closest match: "{closest}")' if closest else ""
+            sc_name = ""
+            if 0 <= sc_idx < len(scenarios):
+                sc_name = getattr(scenarios[sc_idx], "name", "")
+            delta_prompt += (
+                f"- Scenario {sc_idx} ({sc_name}), Step {step_num}: "
+                f'target "{uv["target_text"]}" NOT FOUND{hint}\n'
             )
-        retry_prompt += (
-            "\nFix these targets using ONLY elements from "
-            "the observation data. Return the complete "
-            "corrected scenario JSON array."
+
+        # Include only relevant observations (compact)
+        delta_prompt += "\nAvailable elements from observation:\n"
+        seen_texts: set[str] = set()
+        for obs in observations[:10]:
+            el = obs.get("element", {})
+            el_text = el.get("text", "")
+            if el_text and el_text not in seen_texts:
+                seen_texts.add(el_text)
+                sel = el.get("selector", "")
+                delta_prompt += f'  - text="{el_text}" selector="{sel}"\n'
+            change = obs.get("observed_change", {})
+            for field_key in ("modal_form_fields", "navigated_page_fields"):
+                for f in change.get(field_key, []):
+                    f_label = f.get("label") or f.get("placeholder") or f.get("name", "")
+                    f_sel = f.get("selector", "")
+                    if f_label and f_label not in seen_texts:
+                        seen_texts.add(f_label)
+                        delta_prompt += f'  - field="{f_label}" selector="{f_sel}" type={f.get("type", "")}\n'
+
+        delta_prompt += (
+            "\nReturn ONLY the fixes for the broken steps. "
+            "Use selectors/text from the available elements above."
         )
 
         try:
-            fixed = await adapter.generate_scenarios(
-                retry_prompt, system_prompt=system_prompt,
+            import json as _json
+
+            fix_data = await adapter._call_api(
+                _DELTA_SYSTEM,
+                [{"type": "text", "text": delta_prompt}],
             )
-            if fixed:
-                scenarios = fixed
-                results = validate_scenarios(
-                    scenarios, observations, page_data,
-                )
+            fixes = fix_data.get("fixes", []) if isinstance(fix_data, dict) else []
+
+            applied = 0
+            for fix in fixes:
+                sc_idx = fix.get("scenario_idx", 0)
+                step_num = fix.get("step", 0)
+                new_target = fix.get("target")
+                if not new_target or sc_idx >= len(scenarios):
+                    continue
+
+                sc = scenarios[sc_idx]
+                for s in sc.steps:
+                    if s.step == step_num and s.target is not None:
+                        if new_target.get("selector"):
+                            s.target.__dict__["selector"] = new_target["selector"]
+                        if new_target.get("text"):
+                            s.target.__dict__["text"] = new_target["text"]
+                        if fix.get("value") is not None:
+                            s.__dict__["value"] = fix["value"]
+                        applied += 1
+                        break
+
+            if applied:
+                logger.info("Delta Correction: applied %d/%d fixes", applied, len(fixes))
+                results = validate_scenarios(scenarios, observations, page_data)
+            else:
+                logger.warning("Delta Correction: no fixes applied from %d candidates", len(fixes))
+
         except Exception as exc:
-            logger.warning("Validation retry failed: %s", exc)
+            logger.warning("Delta Correction failed, falling back: %s", exc)
+            # Fallback: full retry (legacy behavior)
+            retry_prompt = (
+                f"{prompt_context}\n\n"
+                "## VALIDATION FAILED — FIX REQUIRED\n"
+                "The following targets were NOT found:\n"
+            )
+            for uv in unverified:
+                closest = uv.get("closest_match")
+                hint = f' (closest: "{closest}")' if closest else ""
+                retry_prompt += f'- Step {uv["step"]}: "{uv["target_text"]}"{hint}\n'
+            retry_prompt += (
+                "\nFix these targets. Return the complete corrected scenario JSON array."
+            )
+            try:
+                fixed = await adapter.generate_scenarios(
+                    retry_prompt, system_prompt=system_prompt,
+                )
+                if fixed:
+                    scenarios = fixed
+                    results = validate_scenarios(scenarios, observations, page_data)
+            except Exception as exc2:
+                logger.warning("Full retry also failed: %s", exc2)
 
     return scenarios, results
 

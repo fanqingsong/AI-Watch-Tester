@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [activeTest, setActiveTest] = useState<TestItem | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [testPassed, setTestPassed] = useState(false);
+  const [executionMode, setExecutionMode] = useState<string>("standard");
   const [scenarioYaml, setScenarioYaml] = useState("");
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [directMode, setDirectMode] = useState(false);
@@ -255,9 +256,10 @@ export default function DashboardPage() {
     setPhase("executing");
   };
 
-  const handleComplete = async (passed: boolean) => {
+  const handleComplete = async (passed: boolean, mode?: string) => {
     setPhase("done");
     setTestPassed(passed);
+    setExecutionMode(mode || "standard");
     if (activeTest) {
       try {
         const updated = await getTest(activeTest.id);
@@ -1443,6 +1445,21 @@ export default function DashboardPage() {
                       ? t("partialPassed", { passed: activeTest.steps_completed, total: activeTest.steps_total })
                       : t("failed")}
                 </span>
+                {executionMode === "fast" && (
+                  <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700">
+                    ⚡ {t("fastMode")}
+                  </span>
+                )}
+                {executionMode === "self_healed" && (
+                  <span className="rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">
+                    🔧 {t("selfHealed")}
+                  </span>
+                )}
+                {executionMode === "cached" && (
+                  <span className="rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                    📦 {t("cached")}
+                  </span>
+                )}
                 <button
                   onClick={() => router.push(`/tests/${activeTest.id}`)}
                   className="text-sm text-blue-600 hover:underline"

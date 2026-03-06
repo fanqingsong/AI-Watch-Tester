@@ -321,18 +321,34 @@ class Worker:
             test.updated_at = datetime.now(UTC)
             await db.commit()
 
+        # Save successful execution paths for Fast Mode reuse
+        if result.get("passed") and test.scenario_yaml:
+            try:
+                from app.fast_mode import save_passed_scenarios
+
+                await save_passed_scenarios(
+                    user_id=test.user_id,
+                    target_url=str(test.target_url),
+                    result_json=result,
+                    scenario_yaml_str=test.scenario_yaml,
+                )
+            except Exception as exc:
+                logger.warning("Failed to save execution paths: %s", exc)
+
         await ws_manager.broadcast(
             test_id,
             {
                 "type": "test_complete",
                 "test_id": test_id,
                 "passed": result.get("passed", False),
+                "execution_mode": result.get("execution_mode", "standard"),
             },
         )
         logger.info(
-            "Test %d completed (passed=%s, %.0fms)",
+            "Test %d completed (passed=%s, mode=%s, %.0fms)",
             test_id,
             result.get("passed"),
+            result.get("execution_mode", "standard"),
             result.get("duration_ms", 0),
         )
 

@@ -927,6 +927,7 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
             "initial_screenshot": init_ss,
             "duration_ms": _elapsed(start),
             "console_logs": console_logs[:100],  # cap at 100 entries
+            "execution_mode": "standard",
         }
 
     except Exception as exc:

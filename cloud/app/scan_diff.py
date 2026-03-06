@@ -63,10 +63,65 @@ def compute_scan_fingerprint(
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+def compute_structure_fingerprint(
+    pages: list[dict[str, Any]],
+    observations: list[dict[str, Any]],
+) -> str:
+    """Compute a fuzzy fingerprint that ignores minor volatile changes.
+
+    Unlike compute_scan_fingerprint which includes exact URLs and nav text,
+    this only captures core structure: page count, form field count/types,
+    nav menu count, button count, observation change types.
+
+    Footer text, dates, and minor URL parameter changes are ignored.
+    """
+    parts: list[str] = []
+
+    parts.append(f"page_count:{len(pages)}")
+
+    total_forms = 0
+    total_fields = 0
+    field_types: list[str] = []
+    total_navs = 0
+    total_buttons = 0
+
+    for p in pages:
+        for form in p.get("forms", []):
+            total_forms += 1
+            fields = form.get("fields", [])
+            total_fields += len(fields)
+            for f in fields:
+                field_types.append(f.get("type", "text"))
+
+        total_navs += len(p.get("nav_menus", []))
+        total_buttons += len(p.get("buttons", []))
+
+    parts.append(f"forms:{total_forms}")
+    parts.append(f"fields:{total_fields}")
+    parts.append(f"field_types:{','.join(sorted(field_types))}")
+    parts.append(f"navs:{total_navs}")
+    parts.append(f"buttons:{total_buttons}")
+
+    # Observation change type distribution (not text content)
+    change_types = sorted(
+        obs.get("observed_change", {}).get("type", "")
+        for obs in observations
+    )
+    parts.append(f"changes:{','.join(change_types)}")
+
+    raw = "|".join(parts)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
 def compute_tests_hash(selected_test_ids: list[str]) -> str:
     """Hash the sorted list of selected test IDs."""
     raw = ",".join(sorted(selected_test_ids))
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def compute_single_test_hash(test_id: str) -> str:
+    """Hash a single test ID for per-test caching."""
+    return hashlib.sha256(test_id.encode()).hexdigest()[:16]
 
 
 def compute_scan_diff(

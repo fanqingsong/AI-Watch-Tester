@@ -18,6 +18,7 @@ interface WSEvent {
   timing?: string;
   phase?: string;
   elapsed_ms?: number;
+  execution_mode?: string;
 }
 
 type StepState = "pending" | "running" | "passed" | "failed" | "timeout";
@@ -32,7 +33,7 @@ interface StepInfo {
 
 interface Props {
   testId: number;
-  onComplete?: (passed: boolean) => void;
+  onComplete?: (passed: boolean, executionMode?: string) => void;
   onScenariosReady?: (testId: number) => void;
 }
 
@@ -154,7 +155,7 @@ export default function TestProgress({ testId, onComplete, onScenariosReady }: P
             case "test_complete":
               setStatus(evt.passed ? "passed" : "failed");
               setStepLabel(evt.passed ? t("evtTestPassed") : t("evtTestFailed"));
-              onComplete?.(!!evt.passed);
+              onComplete?.(!!evt.passed, evt.execution_mode);
               break;
             case "test_fail":
               setStatus("failed");
