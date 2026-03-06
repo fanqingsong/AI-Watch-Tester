@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from openai import AsyncOpenAI
 
 from aat.adapters.openai_adapter import OpenAIAdapter
-from aat.core.exceptions import AdapterError
 
 if TYPE_CHECKING:
     from aat.core.models import AIConfig
