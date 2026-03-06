@@ -103,6 +103,128 @@ You are an expert QA engineer. Analyze the following document and extract:
 Return ONLY valid JSON, no markdown fences."""
 
 
+
+# ---------------------------------------------------------------------------
+# Structured Output JSON Schema — scenario generation
+# ---------------------------------------------------------------------------
+# OpenAI Structured Outputs (json_schema mode) enforces schema compliance
+# at the model level, eliminating format errors like missing assert_type,
+# invalid action names, etc.  Semantic errors (wrong selector, wrong assert
+# value) are NOT prevented by this — the post-processing pipeline handles
+# those.
+
+_SCENARIO_JSON_SCHEMA: dict[str, Any] = {
+    "name": "test_scenarios",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "scenarios": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "steps": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "step": {"type": "integer"},
+                                    "action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "navigate",
+                                            "find_and_click",
+                                            "find_and_type",
+                                            "assert",
+                                            "wait",
+                                            "scroll",
+                                            "type_text",
+                                            "press_key",
+                                            "screenshot",
+                                        ],
+                                    },
+                                    "target": {
+                                        "anyOf": [
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "selector": {
+                                                        "anyOf": [
+                                                            {"type": "string"},
+                                                            {"type": "null"},
+                                                        ],
+                                                    },
+                                                    "text": {
+                                                        "anyOf": [
+                                                            {"type": "string"},
+                                                            {"type": "null"},
+                                                        ],
+                                                    },
+                                                },
+                                                "required": ["selector", "text"],
+                                                "additionalProperties": False,
+                                            },
+                                            {"type": "null"},
+                                        ],
+                                    },
+                                    "value": {
+                                        "anyOf": [
+                                            {"type": "string"},
+                                            {"type": "null"},
+                                        ],
+                                    },
+                                    "assert_type": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string",
+                                                "enum": [
+                                                    "text_visible",
+                                                    "text_equals",
+                                                    "image_visible",
+                                                    "url_contains",
+                                                    "url_not_contains",
+                                                    "screenshot_match",
+                                                ],
+                                            },
+                                            {"type": "null"},
+                                        ],
+                                    },
+                                    "case_insensitive": {
+                                        "anyOf": [
+                                            {"type": "boolean"},
+                                            {"type": "null"},
+                                        ],
+                                    },
+                                    "description": {"type": "string"},
+                                },
+                                "required": [
+                                    "step",
+                                    "action",
+                                    "description",
+                                    "target",
+                                    "value",
+                                    "assert_type",
+                                    "case_insensitive",
+                                ],
+                                "additionalProperties": False,
+                            },
+                        },
+                    },
+                    "required": ["id", "name", "description", "steps"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["scenarios"],
+        "additionalProperties": False,
+    },
+}
+
+
 class OpenAIAdapter(AIAdapter):
     """OpenAI GPT AI adapter.
 
@@ -236,7 +358,11 @@ class OpenAIAdapter(AIAdapter):
                     }
                 )
 
-        data = await self._call_api(_SYSTEM_GENERATE_SCENARIOS, user_content)
+        data = await self._call_api(
+            _SYSTEM_GENERATE_SCENARIOS,
+            user_content,
+            json_schema=_SCENARIO_JSON_SCHEMA,
+        )
 
         # Unwrap {"scenarios": [...]} wrapper (json_object mode returns objects)
         if isinstance(data, dict) and "scenarios" in data:
@@ -291,12 +417,15 @@ class OpenAIAdapter(AIAdapter):
         self,
         system_prompt: str,
         user_content: list[dict[str, Any]],
+        *,
+        json_schema: dict[str, Any] | None = None,
     ) -> Any:
         """Call OpenAI Chat Completions API and parse JSON response.
 
         Args:
             system_prompt: System message.
             user_content: User message content blocks.
+            json_schema: Optional JSON schema for Structured Outputs mode.
 
         Returns:
             Parsed JSON data.
@@ -304,12 +433,20 @@ class OpenAIAdapter(AIAdapter):
         Raises:
             AdapterError: On API or parse failure.
         """
+        if json_schema is not None:
+            response_fmt: dict[str, Any] = {
+                "type": "json_schema",
+                "json_schema": json_schema,
+            }
+        else:
+            response_fmt = {"type": "json_object"}
+
         try:
             response = await self._client.chat.completions.create(  # type: ignore[call-overload]
                 model=self._config.model,
                 max_tokens=self._config.max_tokens,
                 temperature=self._config.temperature,
-                response_format={"type": "json_object"},
+                response_format=response_fmt,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
