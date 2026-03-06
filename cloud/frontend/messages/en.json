@@ -270,6 +270,7 @@
     "progress": "Progress",
     "stepsCount": "{completed} / {total} steps",
     "stepsDetail": "{passed} passed / {failed} failed (total {total} steps)",
+    "scenarioSummary": "{passed} of {total} scenarios passed ({failed} failed)",
     "passed": "PASSED",
     "failed": "FAILED",
     "before": "before",

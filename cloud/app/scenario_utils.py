@@ -1972,6 +1972,12 @@ def _extract_site_wide_texts(page_data: list[dict]) -> set[str]:
         title = (p.get("title") or "").strip()
         if title:
             titles.append(title.lower())
+        # Also extract heading texts (h1, h2) that appear on the page
+        # These are often site names / logos visible on every page
+        for heading in p.get("headings", []):
+            h_text = (heading.get("text") or "").strip()
+            if h_text and len(h_text) >= 3:
+                texts.add(h_text.lower())
 
     # Extract common title prefix (site name) across pages
     # e.g., ["swag labs - login", "swag labs - products"] → "swag labs"
@@ -1987,6 +1993,10 @@ def _extract_site_wide_texts(page_data: list[dict]) -> set[str]:
     elif titles:
         texts.add(titles[0])
 
+    logger.info(
+        "_extract_site_wide_texts: %d pages, titles=%s, result=%s",
+        len(page_data), titles, texts,
+    )
     return texts
 
 
@@ -2135,6 +2145,12 @@ def validate_asserts(
     placeholder_texts = _extract_placeholder_texts(page_data)
     observed_urls = _extract_observed_urls(observations)
 
+    logger.info(
+        "validate_asserts: site_wide_texts=%s, placeholder_texts=%s, "
+        "observed_urls=%s, page_data_count=%d",
+        site_wide_texts, placeholder_texts, observed_urls, len(page_data),
+    )
+
     removed_count = 0
     converted_count = 0
 
@@ -2278,7 +2294,13 @@ def validate_asserts(
             # (d) text_visible with site-wide text (login scenarios only)
             if assert_type == "text_visible" and is_login:
                 val_lower = value.strip().lower()
-                if val_lower in site_wide_texts:
+                # Exact match OR substring: "swag labs" matches
+                # "swag labs - login" and vice versa
+                is_site_wide = val_lower in site_wide_texts or any(
+                    val_lower in sw or sw in val_lower
+                    for sw in site_wide_texts
+                )
+                if is_site_wide:
                     logger.warning(
                         "validate_asserts: removing login assert with "
                         "site-wide text '%s' in '%s' "

@@ -6,6 +6,7 @@ against the current state of the test engine.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import cv2
@@ -56,12 +57,14 @@ class Comparator:
                 )
 
         elif expected.type == AssertType.URL_CONTAINS:
-            current_url = await engine.get_url()
-            if expected.case_insensitive:
-                found = expected.value.lower() in current_url.lower()
-            else:
-                found = expected.value in current_url
-            if not found:
+            # Retry with short polling to handle post-navigation race condition
+            current_url = await self._wait_for_url(
+                engine, expected.value, contains=True,
+                case_insensitive=expected.case_insensitive,
+            )
+            check_val = expected.value.lower() if expected.case_insensitive else expected.value
+            check_url = current_url.lower() if expected.case_insensitive else current_url
+            if check_val not in check_url:
                 raise StepExecutionError(
                     f"URL does not contain '{expected.value}'. Current: {current_url}",
                     step=0,
@@ -69,12 +72,14 @@ class Comparator:
                 )
 
         elif expected.type == AssertType.URL_NOT_CONTAINS:
-            current_url = await engine.get_url()
-            if expected.case_insensitive:
-                found = expected.value.lower() in current_url.lower()
-            else:
-                found = expected.value in current_url
-            if found:
+            # Retry with short polling to handle post-navigation race condition
+            current_url = await self._wait_for_url(
+                engine, expected.value, contains=False,
+                case_insensitive=expected.case_insensitive,
+            )
+            check_val = expected.value.lower() if expected.case_insensitive else expected.value
+            check_url = current_url.lower() if expected.case_insensitive else current_url
+            if check_val in check_url:
                 raise StepExecutionError(
                     f"URL should not contain '{expected.value}'. Current: {current_url}",
                     step=0,
@@ -133,6 +138,37 @@ class Comparator:
             step=step.step,
             action="assert",
         )
+
+    @staticmethod
+    async def _wait_for_url(
+        engine: BaseEngine,
+        value: str,
+        *,
+        contains: bool,
+        case_insensitive: bool = False,
+        timeout: float = 5.0,
+        interval: float = 0.3,
+    ) -> str:
+        """Poll URL up to *timeout* seconds waiting for the condition to be met.
+
+        This handles the race condition where a form submit triggers navigation
+        but the URL hasn't changed yet when the assert step runs.
+
+        Returns the last observed URL.
+        """
+        deadline = asyncio.get_event_loop().time() + timeout
+        last_url = ""
+        while True:
+            last_url = await engine.get_url()
+            check_val = value.lower() if case_insensitive else value
+            check_url = last_url.lower() if case_insensitive else last_url
+            if contains and check_val in check_url:
+                return last_url
+            if not contains and check_val not in check_url:
+                return last_url
+            if asyncio.get_event_loop().time() >= deadline:
+                return last_url
+            await asyncio.sleep(interval)
 
     @staticmethod
     def _compare_screenshots(current: bytes, reference_path: str) -> float:

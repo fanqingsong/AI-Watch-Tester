@@ -270,6 +270,7 @@
     "progress": "진행률",
     "stepsCount": "{completed} / {total} 스텝",
     "stepsDetail": "{passed} 통과 / {failed} 실패 (총 {total} 스텝)",
+    "scenarioSummary": "{total}개 시나리오 중 {passed}개 통과 ({failed}개 실패)",
     "passed": "통과",
     "failed": "실패",
     "before": "이전",

@@ -299,12 +299,21 @@ export default function TestDetailPage() {
   const errorCount = consoleLogs.filter((l) => l.level === "error").length;
   const warnCount = consoleLogs.filter((l) => l.level === "warning").length;
 
-  // Compute step-level pass/fail counts from result
-  const allSteps = result?.scenarios?.flatMap((s) => s.steps) ?? [];
+  // Compute scenario-level pass/fail counts
+  const scenarios = result?.scenarios ?? [];
+  const scenariosPassedCount = scenarios.filter((s) => s.passed).length;
+  const scenariosFailedCount = scenarios.filter((s) => !s.passed).length;
+  const scenariosTotalCount = scenarios.length;
+
+  // Step-level counts
+  const allSteps = scenarios.flatMap((s) => s.steps);
   const stepsPassedCount = allSteps.filter((s) => s.status === "passed").length;
   const stepsFailedCount = allSteps.filter((s) => s.status === "error" || s.status === "failed").length;
   const stepsTotalCount = allSteps.length || test.steps_total;
-  const isPartialFail = test.status === "failed" && stepsPassedCount > 0 && stepsFailedCount > 0;
+
+  // Partial pass: some scenarios passed, some failed
+  const isPartialPass = test.status === "failed" && scenariosTotalCount > 1 && scenariosPassedCount > 0 && scenariosFailedCount > 0;
+  const isAllFailed = test.status === "failed" && scenariosPassedCount === 0;
   const passedPct = stepsTotalCount > 0 ? (stepsPassedCount / stepsTotalCount) * 100 : 0;
   const failedPct = stepsTotalCount > 0 ? (stepsFailedCount / stepsTotalCount) * 100 : 0;
 
@@ -337,13 +346,13 @@ export default function TestDetailPage() {
         </div>
         <span
           className={`rounded-full px-3 py-1 text-sm font-medium ${
-            isPartialFail
+            isPartialPass
               ? STATUS_BADGE.partial
               : STATUS_BADGE[test.status] || "bg-gray-100 text-gray-600"
           }`}
         >
-          {isPartialFail
-            ? `${stepsPassedCount}/${stepsTotalCount} ${t("passed").toLowerCase()}`
+          {isPartialPass
+            ? t("scenarioSummary", { passed: scenariosPassedCount, failed: scenariosFailedCount, total: scenariosTotalCount })
             : test.status}
         </span>
       </div>
@@ -355,19 +364,41 @@ export default function TestDetailPage() {
         </div>
       )}
 
+      {/* Scenario summary (when multiple scenarios) */}
+      {scenariosTotalCount > 1 && (test.status === "done" || test.status === "failed") && (
+        <div className="mb-4 rounded-lg border border-gray-200 p-4">
+          <div className="mb-2 text-sm font-medium text-gray-900">
+            {t("scenarioSummary", { passed: scenariosPassedCount, failed: scenariosFailedCount, total: scenariosTotalCount })}
+          </div>
+          <div className="flex gap-2">
+            {scenarios.map((sc, i) => (
+              <span
+                key={i}
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  sc.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}
+                title={sc.scenario_name || sc.scenario_id}
+              >
+                {sc.scenario_name || sc.scenario_id}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Progress summary */}
       {test.steps_total > 0 && (
         <div className="mb-6 rounded-lg border border-gray-200 p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-gray-600">{t("progress")}</span>
             <span className="text-gray-900">
-              {isPartialFail
+              {isPartialPass
                 ? t("stepsDetail", { passed: stepsPassedCount, failed: stepsFailedCount, total: stepsTotalCount })
                 : t("stepsCount", { completed: test.steps_completed, total: test.steps_total })}
             </span>
           </div>
           <div className="h-2 rounded-full bg-gray-100">
-            {isPartialFail ? (
+            {isPartialPass ? (
               <div className="flex h-2 overflow-hidden rounded-full">
                 <div
                   className="h-full bg-green-500 transition-all duration-300"
