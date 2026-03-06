@@ -260,6 +260,7 @@
     "firstTest": "Run your first test",
     "stepsInfo": "{completed}/{total} steps",
     "partialPassed": "passed",
+    "partiallyPassed": "Partially Passed",
     "prev": "Prev",
     "next": "Next",
     "pageLabel": "Page {page}"

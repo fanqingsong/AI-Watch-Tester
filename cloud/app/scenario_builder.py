@@ -8,6 +8,7 @@ allowing the caller to route those tests to AI (Tier 3).
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any
 from urllib.parse import urlparse
@@ -47,41 +48,146 @@ _PLACEHOLDER_HINTS: dict[str, str] = {
     "제목": "테스트 제목",
 }
 
+# Patterns to detect credential hint blocks on page
+_CREDENTIAL_PATTERNS = [
+    # "Accepted usernames are:" / "Username: xxx"
+    re.compile(
+        r"(?:accepted\s+)?user\s*names?\s*(?:are|is)?\s*[:\-]\s*(.+)",
+        re.IGNORECASE,
+    ),
+    # "Password for all users:" / "Password: xxx"
+    re.compile(
+        r"password\s*(?:for\s+all\s+users?)?\s*[:\-]\s*(.+)",
+        re.IGNORECASE,
+    ),
+    # "Test account: user@example.com / pass123"
+    re.compile(
+        r"test\s+account\s*[:\-]\s*(.+)",
+        re.IGNORECASE,
+    ),
+    # "Demo credentials: ..."
+    re.compile(
+        r"demo\s+credentials?\s*[:\-]\s*(.+)",
+        re.IGNORECASE,
+    ),
+]
 
-def _generate_test_value(field: dict[str, Any], user_data: dict[str, str]) -> str:
-    """Generate a test value for a form field (Tier 2 heuristic)."""
+
+def _extract_page_credentials(pages: list[dict]) -> dict[str, str]:
+    """Extract test credentials visible on page (e.g., saucedemo hint text).
+
+    Scans page body text for patterns like:
+      "Accepted usernames are: standard_user"
+      "Password for all users: secret_sauce"
+
+    Returns dict with keys like "username", "password" if found.
+    """
+    creds: dict[str, str] = {}
+
+    for page in pages:
+        text = page.get("text_content", "")
+        if not text:
+            continue
+
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+
+            for pattern in _CREDENTIAL_PATTERNS:
+                m = pattern.search(line)
+                if not m:
+                    continue
+                value = m.group(1).strip()
+                pat_str = pattern.pattern.lower()
+
+                if "password" in pat_str:
+                    # Take first non-empty token as password
+                    pw = value.split()[0] if value else ""
+                    if pw and len(pw) >= 3:
+                        creds["password"] = pw
+                        logger.info(
+                            "Extracted page credential: password='%s'", pw,
+                        )
+                elif "user" in pat_str:
+                    # Take first non-empty token as username
+                    uname = value.split()[0].rstrip(",") if value else ""
+                    if uname and len(uname) >= 3:
+                        creds["username"] = uname
+                        logger.info(
+                            "Extracted page credential: username='%s'", uname,
+                        )
+                elif "account" in pat_str or "credential" in pat_str:
+                    # "user@example.com / pass123" or "user:pass"
+                    parts = re.split(r"\s*[/|:]\s*", value, maxsplit=1)
+                    if len(parts) >= 1 and parts[0]:
+                        creds.setdefault("username", parts[0].strip())
+                    if len(parts) >= 2 and parts[1]:
+                        creds.setdefault("password", parts[1].strip())
+
+    if creds:
+        logger.info("Page credentials extracted: %s", list(creds.keys()))
+    return creds
+
+
+def _generate_test_value(
+    field: dict[str, Any],
+    user_data: dict[str, str],
+    page_creds: dict[str, str] | None = None,
+) -> str:
+    """Generate a test value for a form field (Tier 2 heuristic).
+
+    Priority: user_data > page_creds > type-based > placeholder hints > fallback.
+    """
     name = (field.get("name") or "").lower()
     ftype = (field.get("type") or "text").lower()
     placeholder = (field.get("placeholder") or "").lower()
     label = (field.get("label") or "").lower()
+    page_creds = page_creds or {}
 
     # 1. User-provided data takes priority
     for key in (name, ftype, label):
         if key and key in user_data:
             return user_data[key]
 
-    # 2. Type-based generation
+    # 2. Page-visible credentials (e.g., saucedemo test accounts)
+    if page_creds:
+        is_pw = ftype == "password" or "pass" in name or "pw" in name
+        if is_pw and "password" in page_creds:
+            return page_creds["password"]
+        is_user = (
+            "user" in name
+            or "login" in name
+            or "email" in name
+            or name == "id"
+        )
+        if is_user and "username" in page_creds:
+            return page_creds["username"]
+
+    # 3. Type-based generation
     if ftype in _TEST_DATA:
         # Unique email per call
         if ftype == "email":
             return f"awttest+{uuid.uuid4().hex[:8]}@example.com"
         return _TEST_DATA[ftype]
 
-    # 3. Name/placeholder hints
+    # 4. Name/placeholder hints
     for hint_text in (name, placeholder, label):
         for keyword, value in _PLACEHOLDER_HINTS.items():
             if keyword in hint_text:
                 return value
 
-    # 4. Special name patterns
+    # 5. Special name patterns
     if "email" in name or "mail" in name:
         return f"awttest+{uuid.uuid4().hex[:8]}@example.com"
     if "pass" in name or "pw" in name:
-        return "TestPass123!"
+        return page_creds.get("password", "TestPass123!")
     if "phone" in name or "tel" in name:
         return "01012345678"
+    if "user" in name or "login" in name:
+        return page_creds.get("username", "testuser")
 
-    # 5. Fallback
+    # 6. Fallback
     return "test input"
 
 
@@ -178,6 +284,15 @@ def _step_assert_text(text: str, step_num: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Quality gate
+# ---------------------------------------------------------------------------
+
+def _count_asserts(steps: list[dict]) -> int:
+    """Count assert steps in a scenario."""
+    return sum(1 for s in steps if s.get("action") == "assert")
+
+
+# ---------------------------------------------------------------------------
 # Tier 1: Deterministic scenario builders
 # ---------------------------------------------------------------------------
 
@@ -220,7 +335,10 @@ def _match_observation(test_detail: dict, observations: list[dict]) -> dict | No
                 score += 5
         elif "signup" in test_id or "register" in test_id:
             fields = change.get("modal_form_fields") or change.get("navigated_page_fields") or []
-            has_email = any(f.get("type") == "email" or "email" in (f.get("name") or "") for f in fields)
+            has_email = any(
+                f.get("type") == "email" or "email" in (f.get("name") or "")
+                for f in fields
+            )
             if has_email and len(fields) >= 3:
                 score += 5
         elif "nav" in test_id:
@@ -240,11 +358,14 @@ def build_scenario_from_observation(
     user_data: dict[str, str],
     scenario_id: str = "SC-001",
     test_name: str = "",
+    page_creds: dict[str, str] | None = None,
 ) -> dict | None:
     """Build a scenario dict from a single observation (Tier 1).
 
     Returns a Scenario-compatible dict or None if the observation lacks
     enough data for deterministic generation (→ caller routes to AI).
+
+    Quality gate: returns None if no assert steps generated (fast-fail to AI).
     """
     change = obs.get("observed_change", {})
     change_type = change.get("type", "")
@@ -288,7 +409,7 @@ def build_scenario_from_observation(
 
     # Step 3+: Fill form fields
     for field in input_fields:
-        value = _generate_test_value(field, user_data)
+        value = _generate_test_value(field, user_data, page_creds)
         steps.append(_step_type(field, value, step_num))
         step_num += 1
 
@@ -314,6 +435,14 @@ def build_scenario_from_observation(
         if assert_text:
             steps.append(_step_assert_text(assert_text, step_num))
             step_num += 1
+
+    # --- Quality gate: must have at least 1 assert ---
+    if _count_asserts(steps) == 0:
+        logger.info(
+            "Quality gate: no assert in '%s' (%s) — delegating to AI",
+            test_name or scenario_id, change_type,
+        )
+        return None
 
     # Minimum viable scenario: navigate + trigger + at least 1 type + submit = 4+
     if len(steps) < 4:
@@ -369,6 +498,14 @@ def _build_navigation_scenario(
         if assert_text:
             steps.append(_step_assert_text(assert_text, step_num))
 
+    # --- Quality gate: must have at least 1 assert ---
+    if _count_asserts(steps) == 0:
+        logger.info(
+            "Quality gate: no assert in nav '%s' (%s) — delegating to AI",
+            test_name or scenario_id, change_type,
+        )
+        return None
+
     name = test_name or f"Navigate: {el_text or 'link'}"
     return {
         "id": scenario_id,
@@ -389,8 +526,16 @@ def build_scenarios_from_observations(
     observations: list[dict],
     target_url: str,
     user_data: dict[str, str],
+    pages: list[dict] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Try pattern-based generation for each test.
+
+    Args:
+        selected_details: Test details to build scenarios for.
+        observations: Crawl observations.
+        target_url: Base URL of the target site.
+        user_data: User-provided test data overrides.
+        pages: Page data list from crawl (may contain text_content).
 
     Returns:
         (built_scenarios, remaining_tests) — remaining_tests need AI (Tier 3).
@@ -398,6 +543,9 @@ def build_scenarios_from_observations(
     built: list[dict] = []
     remaining: list[dict] = []
     sc_counter = 1
+
+    # Extract credentials visible on the page (e.g., saucedemo test accounts)
+    page_creds = _extract_page_credentials(pages or [])
 
     for test_detail in selected_details:
         # High-risk tests always go to AI for safety
@@ -417,6 +565,7 @@ def build_scenarios_from_observations(
             obs, target_url, user_data,
             scenario_id=scenario_id,
             test_name=test_detail.get("name", ""),
+            page_creds=page_creds,
         )
 
         if scenario is None:
@@ -425,8 +574,9 @@ def build_scenarios_from_observations(
             continue
 
         logger.info(
-            "Tier 1 built: %s → %s (%d steps)",
-            test_detail.get("id"), scenario["id"], len(scenario["steps"]),
+            "Tier 1 built: %s → %s (%d steps, %d asserts)",
+            test_detail.get("id"), scenario["id"],
+            len(scenario["steps"]), _count_asserts(scenario["steps"]),
         )
         built.append(scenario)
         sc_counter += 1

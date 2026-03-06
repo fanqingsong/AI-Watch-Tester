@@ -1985,6 +1985,7 @@ async def _bg_generate_scenarios(
 
         pattern_scenarios_raw, ai_tests = build_scenarios_from_observations(
             selected_details, observations, target_url, user_data,
+            pages=pages,
         )
 
         # Convert pattern-built dicts to Scenario model objects

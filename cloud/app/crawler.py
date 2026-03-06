@@ -880,6 +880,9 @@ async def crawl_site(
                 page_text = await page.inner_text("body")
             except Exception:
                 page_text = ""
+            # Store body text in page_data for downstream use
+            # (e.g., pattern builder credential extraction)
+            page_data["text_content"] = page_text[:10000]
             feature_results = await _detect_features(page, page_text, page_data)
             for fr in feature_results:
                 fname = fr["feature"]

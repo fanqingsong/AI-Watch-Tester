@@ -14,6 +14,45 @@ const STATUS_COLORS: Record<string, string> = {
   failed: "bg-red-100 text-red-700",
 };
 
+function TestStatusBadge({ test, t }: { test: TestItem; t: ReturnType<typeof useTranslations> }) {
+  // All steps done but still "failed" → scenario-level failure (partial pass)
+  const isPartial =
+    test.status === "failed" &&
+    test.steps_total > 0 &&
+    test.steps_completed > 0 &&
+    test.steps_completed === test.steps_total;
+  // Some steps done but not all → step-level partial
+  const isStepPartial =
+    test.status === "failed" &&
+    test.steps_total > 0 &&
+    test.steps_completed > 0 &&
+    test.steps_completed < test.steps_total;
+
+  if (isPartial) {
+    return (
+      <span className={`ml-4 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS.partial}`}>
+        {t("partiallyPassed")}
+      </span>
+    );
+  }
+  if (isStepPartial) {
+    return (
+      <span className={`ml-4 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS.partial}`}>
+        {test.steps_completed}/{test.steps_total} {t("partialPassed")}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`ml-4 rounded-full px-2 py-0.5 text-xs font-medium ${
+        STATUS_COLORS[test.status] || "bg-gray-100 text-gray-600"
+      }`}
+    >
+      {test.status}
+    </span>
+  );
+}
+
 export default function TestsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -142,17 +181,7 @@ export default function TestsPage() {
                     ` · ${t("stepsInfo", { completed: test.steps_completed, total: test.steps_total })}`}
                 </p>
               </div>
-              <span
-                className={`ml-4 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  test.status === "failed" && test.steps_completed > 0 && test.steps_total > 0
-                    ? STATUS_COLORS.partial
-                    : STATUS_COLORS[test.status] || "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {test.status === "failed" && test.steps_completed > 0 && test.steps_total > 0
-                  ? `${test.steps_completed}/${test.steps_total} ${t("partialPassed")}`
-                  : test.status}
-              </span>
+              <TestStatusBadge test={test} t={t} />
             </button>
           ))}
         </div>
