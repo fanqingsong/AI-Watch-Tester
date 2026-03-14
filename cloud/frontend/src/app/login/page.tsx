@@ -44,18 +44,18 @@ export default function LoginPage() {
 
         <SocialLoginButtons />
 
-        <div className="relative my-5">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-gray-500">{t("orEmail")}</span>
+            <span className="bg-white px-3 text-gray-400">{t("orEmail")}</span>
           </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
               {t("email")}
             </label>
             <input
@@ -63,19 +63,19 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               placeholder={t("emailPlaceholder")}
             />
           </div>
 
           <div>
-            <div className="mb-1 flex items-center justify-between">
+            <div className="mb-1.5 flex items-center justify-between">
               <label className="block text-sm font-medium text-gray-700">
                 {t("password")}
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs text-blue-600 transition hover:underline"
               >
                 {t("forgotPassword")}
               </Link>
@@ -85,13 +85,13 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               placeholder={t("passwordPlaceholder")}
             />
           </div>
 
           {error && (
-            <p className="rounded bg-red-50 p-2 text-sm text-red-600">
+            <p className="rounded-lg bg-red-50 p-2.5 text-sm text-red-600">
               {error}
             </p>
           )}
@@ -99,15 +99,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
             {loading ? t("submitting") : t("submit")}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-gray-500">
           {t("noAccount")}{" "}
-          <Link href="/signup" className="text-blue-600 hover:underline">
+          <Link href="/login" className="text-blue-600 transition hover:underline">
             {t("signUpLink")}
           </Link>
         </p>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "./AuthProvider";
 import LanguageToggle from "./LanguageToggle";
@@ -9,57 +10,67 @@ import LanguageToggle from "./LanguageToggle";
 export default function Header() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const t = useTranslations("header");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     router.push("/");
   };
 
+  const isActive = (href: string) => pathname === href;
+  const linkClass = (href: string) =>
+    `px-3 py-2 text-sm transition-colors ${
+      isActive(href)
+        ? "text-blue-600 font-medium"
+        : "text-gray-600 hover:text-gray-900"
+    }`;
+
+  const navLinks = user
+    ? [
+        { href: "/dashboard", label: t("dashboard") },
+        { href: "/tests", label: t("history") },
+        { href: "/status", label: t("status") },
+        { href: "/settings", label: t("settings") },
+      ]
+    : [{ href: "/pricing", label: t("pricing") }];
+
   return (
-    <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-xl font-bold text-gray-900">
-          {t("brand")}
+    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        {/* Brand */}
+        <Link href="/" className="flex items-center gap-2 group">
+          <svg width="28" height="28" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <circle cx="60" cy="60" r="52" stroke="#0d9488" strokeWidth="8"/>
+            <circle cx="52" cy="52" r="20" fill="#34d399"/>
+            <circle cx="52" cy="52" r="8" fill="#ffffff"/>
+          </svg>
+          <span className="text-base font-bold tracking-tight text-gray-900">
+            AWT
+          </span>
         </Link>
 
-        <nav className="flex items-center gap-4">
+        {/* Desktop nav */}
+        <nav className="hidden items-center gap-1 md:flex">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className={linkClass(link.href)}>
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right side */}
+        <div className="hidden items-center gap-3 md:flex">
+          <LanguageToggle />
           {user ? (
             <>
-              <Link
-                href="/dashboard"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("dashboard")}
-              </Link>
-              <Link
-                href="/tests"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("history")}
-              </Link>
-              <Link
-                href="/billing"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("billing")}
-              </Link>
-              <Link
-                href="/status"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("status")}
-              </Link>
-              <Link
-                href="/settings"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("settings")}
-              </Link>
-              <span className="text-xs text-gray-400">{user.email}</span>
+              <span className="text-xs text-gray-400 max-w-[140px] truncate">
+                {user.email}
+              </span>
               <button
                 onClick={handleSignOut}
-                className="rounded bg-gray-100 px-3 py-1 text-sm text-gray-700 hover:bg-gray-200"
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 {t("signOut")}
               </button>
@@ -67,28 +78,88 @@ export default function Header() {
           ) : (
             <>
               <Link
-                href="/pricing"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t("pricing")}
-              </Link>
-              <Link
                 href="/login"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="px-3 py-1.5 text-sm text-gray-600 transition hover:text-gray-900"
               >
                 {t("login")}
               </Link>
               <Link
                 href="/signup"
-                className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700"
+                className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               >
                 {t("signUp")}
               </Link>
             </>
           )}
-          <LanguageToggle />
-        </nav>
+        </div>
+
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="flex h-10 w-10 items-center justify-center rounded-md text-gray-600 hover:text-gray-900 md:hidden focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          aria-label="Toggle menu"
+        >
+          {mobileOpen ? (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
       </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="border-t border-gray-200 bg-white px-4 pb-4 md:hidden">
+          <nav className="flex flex-col gap-1 pt-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className={`rounded-md px-3 py-2.5 text-sm transition ${
+                  isActive(link.href)
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="mt-3 flex items-center gap-3 border-t border-gray-200 pt-3">
+            <LanguageToggle />
+            {user ? (
+              <button
+                onClick={() => { handleSignOut(); setMobileOpen(false); }}
+                className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              >
+                {t("signOut")}
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-center text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  {t("login")}
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                >
+                  {t("signUp")}
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
