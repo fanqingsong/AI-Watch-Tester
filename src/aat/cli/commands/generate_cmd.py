@@ -65,6 +65,16 @@ async def _generate(
     output_dir: str | None,
 ) -> None:
     """Run scenario generation asynchronously."""
+    from aat.core.cost import (
+        estimate_cost,
+        format_cost_estimate,
+        get_cached_scenarios,
+        log_cost,
+        save_cached_scenarios,
+        spec_cache_key,
+    )
+    from aat.core.models import Scenario  # noqa: TC001
+
     cfg_path = Path(config_path) if config_path else None
     config = load_config(config_path=cfg_path)
 
@@ -84,24 +94,54 @@ async def _generate(
     text, images = await parser.parse(source)
     typer.echo(f"Parsed document: {source.name} ({len(text)} chars, {len(images)} images)")
 
-    # Create adapter and generate scenarios
-    adapter = _get_adapter(config)
-    if adapter is None:
-        typer.echo(
-            typer.style("No AI adapter available.", fg=typer.colors.RED),
-            err=True,
+    # Check cache first
+    cache_key = spec_cache_key(config.url, text)
+    cached = get_cached_scenarios(cache_key, config.data_dir)
+    if cached:
+        typer.echo(typer.style("  Cache hit — using previously generated scenarios", fg=typer.colors.GREEN))
+        scenarios = [Scenario(**s) for s in cached]
+    else:
+        # Cost estimation + confirmation
+        est = estimate_cost(config.ai.provider, config.ai.model, text, estimated_output_tokens=config.ai.max_tokens)
+        typer.echo()
+        typer.echo(f"  {format_cost_estimate(est)}")
+        if not est["is_free"]:
+            proceed = typer.confirm("  Proceed?", default=True)
+            if not proceed:
+                typer.echo("  Cancelled.")
+                return
+
+        # Create adapter and generate scenarios
+        adapter = _get_adapter(config)
+        if adapter is None:
+            typer.echo(
+                typer.style("No AI adapter available.", fg=typer.colors.RED),
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        scenarios = await adapter.generate_scenarios(text, images)
+
+        if not scenarios:
+            typer.echo(
+                typer.style("No scenarios generated.", fg=typer.colors.YELLOW),
+            )
+            return
+
+        # Log cost (estimate — actual tokens not returned by all providers)
+        actual_cost = log_cost(
+            config.ai.provider,
+            config.ai.model,
+            "generate_scenarios",
+            est["input_tokens"],
+            est["output_tokens"],
+            config.data_dir,
         )
-        raise typer.Exit(code=1)
+        typer.echo(typer.style(f"  AI cost: ~${actual_cost:.4f}", fg=typer.colors.YELLOW))
 
-    from aat.core.models import Scenario  # noqa: TC001
-
-    scenarios: list[Scenario] = await adapter.generate_scenarios(text, images)
-
-    if not scenarios:
-        typer.echo(
-            typer.style("No scenarios generated.", fg=typer.colors.YELLOW),
-        )
-        return
+        # Cache for future reuse
+        scenario_dicts = [s.model_dump(mode="json") for s in scenarios]
+        save_cached_scenarios(cache_key, scenario_dicts, config.data_dir)
 
     # Determine output directory
     dest_dir = Path(output_dir) if output_dir else Path(config.scenarios_dir)
@@ -140,13 +180,16 @@ def _get_parser(extension: str) -> Any:
 
 
 def _get_adapter(config: Any) -> Any:
-    """Get an AI adapter instance.
+    """Get an AI adapter instance based on config.ai.provider.
 
     Returns None if no adapter is available.
     """
     try:
-        from aat.adapters.claude import ClaudeAdapter
+        from aat.adapters import ADAPTER_REGISTRY
 
-        return ClaudeAdapter(config.ai)
+        adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)
+        if adapter_cls is None:
+            return None
+        return adapter_cls(config.ai)
     except (ImportError, AttributeError):
         return None

@@ -35,7 +35,9 @@ def main(
 
 from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
+from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
 from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
+from aat.cli.commands.doctor_cmd import doctor_command  # noqa: E402
 from aat.cli.commands.generate_cmd import generate_command  # noqa: E402
 from aat.cli.commands.init_cmd import init_command  # noqa: E402
 from aat.cli.commands.learn_cmd import learn_app  # noqa: E402
@@ -44,14 +46,18 @@ from aat.cli.commands.loop_cmd import loop_command  # noqa: E402
 from aat.cli.commands.report_cmd import report_app  # noqa: E402
 from aat.cli.commands.run_cmd import run_command  # noqa: E402
 from aat.cli.commands.serve_cmd import serve_command  # noqa: E402
+from aat.cli.commands.setup_cmd import setup_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
 from aat.cli.commands.validate_cmd import validate_command  # noqa: E402
 
+app.command(name="setup")(setup_command)
+app.command(name="doctor")(doctor_command)
 app.command(name="start")(start_command)
 app.command(name="serve")(serve_command)
 app.command(name="dashboard")(dashboard_command)
 app.command(name="init")(init_command)
 app.add_typer(config_app, name="config")
+app.add_typer(cost_app, name="cost")
 app.command(name="validate")(validate_command)
 app.command(name="run")(run_command)
 app.command(name="analyze")(analyze_command)

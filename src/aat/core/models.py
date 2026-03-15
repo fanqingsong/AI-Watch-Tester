@@ -133,6 +133,7 @@ class EngineConfig(BaseModel):
     viewport_width: int = Field(default=1280, ge=320, le=3840)
     viewport_height: int = Field(default=720, ge=240, le=2160)
     timeout_ms: int = Field(default=30000, ge=1000, le=120000)
+    slow_mo: int = Field(default=0, ge=0, le=5000, description="Slow down actions by ms (headed mode). 0=off, 100=recommended")
     window_x: int | None = Field(default=None, description="Browser window X position")
     window_y: int | None = Field(default=None, description="Browser window Y position")
 
@@ -370,6 +371,7 @@ class Scenario(BaseModel):
     name: str = Field(..., min_length=1)
     description: str = Field(default="")
     tags: list[str] = Field(default_factory=list)
+    depends_on: list[str] = Field(default_factory=list, description="Scenario IDs that must pass before this one runs (e.g. ['SC-001'])")
     steps: list[StepConfig] = Field(..., min_length=1)
     expected_result: list[ExpectedResult] = Field(default_factory=list)
     variables: dict[str, str] = Field(default_factory=dict)

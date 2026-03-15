@@ -83,6 +83,14 @@ VALID ACTIONS (use ONLY these):
 - "screenshot" — capture screen. Example:
   {"step": 8, "action": "screenshot", "description": "Capture state"}
 
+BUSINESS FLOW ORDERING:
+- Generate scenarios in logical business flow order \
+(e.g., sign up BEFORE login, login BEFORE dashboard)
+- Add "depends_on" field (array of scenario IDs) when a scenario \
+requires another to pass first. Example:
+  {"id": "SC-002", "depends_on": ["SC-001"], ...}
+- SC-001 should have no dependencies. Later scenarios depend on earlier ones.
+
 CRITICAL RULES:
 - "click" is INVALID. Use "find_and_click"
 - "type" is INVALID. Use "find_and_type"

@@ -117,13 +117,16 @@ def _get_parser(extension: str) -> Any:
 
 
 def _get_adapter(config: Any) -> Any:
-    """Get an AI adapter instance.
+    """Get an AI adapter instance based on config.ai.provider.
 
     Returns None if no adapter is available.
     """
     try:
-        from aat.adapters.claude import ClaudeAdapter
+        from aat.adapters import ADAPTER_REGISTRY
 
-        return ClaudeAdapter(config.ai)
+        adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)
+        if adapter_cls is None:
+            return None
+        return adapter_cls(config.ai)
     except (ImportError, AttributeError):
         return None

@@ -24,6 +24,10 @@ async def test_ai_connection(config: AIConfig) -> tuple[bool, str]:
         return await _test_claude(config)
     elif provider == "openai":
         return await _test_openai(config)
+    elif provider == "gemini":
+        return await _test_gemini(config)
+    elif provider == "deepseek":
+        return await _test_openai(config)  # DeepSeek uses OpenAI-compatible API
     else:
         return False, f"Unknown provider: {provider}"
 
@@ -89,6 +93,24 @@ async def _test_openai(config: AIConfig) -> tuple[bool, str]:
         return True, f"Connected to OpenAI API. Models available (e.g. {', '.join(model_ids)})"
     except Exception as exc:
         return False, f"OpenAI API error: {exc}"
+
+
+async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
+    """Test Gemini API connection via OpenAI-compatible endpoint."""
+    if not config.api_key:
+        return False, "API key is empty. Get one free at https://aistudio.google.com/apikey"
+    try:
+        import openai
+
+        client = openai.AsyncOpenAI(
+            api_key=config.api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+        resp = await client.models.list()
+        model_ids = [m.id for m in resp.data[:5]]
+        return True, f"Connected to Gemini API. Models: {', '.join(model_ids)}"
+    except Exception as exc:
+        return False, f"Gemini API error: {exc}"
 
 
 async def test_url(url: str) -> tuple[bool, str]:

@@ -9,20 +9,12 @@ import typer
 from aat.core.config import save_config
 from aat.core.models import Config
 
-_GITIGNORE_ENTRIES = """\
-
-# AAT data
-.aat/config.yaml
-.aat/learned.db
-.aat/screenshots/
-reports/
-"""
-
 
 def init_command(
     name: str = typer.Option("aat-project", "--name", "-n", help="Project name."),
     source: str = typer.Option(".", "--source", "-s", help="Source path."),
     url: str = typer.Option("", "--url", "-u", help="Application URL."),
+    skip_setup: bool = typer.Option(False, "--skip-setup", help="Skip AI provider setup."),
 ) -> None:
     """Initialize a new AAT project in the current directory."""
     root = Path.cwd()
@@ -44,14 +36,17 @@ def init_command(
     config_path = root / "aat.config.yaml"
     save_config(config, config_path)
 
-    # Append to .gitignore if it exists
-    gitignore_path = root / ".gitignore"
-    if gitignore_path.exists():
-        existing = gitignore_path.read_text(encoding="utf-8")
-        if ".aat/config.yaml" not in existing:
-            with open(gitignore_path, "a", encoding="utf-8") as f:  # noqa: PTH123
-                f.write(_GITIGNORE_ENTRIES)
-
-    typer.echo(f"AAT project '{name}' initialized successfully.")
+    typer.echo(f"\n✓ AAT project '{name}' initialized successfully.")
     typer.echo(f"  Config: {config_path}")
     typer.echo(f"  Scenarios: {scenarios_dir}")
+
+    # Run interactive AI setup unless skipped
+    if not skip_setup:
+        typer.echo()
+        from aat.cli.commands.setup_cmd import setup_command
+        setup_command(config=str(config_path))
+
+    # Run environment check
+    typer.echo()
+    from aat.cli.commands.doctor_cmd import doctor_command
+    doctor_command(config_path=str(config_path), skip_connection=skip_setup)

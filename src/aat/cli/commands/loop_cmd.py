@@ -9,6 +9,7 @@ import typer
 
 from aat.adapters import ADAPTER_REGISTRY
 from aat.core.config import load_config
+from aat.core.cost import load_cost_log
 from aat.core.exceptions import AATError
 from aat.core.git_ops import GitOps
 from aat.core.loop import DevQALoop
@@ -120,12 +121,24 @@ async def _loop(
         git_ops=git_ops,
     )
 
+    # 세션 시작 전 비용 로그 길이 기록
+    cost_log_before = len(load_cost_log(config.data_dir))
+
     result = await loop.run(scenarios)
 
     # Print summary
     status = "SUCCESS" if result.success else "FAILURE"
     typer.echo(f"\nLoop {status} after {result.total_iterations} iteration(s)")
     typer.echo(f"Duration: {result.duration_ms:.0f}ms")
+
+    # 이번 세션에서 추가된 비용 항목 계산
+    cost_entries = load_cost_log(config.data_dir)
+    new_entries = cost_entries[cost_log_before:]
+    session_cost = sum(e.get("cost_usd", 0) for e in new_entries)
+    if session_cost > 0:
+        typer.echo(f"  AI cost this session: ${session_cost:.4f}")
+    elif new_entries:
+        typer.echo("  AI cost this session: Free")
 
     if result.reason:
         typer.echo(f"Reason: {result.reason}")

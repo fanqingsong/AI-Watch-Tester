@@ -57,10 +57,13 @@ class WebEngine(BaseEngine):
                 raise EngineError(msg)
 
             launch_args = getattr(self, "_launch_args", None)
-            self._browser = await browser_type.launch(
-                headless=self._config.headless,
-                args=launch_args or [],
-            )
+            launch_kwargs: dict = {
+                "headless": self._config.headless,
+                "args": launch_args or [],
+            }
+            if self._config.slow_mo > 0:
+                launch_kwargs["slow_mo"] = self._config.slow_mo
+            self._browser = await browser_type.launch(**launch_kwargs)
             self._context = await self._browser.new_context(
                 viewport={
                     "width": self._config.viewport_width,
