@@ -115,7 +115,9 @@ class DevQALoop:
                         duration_ms=elapsed,
                     )
 
-                # Failed — analyze
+                # Failed — classify and analyze
+                failure_type = self._classify_failure(test_result)
+                logger.info("Failure classified as: %s", failure_type)
                 analysis = await self._adapter.analyze_failure(test_result)
 
                 # Dispatch to mode handler
@@ -242,6 +244,14 @@ class DevQALoop:
                 if not safe:
                     logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
                 else:
+                    affected = self._analyze_impact(change)
+                    if affected:
+                        logger.info(
+                            "Impact analysis for %s: %d dependent file(s): %s",
+                            change.path,
+                            len(affected),
+                            ", ".join(affected),
+                        )
                     safe_changes.append(change)
             written = await self._git_ops.apply_file_changes(safe_changes)
             commit_hash = await self._git_ops.commit_changes(
@@ -280,6 +290,14 @@ class DevQALoop:
             if not safe:
                 logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
                 continue
+            affected = self._analyze_impact(change)
+            if affected:
+                logger.info(
+                    "Impact analysis for %s: %d dependent file(s): %s",
+                    change.path,
+                    len(affected),
+                    ", ".join(affected),
+                )
             file_path = project_root / change.path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(change.modified, encoding="utf-8")
@@ -327,7 +345,68 @@ class DevQALoop:
                 f"Fix replaces {original_lines}-line file with {modified_lines}-line stub",
             )
 
+        # 파일 확장자별 문법 검증
+        ext = Path(change.path).suffix.lower()
+        if ext == ".py":
+            try:
+                import ast
+                ast.parse(change.modified)
+            except SyntaxError as e:
+                return False, f"Python syntax error in fix: {e}"
+        elif ext in (".js", ".ts", ".jsx", ".tsx"):
+            # 기본 검증: 괄호 균형 확인
+            m = change.modified
+            opens = m.count("{") + m.count("(") + m.count("[")
+            closes = m.count("}") + m.count(")") + m.count("]")
+            if abs(opens - closes) > 2:
+                return False, f"Unbalanced brackets in JS/TS fix ({opens} opens, {closes} closes)"
+        elif ext == ".json":
+            try:
+                import json
+                json.loads(change.modified)
+            except json.JSONDecodeError as e:
+                return False, f"Invalid JSON in fix: {e}"
+
         return True, ""
+
+    def _analyze_impact(self, change: FileChange) -> list[str]:
+        """변경된 파일에 의존하는 다른 파일을 탐색한다."""
+        changed_path = Path(change.path)
+        stem = changed_path.stem  # 확장자 제외 파일명
+
+        # 파일 유형별 탐색 패턴 구성
+        patterns: list[str]
+        if changed_path.suffix == ".py":
+            module_name = stem.replace("-", "_")
+            patterns = [f"import {module_name}", f"from {module_name}", f"from .{module_name}"]
+        elif changed_path.suffix in (".js", ".ts", ".jsx", ".tsx"):
+            patterns = [f"from './{stem}", f'from "./{stem}', f"require('./{stem}"]
+        else:
+            patterns = [stem]
+
+        affected: list[str] = []
+        source_root = Path(self._config.source_path)
+        if not source_root.exists():
+            return affected
+
+        try:
+            for src_file in source_root.rglob("*"):
+                if not src_file.is_file():
+                    continue
+                if src_file.suffix not in (".py", ".js", ".ts", ".jsx", ".tsx", ".vue", ".svelte"):
+                    continue
+                if str(src_file) == str(changed_path):
+                    continue
+                try:
+                    content = src_file.read_text(encoding="utf-8", errors="ignore")
+                    if any(p in content for p in patterns):
+                        affected.append(str(src_file))
+                except OSError:
+                    continue
+        except Exception:
+            pass
+
+        return affected[:10]  # 노이즈 방지를 위해 최대 10개로 제한
 
     async def _validate_git_ready(self) -> None:
         """Validate git prerequisites for branch mode."""
@@ -343,6 +422,31 @@ class DevQALoop:
                 "Please commit or stash your changes first."
             )
             raise LoopError(msg)
+
+    @staticmethod
+    def _classify_failure(test_result: TestResult) -> str:
+        """실패를 조치 가능한 카테고리로 분류한다."""
+        for step_result in test_result.steps:
+            if step_result.status.value == "passed":
+                continue
+            err = (step_result.error_message or "").lower()
+
+            if "not visible" in err or "not found" in err:
+                return "element_not_found"
+            if "timeout" in err:
+                return "timeout"
+            if "navigation" in err or "goto" in err:
+                return "navigation_error"
+            if "401" in err or "403" in err or "auth" in err:
+                return "auth_error"
+            if "500" in err or "502" in err or "503" in err:
+                return "server_error"
+            if "selector" in err:
+                return "selector_changed"
+            if "assert" in err:
+                return "assertion_failed"
+
+        return "unknown"
 
     async def _read_source_files(
         self,
