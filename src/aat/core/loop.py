@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
+import logging
 import time
 from collections.abc import Callable  # noqa: TC003
 from pathlib import Path
@@ -20,10 +20,12 @@ from aat.core.models import (
 if TYPE_CHECKING:
     from aat.adapters.base import AIAdapter
     from aat.core.git_ops import GitOps
-    from aat.core.models import AnalysisResult, Config, Scenario, StepResult
+    from aat.core.models import AnalysisResult, Config, FileChange, Scenario, StepResult
     from aat.engine.base import BaseEngine
     from aat.engine.executor import StepExecutor
     from aat.reporters.base import BaseReporter
+
+logger = logging.getLogger(__name__)
 
 
 def _default_prompt_approval(analysis_text: str) -> bool:
@@ -234,7 +236,14 @@ class DevQALoop:
         branch_name = f"aat/fix-{self._fix_counter:03d}"
 
         async with self._git_ops.on_fix_branch(branch_name):
-            written = await self._git_ops.apply_file_changes(fix.files_changed)
+            safe_changes = []
+            for change in fix.files_changed:
+                safe, reason = self._validate_fix(change)
+                if not safe:
+                    logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
+                else:
+                    safe_changes.append(change)
+            written = await self._git_ops.apply_file_changes(safe_changes)
             commit_hash = await self._git_ops.commit_changes(
                 written,
                 f"aat: {fix.description}",
@@ -267,6 +276,10 @@ class DevQALoop:
         # Apply changes directly to working directory
         project_root = Path(self._config.source_path)
         for change in fix.files_changed:
+            safe, reason = self._validate_fix(change)
+            if not safe:
+                logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
+                continue
             file_path = project_root / change.path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(change.modified, encoding="utf-8")
@@ -285,6 +298,36 @@ class DevQALoop:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _validate_fix(self, change: FileChange) -> tuple[bool, str]:
+        """AI가 제안한 파일 변경이 안전한지 검증한다."""
+        original_lines = change.original.count("\n")
+        modified_lines = change.modified.count("\n")
+
+        # 원본의 80% 이상 삭제하는 경우 차단
+        if original_lines > 10 and modified_lines < original_lines * 0.2:
+            return (
+                False,
+                f"Fix would delete {original_lines - modified_lines} of {original_lines}"
+                " lines (>80%)",
+            )
+
+        # 모든 import 구문이 제거된 경우 차단 (환각 가능성)
+        if (
+            "import " in change.original
+            and "import " not in change.modified
+            and original_lines > 5
+        ):
+            return False, "Fix removes all import statements"
+
+        # 큰 파일을 소규모 stub으로 교체하는 경우 차단
+        if original_lines > 20 and modified_lines < 5:
+            return (
+                False,
+                f"Fix replaces {original_lines}-line file with {modified_lines}-line stub",
+            )
+
+        return True, ""
 
     async def _validate_git_ready(self) -> None:
         """Validate git prerequisites for branch mode."""
@@ -307,12 +350,21 @@ class DevQALoop:
     ) -> dict[str, str]:
         """Read source files referenced in the analysis."""
         source_files: dict[str, str] = {}
+        skipped: list[str] = []
         project_root = Path(self._config.source_path)
         for rel_path in analysis.related_files:
             file_path = project_root / rel_path
             if file_path.is_file():
-                with contextlib.suppress(OSError):
-                    source_files[rel_path] = file_path.read_text(encoding="utf-8")
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    source_files[rel_path] = content
+                except OSError as e:
+                    logger.warning("Cannot read source file %s: %s", file_path, e)
+                    skipped.append(rel_path)
+        if skipped:
+            source_files["__unreadable_files__"] = (
+                f"These files could not be read: {', '.join(skipped)}"
+            )
         return source_files
 
     async def _execute_scenarios(
@@ -337,9 +389,9 @@ class DevQALoop:
             1 for s in all_steps if s.status in (StepStatus.FAILED, StepStatus.ERROR)
         )
 
-        # Use the first scenario for naming
-        scenario_id = scenarios[0].id if scenarios else "SC-000"
-        scenario_name = scenarios[0].name if scenarios else "Unknown"
+        # 여러 시나리오를 하나의 결과로 합칠 때 모든 ID/이름 포함
+        scenario_id = "+".join(s.id for s in scenarios) if scenarios else "SC-000"
+        scenario_name = " | ".join(s.name for s in scenarios) if scenarios else "Unknown"
 
         return TestResult(
             scenario_id=scenario_id,

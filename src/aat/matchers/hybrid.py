@@ -94,6 +94,12 @@ class HybridMatcher(BaseMatcher):
             if not matcher.can_handle(target):
                 return None
             result = await matcher.find(target, screenshot)
+            logger.info(
+                "Matcher '%s': %s (confidence: %.2f)",
+                matcher.name,
+                "FOUND" if result else "not found",
+                result.confidence if result else 0.0,
+            )
             if result is not None and result.found:
                 logger.debug("HybridMatcher: match via %s", matcher.name)
                 return result

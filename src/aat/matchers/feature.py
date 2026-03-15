@@ -116,32 +116,59 @@ class FeatureMatcher(BaseMatcher):
         if len(good_matches) < _MIN_GOOD_MATCHES:
             return None
 
-        # Compute match confidence as ratio of good matches to template keypoints
-        confidence = min(len(good_matches) / max(len(kp_tmpl), 1), 1.0)
-
         threshold = (
             target.confidence
             if target.confidence is not None
             else self._config.confidence_threshold
         )
+
+        # RANSAC 호모그래피로 정확한 위치 추정 (반복 패턴 오검출 방지)
+        src_pts = np.float32([kp_tmpl[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp_screen[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+        h_matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+
+        homography_ok = False
+        if h_matrix is not None:
+            # 템플릿 코너를 스크린샷 공간으로 변환하여 바운딩 박스 계산
+            h_tmpl, w_tmpl = tmpl_gray.shape[:2]
+            corners = np.float32(
+                [[0, 0], [w_tmpl, 0], [w_tmpl, h_tmpl], [0, h_tmpl]]
+            ).reshape(-1, 1, 2)
+            transformed = cv2.perspectiveTransform(corners, h_matrix)
+            pts = transformed.reshape(-1, 2)
+
+            x_min, y_min = pts.min(axis=0).astype(int)
+            x_max, y_max = pts.max(axis=0).astype(int)
+            w = x_max - x_min
+            h = y_max - y_min
+
+            # 변환 결과가 퇴화(degenerate)하면 폴백
+            if w > 0 and h > 0:
+                cx = (x_min + x_max) // 2
+                cy = (y_min + y_max) // 2
+                inlier_ratio = float(mask.sum()) / len(mask) if mask is not None else 0.0
+                confidence = min(1.0, inlier_ratio * (len(good_matches) / _MIN_GOOD_MATCHES))
+                homography_ok = True
+
+        if not homography_ok:
+            # 폴백: 매칭 키포인트 평균으로 위치 추정
+            fallback_pts = np.array(
+                [kp_screen[m.trainIdx].pt for m in good_matches],
+                dtype=np.float32,
+            )
+            cx = int(np.mean(fallback_pts[:, 0]))
+            cy = int(np.mean(fallback_pts[:, 1]))
+            x_min = int(np.min(fallback_pts[:, 0]))
+            y_min = int(np.min(fallback_pts[:, 1]))
+            x_max = int(np.max(fallback_pts[:, 0]))
+            y_max = int(np.max(fallback_pts[:, 1]))
+            w = max(x_max - x_min, 1)
+            h = max(y_max - y_min, 1)
+            confidence = min(len(good_matches) / max(len(kp_tmpl), 1), 1.0)
+
         if confidence < threshold:
             return None
-
-        # Estimate position: average of matched keypoints in the screenshot
-        pts = np.array(
-            [kp_screen[m.trainIdx].pt for m in good_matches],
-            dtype=np.float32,
-        )
-        cx = int(np.mean(pts[:, 0]))
-        cy = int(np.mean(pts[:, 1]))
-
-        # Estimate bounding box from min/max of matched points
-        x_min = int(np.min(pts[:, 0]))
-        y_min = int(np.min(pts[:, 1]))
-        x_max = int(np.max(pts[:, 0]))
-        y_max = int(np.max(pts[:, 1]))
-        w = max(x_max - x_min, 1)
-        h = max(y_max - y_min, 1)
 
         elapsed = (time.perf_counter() - start) * 1000.0
 

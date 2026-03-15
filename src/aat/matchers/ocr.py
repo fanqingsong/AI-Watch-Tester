@@ -75,7 +75,20 @@ class OCRMatcher(BaseMatcher):
         assert target.text is not None  # noqa: S101
 
         screen_bgr = self._decode_image(screenshot)
+
+        # Enhanced preprocessing for better OCR accuracy
         gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
+
+        # 1. Upscale 2x for small text
+        h, w = gray.shape
+        gray = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+
+        # 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
+        # 3. Mild denoising (preserve edges)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         lang = "+".join(self._config.ocr_languages)
         data: pd.DataFrame = pytesseract.image_to_data(
@@ -139,10 +152,11 @@ class OCRMatcher(BaseMatcher):
         if conf < threshold:
             return None
 
-        left = int(row["left"])
-        top = int(row["top"])
-        w = int(row["width"])
-        h = int(row["height"])
+        # 2x 업스케일 후 pytesseract 좌표를 원본 해상도로 복원
+        left = int(row["left"]) // 2
+        top = int(row["top"]) // 2
+        w = int(row["width"]) // 2
+        h = int(row["height"]) // 2
         cx = left + w // 2
         cy = top + h // 2
         return cx, cy, w, h, conf
@@ -176,10 +190,11 @@ class OCRMatcher(BaseMatcher):
             if avg_conf < threshold:
                 continue
 
-            left = int(group["left"].min())
-            top = int(group["top"].min())
-            right = int((group["left"] + group["width"]).max())
-            bottom = int((group["top"] + group["height"]).max())
+            # 2x 업스케일 후 pytesseract 좌표를 원본 해상도로 복원
+            left = int(group["left"].min()) // 2
+            top = int(group["top"].min()) // 2
+            right = int((group["left"] + group["width"]).max()) // 2
+            bottom = int((group["top"] + group["height"]).max()) // 2
             w = right - left
             h = bottom - top
             cx = left + w // 2
