@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -220,6 +221,25 @@ _SCENARIO_JSON_SCHEMA: dict[str, Any] = {
                                 ],
                                 "additionalProperties": False,
                             },
+                        },
+                        "tags": {
+                            "anyOf": [
+                                {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                {"type": "null"},
+                            ],
+                        },
+                        "depends_on": {
+                            "anyOf": [
+                                {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Scenario IDs that must pass before this one (e.g. ['SC-001'])",
+                                },
+                                {"type": "null"},
+                            ],
                         },
                     },
                     "required": ["id", "name", "description", "steps"],
@@ -452,19 +472,29 @@ class OpenAIAdapter(AIAdapter):
             response_fmt = {"type": "json_object"}
 
         try:
-            response = await self._client.chat.completions.create(  # type: ignore[call-overload]
-                model=self._config.model,
-                max_tokens=self._config.max_tokens,
-                temperature=self._config.temperature,
-                response_format=response_fmt,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
+            response = await asyncio.wait_for(
+                self._client.chat.completions.create(  # type: ignore[call-overload]
+                    model=self._config.model,
+                    max_tokens=self._config.max_tokens,
+                    temperature=self._config.temperature,
+                    response_format=response_fmt,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content},
+                    ],
+                ),
+                timeout=120.0,  # 2분 타임아웃
             )
+        except asyncio.TimeoutError:
+            msg = f"OpenAI API call timed out after 120s (model: {self._config.model})"
+            raise AdapterError(msg) from None
         except Exception as exc:
             msg = f"OpenAI API call failed: {exc}"
             raise AdapterError(msg) from exc
+
+        if not response.choices:
+            msg = "OpenAI returned empty response (no choices)"
+            raise AdapterError(msg)
 
         choice = response.choices[0]
         raw_text = choice.message.content or ""

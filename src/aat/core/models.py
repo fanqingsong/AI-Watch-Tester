@@ -314,17 +314,8 @@ class StepConfig(BaseModel):
                     }]
             return data
 
-        # Fallback: use description
-        desc = data.get("description", "")
-        if desc and not has_at:
-            data["assert_type"] = "text_visible"
-            data["value"] = desc
-            data["expected"] = [{
-                "type": "text_visible",
-                "value": desc,
-                "tolerance": 0.0,
-                "case_insensitive": True,
-            }]
+        # Don't guess — let validation catch the missing assert_type
+        pass
 
         return data
 

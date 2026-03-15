@@ -36,7 +36,7 @@ class Humanizer:
             return
 
         # Get current mouse position from engine
-        current_x, current_y = 0, 0
+        current_x, current_y = 640, 360  # viewport center, not corner
         if hasattr(engine, "mouse_position"):
             current_x, current_y = engine.mouse_position
         duration = random.uniform(
@@ -78,7 +78,7 @@ class Humanizer:
             return
 
         # Get current screen position from PyAutoGUI
-        current_x, current_y = 0, 0
+        current_x, current_y = 640, 360  # viewport center, not corner
         if hasattr(engine, "pag"):
             pos = engine.pag.position()
             current_x, current_y = pos.x, pos.y

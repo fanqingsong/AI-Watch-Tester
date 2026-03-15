@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from typing import TYPE_CHECKING, Any
@@ -302,16 +303,26 @@ class ClaudeAdapter(AIAdapter):
             AdapterError: On API or parse failure.
         """
         try:
-            response = await self._client.messages.create(
-                model=self._config.model,
-                max_tokens=self._config.max_tokens,
-                temperature=self._config.temperature,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_content}],  # type: ignore[typeddict-item]
+            response = await asyncio.wait_for(
+                self._client.messages.create(
+                    model=self._config.model,
+                    max_tokens=self._config.max_tokens,
+                    temperature=self._config.temperature,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_content}],  # type: ignore[typeddict-item]
+                ),
+                timeout=120.0,
             )
+        except asyncio.TimeoutError:
+            msg = f"Claude API call timed out after 120s (model: {self._config.model})"
+            raise AdapterError(msg) from None
         except Exception as exc:
             msg = f"Claude API call failed: {exc}"
             raise AdapterError(msg) from exc
+
+        if not response.content:
+            msg = "Claude returned empty response"
+            raise AdapterError(msg)
 
         raw_text = response.content[0].text  # type: ignore[union-attr]
 

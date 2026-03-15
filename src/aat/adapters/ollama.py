@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -289,8 +290,14 @@ class OllamaAdapter(AIAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(url, json=payload)
+                response = await asyncio.wait_for(
+                    client.post(url, json=payload),
+                    timeout=120.0,
+                )
                 response.raise_for_status()
+        except asyncio.TimeoutError:
+            msg = f"Ollama API call timed out after 120s (model: {self._config.model})"
+            raise AdapterError(msg) from None
         except httpx.ConnectError as exc:
             msg = f"Cannot connect to Ollama at {self._base_url}. Is Ollama running?"
             raise AdapterError(msg) from exc

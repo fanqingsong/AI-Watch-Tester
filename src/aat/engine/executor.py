@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 import uuid
 from pathlib import Path
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from aat.engine.waiter import Waiter
     from aat.matchers.base import BaseMatcher
 
+logger = logging.getLogger(__name__)
 
 _SYNONYMS: dict[str, list[str]] = {
     "email": ["이메일", "e-mail", "이메일 주소"],
@@ -270,6 +272,11 @@ class StepExecutor:
         try:
             return await self._find_input_field_inner(step)
         except Exception:
+            logger.debug(
+                "_find_input_field failed for target %s",
+                step.target,
+                exc_info=True,
+            )
             return None
 
     async def _find_input_field_inner(self, step: StepConfig) -> tuple[int, int] | None:
@@ -409,6 +416,12 @@ class StepExecutor:
                                 step, 0, 0, confidence=1.0,
                             )
                     except Exception:
+                        logger.debug(
+                            "Checkbox click attempt %d failed (get_by_label, text=%s)",
+                            _cb_attempt + 1,
+                            target.text,
+                            exc_info=True,
+                        )
                         pass
                     try:
                         # 2) Click parent <label> containing the text
@@ -423,6 +436,12 @@ class StepExecutor:
                                 step, 0, 0, confidence=1.0,
                             )
                     except Exception:
+                        logger.debug(
+                            "Checkbox click attempt %d failed (label filter, text=%s)",
+                            _cb_attempt + 1,
+                            target.text,
+                            exc_info=True,
+                        )
                         pass
                     try:
                         # 3) Click any element containing the text (MUI
@@ -436,6 +455,12 @@ class StepExecutor:
                                 step, 0, 0, confidence=1.0,
                             )
                     except Exception:
+                        logger.debug(
+                            "Checkbox click attempt %d failed (get_by_text, text=%s)",
+                            _cb_attempt + 1,
+                            target.text,
+                            exc_info=True,
+                        )
                         pass
                     await asyncio.sleep(0.5)
 
@@ -459,6 +484,12 @@ class StepExecutor:
                             y = int(box["y"] + box["height"] / 2)
                             return await self._act_at_pos(step, x, y, confidence=1.0)
                 except Exception:
+                    logger.debug(
+                        "CSS selector attempt %d failed (selector=%s)",
+                        attempt + 1,
+                        target.selector,
+                        exc_info=True,
+                    )
                     pass
                 if attempt < 2:
                     await asyncio.sleep(0.5)
@@ -635,6 +666,7 @@ class StepExecutor:
                 # No navigation — brief delay for modal/animation
                 await asyncio.sleep(0.3)
         except Exception:
+            logger.debug("Post-click navigation wait failed", exc_info=True)
             pass
 
     async def _save_screenshot(self, label: str) -> str:
