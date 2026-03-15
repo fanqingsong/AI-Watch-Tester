@@ -73,6 +73,10 @@ class WebEngine(BaseEngine):
             )
             self._context.set_default_timeout(self._config.timeout_ms)
             self._page = await self._context.new_page()
+
+            # Inject visual cursor for headed mode
+            if not self._config.headless:
+                await self._inject_cursor()
         except EngineError:
             raise
         except Exception as e:
@@ -107,6 +111,8 @@ class WebEngine(BaseEngine):
 
     async def click(self, x: int, y: int) -> None:
         """Click at coordinates."""
+        if not self._config.headless:
+            await self._click_effect(x, y)
         await self.page.mouse.click(x, y)
         self._mouse_x, self._mouse_y = x, y
 
@@ -137,6 +143,9 @@ class WebEngine(BaseEngine):
         """Navigate to URL."""
         try:
             await self.page.goto(url, wait_until="domcontentloaded")
+            await self._ensure_cursor()
+        except EngineError:
+            raise
         except Exception as e:
             msg = f"Navigation to {url} failed: {e}"
             raise EngineError(msg) from e
@@ -144,10 +153,12 @@ class WebEngine(BaseEngine):
     async def go_back(self) -> None:
         """Go back."""
         await self.page.go_back()
+        await self._ensure_cursor()
 
     async def refresh(self) -> None:
         """Refresh page."""
         await self.page.reload()
+        await self._ensure_cursor()
 
     async def scroll(self, x: int, y: int, delta: int) -> None:
         """Scroll at coordinates. delta > 0: down, delta < 0: up."""
@@ -159,6 +170,79 @@ class WebEngine(BaseEngine):
         """Move mouse pointer (no click)."""
         await self.page.mouse.move(x, y)
         self._mouse_x, self._mouse_y = x, y
+        # Update visual cursor position
+        if not self._config.headless:
+            await self._move_cursor(x, y)
+
+    # -- Visual cursor for headed mode --------------------------------------
+
+    async def _inject_cursor(self) -> None:
+        """Inject a visual cursor element into the page."""
+        try:
+            await self.page.evaluate("""() => {
+                if (document.getElementById('awt-cursor')) return;
+                const cursor = document.createElement('div');
+                cursor.id = 'awt-cursor';
+                cursor.style.cssText = `
+                    position: fixed; z-index: 2147483647;
+                    width: 20px; height: 20px;
+                    margin-left: -10px; margin-top: -10px;
+                    border-radius: 50%;
+                    border: 2px solid #22d3ee;
+                    background: rgba(34, 211, 238, 0.15);
+                    pointer-events: none;
+                    transition: left 0.016s linear, top 0.016s linear;
+                    left: -50px; top: -50px;
+                    box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+                `;
+                document.body.appendChild(cursor);
+            }""")
+        except Exception:
+            pass  # Page might not be ready yet
+
+    async def _move_cursor(self, x: int, y: int) -> None:
+        """Update visual cursor position."""
+        try:
+            await self.page.evaluate(f"""() => {{
+                const c = document.getElementById('awt-cursor');
+                if (c) {{ c.style.left = '{x}px'; c.style.top = '{y}px'; }}
+            }}""")
+        except Exception:
+            pass
+
+    async def _click_effect(self, x: int, y: int) -> None:
+        """Show a click ripple effect at coordinates."""
+        try:
+            await self.page.evaluate(f"""() => {{
+                const ring = document.createElement('div');
+                ring.style.cssText = `
+                    position: fixed; z-index: 2147483646;
+                    left: {x}px; top: {y}px;
+                    width: 0; height: 0;
+                    margin-left: 0; margin-top: 0;
+                    border-radius: 50%;
+                    border: 2px solid #22d3ee;
+                    pointer-events: none;
+                    opacity: 1;
+                    transition: all 0.4s ease-out;
+                `;
+                document.body.appendChild(ring);
+                requestAnimationFrame(() => {{
+                    ring.style.width = '40px';
+                    ring.style.height = '40px';
+                    ring.style.marginLeft = '-20px';
+                    ring.style.marginTop = '-20px';
+                    ring.style.opacity = '0';
+                }});
+                setTimeout(() => ring.remove(), 500);
+            }}""")
+        except Exception:
+            pass
+
+    async def _ensure_cursor(self) -> None:
+        """Re-inject cursor after page navigation."""
+        if not self._config.headless:
+            await self._inject_cursor()
 
     async def get_url(self) -> str:
         """Return current URL."""
