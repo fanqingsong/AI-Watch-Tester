@@ -1,9 +1,10 @@
-"""aat loop — DevQA Loop execution."""
+"""aat loop — DevQA Loop execution with rich UX."""
 
 from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
@@ -13,7 +14,7 @@ from aat.core.cost import load_cost_log
 from aat.core.exceptions import AATError
 from aat.core.git_ops import GitOps
 from aat.core.loop import DevQALoop
-from aat.core.models import ApprovalMode
+from aat.core.models import ApprovalMode, StepStatus
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator
@@ -23,6 +24,216 @@ from aat.engine.waiter import Waiter
 from aat.matchers import MATCHER_REGISTRY
 from aat.matchers.hybrid import HybridMatcher
 from aat.reporters import REPORTER_REGISTRY
+
+if TYPE_CHECKING:
+    from aat.core.models import (
+        AnalysisResult,
+        FixResult,
+        TestResult,
+    )
+
+# -- Auto-apply tracking (session-level) -----------------------------------
+
+_auto_apply_types: set[str] = set()
+
+
+# -- Rich output helpers ---------------------------------------------------
+
+
+def _print_failure_report(test_result: TestResult) -> None:
+    """Print detailed failure report with step-by-step results."""
+    typer.echo()
+    typer.echo("  " + "=" * 55)
+    typer.echo(
+        typer.style(
+            "  ❌ TEST FAILED",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+    )
+    typer.echo("  " + "=" * 55)
+
+    for sr in test_result.steps:
+        if sr.status == StepStatus.PASSED:
+            mark = typer.style("✓", fg=typer.colors.GREEN)
+            typer.echo(f"  {mark} Step {sr.step}: {sr.description}")
+        elif sr.status == StepStatus.FAILED:
+            mark = typer.style("✗", fg=typer.colors.RED)
+            typer.echo(
+                typer.style(
+                    f"  {mark} Step {sr.step}: {sr.description} — FAILED",
+                    fg=typer.colors.RED,
+                    bold=True,
+                )
+            )
+            if sr.error_message:
+                typer.echo(f"    Error: {sr.error_message}")
+        else:
+            typer.echo(f"  - Step {sr.step}: {sr.description} ({sr.status.value})")
+
+
+def _print_analysis(analysis: AnalysisResult) -> None:
+    """Print AI failure analysis."""
+    typer.echo()
+    typer.echo(
+        typer.style(
+            "  📍 Cause Analysis",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+    )
+    typer.echo(f"    Cause: {analysis.cause}")
+    if analysis.related_files:
+        typer.echo(f"    Files: {', '.join(analysis.related_files)}")
+    typer.echo()
+    typer.echo(
+        typer.style(
+            "  💡 Suggested Fix",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+    )
+    typer.echo(f"    {analysis.suggestion}")
+    typer.echo(f"    Severity: {analysis.severity.value}")
+
+
+def _print_fix_diff(fix: FixResult) -> None:
+    """Print fix changes in diff format."""
+    typer.echo()
+    for change in fix.files_changed:
+        typer.echo(typer.style(f"  📄 {change.path}", bold=True))
+        if change.description:
+            typer.echo(f"    {change.description}")
+        typer.echo()
+        # Show diff
+        original_lines = change.original.splitlines()
+        modified_lines = change.modified.splitlines()
+        for line in original_lines:
+            typer.echo(typer.style(f"  - {line}", fg=typer.colors.RED))
+        for line in modified_lines:
+            typer.echo(typer.style(f"  + {line}", fg=typer.colors.GREEN))
+        typer.echo()
+
+
+def _print_retest_result(test_result: TestResult) -> None:
+    """Print retest result summary."""
+    typer.echo()
+    if test_result.passed:
+        typer.echo("  " + "=" * 55)
+        typer.echo(
+            typer.style(
+                "  ✅ RETEST PASSED — All steps green!",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        )
+        typer.echo("  " + "=" * 55)
+    else:
+        typer.echo(
+            typer.style(
+                "  ⚠️  RETEST — Some steps still failing",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+        )
+        for sr in test_result.steps:
+            if sr.status == StepStatus.FAILED:
+                typer.echo(
+                    typer.style(
+                        f"    ✗ Step {sr.step}: {sr.description}",
+                        fg=typer.colors.RED,
+                    )
+                )
+            elif sr.status == StepStatus.PASSED:
+                typer.echo(
+                    typer.style(
+                        f"    ✓ Step {sr.step}: {sr.description}",
+                        fg=typer.colors.GREEN,
+                    )
+                )
+
+
+# -- Rich approval callback -----------------------------------------------
+
+
+def _rich_approval_callback(prompt_text: str) -> bool:
+    """Rich approval menu with 5 options.
+
+    Called by DevQALoop._handle_manual when a fix is proposed.
+    The prompt_text contains "cause — suggestion" from the analysis.
+    """
+    typer.echo()
+    typer.echo("  " + "-" * 55)
+    typer.echo(
+        typer.style(
+            "  Apply this fix?",
+            bold=True,
+        )
+    )
+    typer.echo("    1. Yes")
+    typer.echo("    2. Yes, and auto-apply similar fixes")
+    typer.echo("    3. No")
+    typer.echo("    4. Show diff")
+    typer.echo("    5. Explain")
+    typer.echo()
+
+    while True:
+        choice = typer.prompt("  >", default="1")
+
+        if choice == "1":
+            return True
+        elif choice == "2":  # noqa: RET505
+            # Mark this failure type for auto-apply
+            # Extract failure type from prompt text (before " — ")
+            parts = prompt_text.split(" — ", 1)
+            if parts:
+                _auto_apply_types.add(parts[0].strip().lower()[:50])
+            typer.echo(
+                typer.style(
+                    "    ✓ Similar fixes will be auto-applied",
+                    fg=typer.colors.GREEN,
+                )
+            )
+            return True
+        elif choice == "3":
+            return False
+        elif choice == "4":
+            # Show diff — we print the prompt text which has the fix details
+            typer.echo()
+            typer.echo(typer.style("  📋 Fix Details:", bold=True))
+            typer.echo(f"    {prompt_text}")
+            typer.echo()
+            # Re-show menu
+            continue
+        elif choice == "5":
+            # Explain — reformat the analysis for non-developers
+            typer.echo()
+            typer.echo(
+                typer.style(
+                    "  📖 Explanation (plain language):",
+                    fg=typer.colors.CYAN,
+                    bold=True,
+                )
+            )
+            parts = prompt_text.split(" — ", 1)
+            cause = parts[0] if parts else prompt_text
+            suggestion = parts[1] if len(parts) > 1 else ""
+            typer.echo(f"    Why it failed: {cause}")
+            if suggestion:
+                typer.echo(f"    What to do: {suggestion}")
+            typer.echo(
+                "    This means the test couldn't complete"
+                " because something on the page changed"
+                " or isn't working as expected."
+            )
+            typer.echo()
+            continue
+        else:
+            typer.echo("    Invalid choice. Enter 1-5.")
+            continue
+
+
+# -- CLI command -----------------------------------------------------------
 
 
 def loop_command(
@@ -111,37 +322,72 @@ async def _loop(
     if mode == ApprovalMode.BRANCH:
         git_ops = GitOps(Path(config.source_path))
 
-    # Create and run loop
+    # Header
+    typer.echo()
+    typer.echo("  " + "=" * 55)
+    typer.echo(
+        typer.style(
+            "  🔄 DevQA Loop",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+    )
+    typer.echo(f"    Mode: {mode.value}")
+    typer.echo(f"    Max iterations: {config.max_loops}")
+    typer.echo(f"    Scenarios: {len(scenarios)}")
+    typer.echo(f"    Provider: {config.ai.provider} ({config.ai.model})")
+    typer.echo("  " + "=" * 55)
+
+    # Create and run loop with rich callback
     loop = DevQALoop(
         config=config,
         executor=executor,
         adapter=adapter,
         reporter=reporter,
         engine=engine,
+        approval_callback=_rich_approval_callback,
         git_ops=git_ops,
     )
 
-    # 세션 시작 전 비용 로그 길이 기록
     cost_log_before = len(load_cost_log(config.data_dir))
 
     result = await loop.run(scenarios)
 
-    # Print summary
-    status = "SUCCESS" if result.success else "FAILURE"
-    typer.echo(f"\nLoop {status} after {result.total_iterations} iteration(s)")
-    typer.echo(f"Duration: {result.duration_ms:.0f}ms")
+    # Print iteration details
+    for it in result.iterations:
+        typer.echo(f"\n  --- Iteration {it.iteration} ---")
+        if it.test_result.passed:
+            _print_retest_result(it.test_result)
+        else:
+            _print_failure_report(it.test_result)
+            if it.analysis:
+                _print_analysis(it.analysis)
+            if it.fix:
+                _print_fix_diff(it.fix)
 
-    # 이번 세션에서 추가된 비용 항목 계산
+    # Final summary
+    typer.echo()
+    typer.echo("  " + "=" * 55)
+    status_text = typer.style(
+        "SUCCESS" if result.success else "FAILURE",
+        fg=typer.colors.GREEN if result.success else typer.colors.RED,
+        bold=True,
+    )
+    typer.echo(f"  Loop {status_text} after {result.total_iterations} iteration(s)")
+    typer.echo(f"  Duration: {result.duration_ms:.0f}ms")
+
+    # Cost
     cost_entries = load_cost_log(config.data_dir)
     new_entries = cost_entries[cost_log_before:]
     session_cost = sum(e.get("cost_usd", 0) for e in new_entries)
     if session_cost > 0:
-        typer.echo(f"  AI cost this session: ${session_cost:.4f}")
+        typer.echo(f"  AI cost: ${session_cost:.4f}")
     elif new_entries:
-        typer.echo("  AI cost this session: Free")
+        typer.echo("  AI cost: Free")
 
     if result.reason:
-        typer.echo(f"Reason: {result.reason}")
+        typer.echo(f"  Reason: {result.reason}")
+    typer.echo("  " + "=" * 55)
 
     if not result.success:
         raise typer.Exit(code=1)
