@@ -45,7 +45,17 @@ def _check_python() -> bool:
         _ok(f"Python {version_str}")
         return True
     _fail(f"Python {version_str} — requires 3.11+")
-    _hint("Install Python 3.11+: https://www.python.org/downloads/")
+    if _IS_MAC:
+        _hint("brew install python@3.12")
+        _hint("pipx install aat-devqa --python python3.12")
+    elif _IS_LINUX:
+        _hint("sudo apt install python3.12 python3.12-venv")
+        _hint("pipx install aat-devqa --python python3.12")
+    elif _IS_WIN:
+        _hint("winget install Python.Python.3.12")
+        _hint("pipx install aat-devqa")
+    else:
+        _hint("https://www.python.org/downloads/")
     return False
 
 
