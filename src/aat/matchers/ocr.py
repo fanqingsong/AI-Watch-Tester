@@ -1,10 +1,10 @@
-"""OCRMatcher — pytesseract based text matching."""
+"""OCRMatcher — pytesseract based text matching (no pandas required)."""
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -14,8 +14,6 @@ from aat.core.models import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 
 if TYPE_CHECKING:
-    import pandas as pd  # type: ignore[import-untyped]
-
     from aat.core.models import TargetSpec
 
 logger = logging.getLogger(__name__)
@@ -26,21 +24,19 @@ _DEFAULT_CONFIG = MatchingConfig()
 class OCRMatcher(BaseMatcher):
     """Find text on screen using Tesseract OCR.
 
-    Uses ``pytesseract.image_to_data`` to locate every word/phrase
-    on screen, then searches for the target text within those results.
+    Uses ``pytesseract.image_to_data`` with ``Output.DICT`` (no pandas)
+    to locate every word/phrase on screen, then searches for the target
+    text within those results.
     """
 
     def __init__(self, config: MatchingConfig | None = None) -> None:
         self._config = config or _DEFAULT_CONFIG
-
-    # -- BaseMatcher interface ------------------------------------------------
 
     @property
     def name(self) -> str:
         return "ocr"
 
     def can_handle(self, target: TargetSpec) -> bool:
-        """OCR matching requires target text."""
         return target.text is not None
 
     async def find(
@@ -48,40 +44,28 @@ class OCRMatcher(BaseMatcher):
         target: TargetSpec,
         screenshot: bytes,
     ) -> MatchResult | None:
-        """Find *target.text* in *screenshot* via OCR."""
-        start = time.perf_counter()
-        try:
-            return self._match(target, screenshot, start)
-        except Exception:
-            logger.exception("OCRMatcher.find failed")
+        """Find target text in screenshot using OCR."""
+        if target.text is None:
             return None
 
-    # -- internal helpers -----------------------------------------------------
+        start = time.monotonic()
 
-    def _decode_image(self, raw: bytes) -> np.ndarray:
-        arr = np.frombuffer(raw, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img is None:
-            msg = "Failed to decode screenshot bytes"
-            raise ValueError(msg)
-        return img
+        try:
+            screen_arr = np.frombuffer(screenshot, dtype=np.uint8)
+            screen_bgr = cv2.imdecode(screen_arr, cv2.IMREAD_COLOR)
+        except Exception:
+            logger.debug("Failed to decode screenshot for OCR")
+            return None
 
-    def _match(
-        self,
-        target: TargetSpec,
-        screenshot: bytes,
-        start: float,
-    ) -> MatchResult | None:
-        assert target.text is not None  # noqa: S101
+        if screen_bgr is None:
+            return None
 
-        screen_bgr = self._decode_image(screenshot)
-
-        # Enhanced preprocessing for better OCR accuracy
+        # Preprocessing
         gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
 
         # 1. Upscale 2x for small text
-        h, w = gray.shape
-        gray = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+        h_img, w_img = gray.shape
+        gray = cv2.resize(gray, (w_img * 2, h_img * 2), interpolation=cv2.INTER_CUBIC)
 
         # 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -91,11 +75,16 @@ class OCRMatcher(BaseMatcher):
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         lang = "+".join(self._config.ocr_languages)
-        data: pd.DataFrame = pytesseract.image_to_data(
-            gray,
-            lang=lang,
-            output_type=pytesseract.Output.DATAFRAME,
-        )
+
+        try:
+            data: dict[str, list[Any]] = pytesseract.image_to_data(
+                gray,
+                lang=lang,
+                output_type=pytesseract.Output.DICT,
+            )
+        except Exception as e:
+            logger.warning("pytesseract OCR failed: %s", e)
+            return None
 
         search_text = target.text.strip().lower()
         threshold = (
@@ -106,17 +95,15 @@ class OCRMatcher(BaseMatcher):
 
         # Try exact single-token match first
         result = self._find_single_token(data, search_text, threshold)
-
-        # Fall back to multi-word phrase match
         if result is None:
             result = self._find_phrase(data, search_text, threshold)
-
-        elapsed = (time.perf_counter() - start) * 1000.0
 
         if result is None:
             return None
 
         x, y, w, h, conf = result
+        elapsed = (time.monotonic() - start) * 1000
+
         return MatchResult(
             found=True,
             x=x,
@@ -130,71 +117,92 @@ class OCRMatcher(BaseMatcher):
 
     def _find_single_token(
         self,
-        data: pd.DataFrame,
+        data: dict[str, list[Any]],
         search_text: str,
         threshold: float,
     ) -> tuple[int, int, int, int, float] | None:
-        """Look for *search_text* as a substring of individual OCR tokens."""
-        valid = data[data["conf"] > 0].copy()
-        if valid.empty:
+        """Look for search_text as a substring of individual OCR tokens."""
+        n = len(data.get("text", []))
+        if n == 0:
             return None
-
-        valid["text_lower"] = valid["text"].astype(str).str.strip().str.lower()
-
-        matches = valid[valid["text_lower"].str.contains(search_text, na=False)]
-        if matches.empty:
-            return None
-
-        best_idx = matches["conf"].idxmax()
-        row = matches.loc[best_idx]
-
-        conf = float(row["conf"]) / 100.0
-        if conf < threshold:
-            return None
-
-        # 2x 업스케일 후 pytesseract 좌표를 원본 해상도로 복원
-        left = int(row["left"]) // 2
-        top = int(row["top"]) // 2
-        w = int(row["width"]) // 2
-        h = int(row["height"]) // 2
-        cx = left + w // 2
-        cy = top + h // 2
-        return cx, cy, w, h, conf
-
-    def _find_phrase(
-        self,
-        data: pd.DataFrame,
-        search_text: str,
-        threshold: float,
-    ) -> tuple[int, int, int, int, float] | None:
-        """Concatenate words per text line and search for the phrase."""
-        valid = data[data["conf"] > 0].copy()
-        if valid.empty:
-            return None
-
-        # Group by (block_num, par_num, line_num)
-        group_cols = ["block_num", "par_num", "line_num"]
-        for col in group_cols:
-            if col not in valid.columns:
-                return None
 
         best: tuple[int, int, int, int, float] | None = None
         best_conf = -1.0
 
-        for _key, group in valid.groupby(group_cols):
-            line_text = " ".join(group["text"].astype(str).str.strip()).lower()
+        for i in range(n):
+            conf_val = data["conf"][i]
+            if not isinstance(conf_val, (int, float)) or conf_val <= 0:
+                continue
+
+            text = str(data["text"][i]).strip().lower()
+            if not text or search_text not in text:
+                continue
+
+            conf = float(conf_val) / 100.0
+            if conf < threshold:
+                continue
+
+            if conf > best_conf:
+                # 2x upscale coordinates → original resolution
+                left = int(data["left"][i]) // 2
+                top = int(data["top"][i]) // 2
+                w = int(data["width"][i]) // 2
+                h = int(data["height"][i]) // 2
+                cx = left + w // 2
+                cy = top + h // 2
+                best = (cx, cy, w, h, conf)
+                best_conf = conf
+
+        return best
+
+    def _find_phrase(
+        self,
+        data: dict[str, list[Any]],
+        search_text: str,
+        threshold: float,
+    ) -> tuple[int, int, int, int, float] | None:
+        """Concatenate words per text line and search for the phrase."""
+        n = len(data.get("text", []))
+        if n == 0:
+            return None
+
+        # Group by (block_num, par_num, line_num)
+        lines: dict[tuple[int, int, int], list[int]] = {}
+        for i in range(n):
+            conf_val = data["conf"][i]
+            if not isinstance(conf_val, (int, float)) or conf_val <= 0:
+                continue
+            key = (
+                int(data["block_num"][i]),
+                int(data["par_num"][i]),
+                int(data["line_num"][i]),
+            )
+            if key not in lines:
+                lines[key] = []
+            lines[key].append(i)
+
+        best: tuple[int, int, int, int, float] | None = None
+        best_conf = -1.0
+
+        for _key, indices in lines.items():
+            line_text = " ".join(str(data["text"][i]).strip() for i in indices).lower()
             if search_text not in line_text:
                 continue
 
-            avg_conf = float(group["conf"].mean()) / 100.0
+            confs = [float(data["conf"][i]) for i in indices]
+            avg_conf = sum(confs) / len(confs) / 100.0
             if avg_conf < threshold:
                 continue
 
-            # 2x 업스케일 후 pytesseract 좌표를 원본 해상도로 복원
-            left = int(group["left"].min()) // 2
-            top = int(group["top"].min()) // 2
-            right = int((group["left"] + group["width"]).max()) // 2
-            bottom = int((group["top"] + group["height"]).max()) // 2
+            # Bounding box (2x upscale → original resolution)
+            lefts = [int(data["left"][i]) for i in indices]
+            tops = [int(data["top"][i]) for i in indices]
+            rights = [int(data["left"][i]) + int(data["width"][i]) for i in indices]
+            bottoms = [int(data["top"][i]) + int(data["height"][i]) for i in indices]
+            left = min(lefts) // 2
+            top = min(tops) // 2
+            right = max(rights) // 2
+            bottom = max(bottoms) // 2
             w = right - left
             h = bottom - top
             cx = left + w // 2

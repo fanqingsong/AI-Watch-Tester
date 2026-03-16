@@ -22,9 +22,13 @@ _UNRESOLVED_PATTERN = re.compile(r"\{\{[\w.]+\}\}")
 def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenario:
     """Load a single Scenario from a YAML file.
 
+    If the file contains multiple YAML documents (--- separator),
+    only the first one is returned. Use load_scenarios_from_file()
+    to get all documents.
+
     Args:
         path: Path to the scenario YAML file.
-        variables: External variables to substitute (e.g. {"url": "https://..."}).
+        variables: External variables to substitute.
 
     Returns:
         Validated Scenario instance.
@@ -32,28 +36,36 @@ def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenar
     Raises:
         ScenarioError: If file cannot be read, parsed, or validated.
     """
-    data = _load_yaml(path)
-    data = _substitute_vars(data, variables or {})
-    unresolved = find_unresolved_vars(data)
-    if unresolved:
-        import warnings
-
-        warnings.warn(
-            f"Unresolved variables in {path.name}: {', '.join(sorted(unresolved))}. "
-            "Check that the URL and other variables are configured.",
-            stacklevel=2,
-        )
-    try:
-        return Scenario.model_validate(data)
-    except Exception as e:
-        msg = f"Scenario validation failed ({path.name}): {e}"
-        raise ScenarioError(msg) from e
+    docs = _load_yaml_all(path)
+    if not docs:
+        msg = f"Scenario file is empty: {path.name}"
+        raise ScenarioError(msg)
+    return _validate_scenario_data(docs[0], path, variables)
 
 
-def load_scenarios(path: Path, variables: dict[str, str] | None = None) -> list[Scenario]:
+def load_scenarios_from_file(
+    path: Path,
+    variables: dict[str, str] | None = None,
+) -> list[Scenario]:
+    """Load all scenarios from a single YAML file.
+
+    Supports multi-document YAML (--- separator) — each document
+    is treated as a separate scenario.
+    """
+    docs = _load_yaml_all(path)
+    if not docs:
+        msg = f"Scenario file is empty: {path.name}"
+        raise ScenarioError(msg)
+    return [_validate_scenario_data(doc, path, variables) for doc in docs]
+
+
+def load_scenarios(
+    path: Path,
+    variables: dict[str, str] | None = None,
+) -> list[Scenario]:
     """Load scenarios from a file or directory.
 
-    If path is a file, load that single scenario.
+    If path is a file, load all scenarios from it (multi-document supported).
     If path is a directory, scan for *.yaml / *.yml files (sorted by name).
 
     Args:
@@ -71,7 +83,7 @@ def load_scenarios(path: Path, variables: dict[str, str] | None = None) -> list[
         raise ScenarioError(msg)
 
     if path.is_file():
-        return [load_scenario(path, variables)]
+        return load_scenarios_from_file(path, variables)
 
     # Directory: scan for YAML files
     yaml_files = sorted(
@@ -81,11 +93,11 @@ def load_scenarios(path: Path, variables: dict[str, str] | None = None) -> list[
         msg = f"No scenario YAML files found in: {path}"
         raise ScenarioError(msg)
 
-    scenarios = []
-    errors = []
+    scenarios: list[Scenario] = []
+    errors: list[str] = []
     for yaml_file in yaml_files:
         try:
-            scenarios.append(load_scenario(yaml_file, variables))
+            scenarios.extend(load_scenarios_from_file(yaml_file, variables))
         except ScenarioError as e:
             errors.append(str(e))
 
@@ -96,11 +108,35 @@ def load_scenarios(path: Path, variables: dict[str, str] | None = None) -> list[
     return scenarios
 
 
-def _load_yaml(path: Path) -> dict[str, Any]:
-    """Load and parse a YAML file."""
+def _validate_scenario_data(
+    data: dict[str, Any],
+    path: Path,
+    variables: dict[str, str] | None,
+) -> Scenario:
+    """Validate and substitute variables in a scenario dict."""
+    data = _substitute_vars(data, variables or {})
+    unresolved = find_unresolved_vars(data)
+    if unresolved:
+        import warnings
+
+        warnings.warn(
+            f"Unresolved variables in {path.name}: "
+            f"{', '.join(sorted(unresolved))}. "
+            "Check that the URL and other variables are configured.",
+            stacklevel=3,
+        )
+    try:
+        return Scenario.model_validate(data)
+    except Exception as e:
+        msg = f"Scenario validation failed ({path.name}): {e}"
+        raise ScenarioError(msg) from e
+
+
+def _load_yaml_all(path: Path) -> list[dict[str, Any]]:
+    """Load all YAML documents from a file (multi-document supported)."""
     try:
         with open(path, encoding="utf-8") as f:  # noqa: PTH123
-            data = yaml.safe_load(f)
+            docs = list(yaml.safe_load_all(f))
     except yaml.YAMLError as e:
         msg = f"Failed to parse scenario YAML ({path.name}): {e}"
         raise ScenarioError(msg) from e
@@ -108,13 +144,17 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         msg = f"Failed to read scenario file ({path.name}): {e}"
         raise ScenarioError(msg) from e
 
-    if data is None:
-        msg = f"Scenario file is empty: {path.name}"
-        raise ScenarioError(msg)
-    if not isinstance(data, dict):
-        msg = f"Scenario file must be a YAML mapping: {path.name}"
-        raise ScenarioError(msg)
-    return data
+    # Filter out empty documents (None from trailing ---)
+    result: list[dict[str, Any]] = []
+    for doc in docs:
+        if doc is None:
+            continue
+        if not isinstance(doc, dict):
+            msg = f"Each YAML document must be a mapping: {path.name}"
+            raise ScenarioError(msg)
+        result.append(doc)
+
+    return result
 
 
 def _substitute_vars(data: Any, variables: dict[str, str]) -> Any:

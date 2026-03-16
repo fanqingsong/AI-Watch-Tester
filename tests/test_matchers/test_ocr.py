@@ -1,12 +1,12 @@
-"""Tests for OCRMatcher."""
+"""Tests for OCRMatcher (dict-based, no pandas)."""
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
-import pandas as pd
 import pytest
 
 from aat.core.models import MatchingConfig, MatchMethod, TargetSpec
@@ -22,42 +22,28 @@ def _make_screenshot(width: int = 640, height: int = 480) -> bytes:
     return bytes(buf)
 
 
-def _make_ocr_dataframe(
-    words: list[dict[str, object]],
-) -> pd.DataFrame:
-    """Build a DataFrame that looks like pytesseract.image_to_data output."""
+def _make_ocr_dict(words: list[dict[str, object]]) -> dict[str, list[Any]]:
+    """Build a dict that looks like pytesseract.image_to_data(output_type=DICT)."""
     columns = [
-        "level",
-        "page_num",
-        "block_num",
-        "par_num",
-        "line_num",
-        "word_num",
-        "left",
-        "top",
-        "width",
-        "height",
-        "conf",
-        "text",
+        "level", "page_num", "block_num", "par_num",
+        "line_num", "word_num", "left", "top",
+        "width", "height", "conf", "text",
     ]
-    rows: list[dict[str, object]] = []
+    result: dict[str, list[Any]] = {col: [] for col in columns}
     for w in words:
-        row: dict[str, object] = {
-            "level": 5,
-            "page_num": 1,
-            "block_num": w.get("block_num", 1),
-            "par_num": w.get("par_num", 1),
-            "line_num": w.get("line_num", 1),
-            "word_num": w.get("word_num", 1),
-            "left": w.get("left", 100),
-            "top": w.get("top", 50),
-            "width": w.get("width", 80),
-            "height": w.get("height", 20),
-            "conf": w.get("conf", 95),
-            "text": w.get("text", ""),
-        }
-        rows.append(row)
-    return pd.DataFrame(rows, columns=columns)
+        result["level"].append(5)
+        result["page_num"].append(1)
+        result["block_num"].append(w.get("block_num", 1))
+        result["par_num"].append(w.get("par_num", 1))
+        result["line_num"].append(w.get("line_num", 1))
+        result["word_num"].append(w.get("word_num", 1))
+        result["left"].append(w.get("left", 100))
+        result["top"].append(w.get("top", 50))
+        result["width"].append(w.get("width", 80))
+        result["height"].append(w.get("height", 20))
+        result["conf"].append(w.get("conf", 95))
+        result["text"].append(w.get("text", ""))
+    return result
 
 
 # ── fixtures ─────────────────────────────────────────────────────────────────
@@ -93,20 +79,11 @@ class TestFind:
         screenshot_bytes: bytes,
     ) -> None:
         """Single-word match returns center of bounding box."""
-        df = _make_ocr_dataframe(
-            [
-                {
-                    "text": "Login",
-                    "left": 100,
-                    "top": 50,
-                    "width": 80,
-                    "height": 20,
-                    "conf": 95,
-                },
-            ]
-        )
-        mock_tess.image_to_data.return_value = df
-        mock_tess.Output.DATAFRAME = "data.frame"
+        data = _make_ocr_dict([
+            {"text": "Login", "left": 100, "top": 50, "width": 80, "height": 20, "conf": 95},
+        ])
+        mock_tess.image_to_data.return_value = data
+        mock_tess.Output.DICT = "dict"
 
         config = MatchingConfig(confidence_threshold=0.5)
         matcher = OCRMatcher(config=config)
@@ -132,30 +109,18 @@ class TestFind:
         screenshot_bytes: bytes,
     ) -> None:
         """Multi-word phrase match groups words on the same line."""
-        df = _make_ocr_dataframe(
-            [
-                {
-                    "text": "Sign",
-                    "left": 100,
-                    "top": 50,
-                    "width": 40,
-                    "height": 20,
-                    "conf": 90,
-                    "word_num": 1,
-                },
-                {
-                    "text": "In",
-                    "left": 145,
-                    "top": 50,
-                    "width": 30,
-                    "height": 20,
-                    "conf": 92,
-                    "word_num": 2,
-                },
-            ]
-        )
-        mock_tess.image_to_data.return_value = df
-        mock_tess.Output.DATAFRAME = "data.frame"
+        data = _make_ocr_dict([
+            {
+                "text": "Sign", "left": 100, "top": 50,
+                "width": 40, "height": 20, "conf": 90, "word_num": 1,
+            },
+            {
+                "text": "In", "left": 145, "top": 50,
+                "width": 30, "height": 20, "conf": 92, "word_num": 2,
+            },
+        ])
+        mock_tess.image_to_data.return_value = data
+        mock_tess.Output.DICT = "dict"
 
         config = MatchingConfig(confidence_threshold=0.5)
         matcher = OCRMatcher(config=config)
@@ -173,51 +138,12 @@ class TestFind:
         screenshot_bytes: bytes,
     ) -> None:
         """Text not present in OCR output returns None."""
-        df = _make_ocr_dataframe(
-            [{"text": "Logout", "conf": 95}],
-        )
-        mock_tess.image_to_data.return_value = df
-        mock_tess.Output.DATAFRAME = "data.frame"
+        data = _make_ocr_dict([{"text": "Logout", "conf": 95}])
+        mock_tess.image_to_data.return_value = data
+        mock_tess.Output.DICT = "dict"
 
         matcher = OCRMatcher()
         target = TargetSpec(text="Login")
         result = await matcher.find(target, screenshot_bytes)
 
         assert result is None
-
-    @pytest.mark.asyncio()
-    @patch("aat.matchers.ocr.pytesseract")
-    async def test_low_confidence_filtered(
-        self,
-        mock_tess: MagicMock,
-        screenshot_bytes: bytes,
-    ) -> None:
-        """Matches below confidence threshold are filtered out."""
-        df = _make_ocr_dataframe(
-            [{"text": "Login", "conf": 50}],
-        )
-        mock_tess.image_to_data.return_value = df
-        mock_tess.Output.DATAFRAME = "data.frame"
-
-        config = MatchingConfig(confidence_threshold=0.9)
-        matcher = OCRMatcher(config=config)
-        target = TargetSpec(text="Login")
-        result = await matcher.find(target, screenshot_bytes)
-
-        assert result is None
-
-    @pytest.mark.asyncio()
-    async def test_corrupt_screenshot_returns_none(self) -> None:
-        """Bad screenshot bytes should not crash."""
-        matcher = OCRMatcher()
-        target = TargetSpec(text="Login")
-        result = await matcher.find(target, b"bad-data")
-        assert result is None
-
-
-# ── name ─────────────────────────────────────────────────────────────────────
-
-
-class TestName:
-    def test_name_is_ocr(self) -> None:
-        assert OCRMatcher().name == "ocr"

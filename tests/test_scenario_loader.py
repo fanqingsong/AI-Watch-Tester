@@ -73,7 +73,7 @@ class TestLoadScenario:
     def test_load_non_mapping(self, tmp_path: Path) -> None:
         f = tmp_path / "list.yaml"
         f.write_text("- item1\n- item2\n", encoding="utf-8")
-        with pytest.raises(ScenarioError, match="must be a YAML mapping"):
+        with pytest.raises(ScenarioError, match="must be a mapping"):
             load_scenario(f)
 
 
