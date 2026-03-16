@@ -28,7 +28,9 @@ def cost_summary(
     entries = load_cost_log(data_dir)
     if not entries:
         typer.echo("No AI cost data recorded yet.")
-        typer.echo("Costs are tracked automatically when you run: aat generate, aat analyze, aat loop")
+        typer.echo(
+            "Costs are tracked automatically when you run: aat generate, aat analyze, aat loop"
+        )
         return
 
     summary = summarize_costs(entries, group_by=group)
@@ -87,7 +89,9 @@ def cost_log(
 
     recent = entries[-last:]
     typer.echo()
-    typer.echo(f"  {'Timestamp':<22} {'Provider':<10} {'Operation':<22} {'Tokens':>12} {'Cost':>8}")
+    typer.echo(
+        f"  {'Timestamp':<22} {'Provider':<10} {'Operation':<22} {'Tokens':>12} {'Cost':>8}"
+    )
     typer.echo("  " + "-" * 76)
 
     for e in recent:

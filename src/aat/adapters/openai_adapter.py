@@ -112,7 +112,6 @@ You are an expert QA engineer. Analyze the following document and extract:
 Return ONLY valid JSON, no markdown fences."""
 
 
-
 # ---------------------------------------------------------------------------
 # Structured Output JSON Schema — scenario generation
 # ---------------------------------------------------------------------------
@@ -236,7 +235,10 @@ _SCENARIO_JSON_SCHEMA: dict[str, Any] = {
                                 {
                                     "type": "array",
                                     "items": {"type": "string"},
-                                    "description": "Scenario IDs that must pass before this one (e.g. ['SC-001'])",
+                                    "description": (
+                                        "Scenario IDs that must pass before this one"
+                                        " (e.g. ['SC-001'])"
+                                    ),
                                 },
                                 {"type": "null"},
                             ],
@@ -485,7 +487,7 @@ class OpenAIAdapter(AIAdapter):
                 ),
                 timeout=120.0,  # 2분 타임아웃
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             msg = f"OpenAI API call timed out after 120s (model: {self._config.model})"
             raise AdapterError(msg) from None
         except Exception as exc:
@@ -500,10 +502,7 @@ class OpenAIAdapter(AIAdapter):
         raw_text = choice.message.content or ""
 
         if choice.finish_reason == "length":
-            msg = (
-                f"Response truncated (max_tokens reached). "
-                f"Raw tail: {raw_text[-200:]}"
-            )
+            msg = f"Response truncated (max_tokens reached). Raw tail: {raw_text[-200:]}"
             raise AdapterError(msg)
 
         if not raw_text:

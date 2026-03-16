@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,9 @@ CHARS_PER_TOKEN = 4
 def get_pricing(provider: str, model: str) -> dict[str, float]:
     """Get per-1K-token pricing for a provider/model combo."""
     provider_prices = PRICING.get(provider, PRICING.get("openai", {}))
-    return provider_prices.get(model, provider_prices.get("default", {"input": 0.003, "output": 0.015}))
+    return provider_prices.get(
+        model, provider_prices.get("default", {"input": 0.003, "output": 0.015})
+    )
 
 
 def estimate_cost(
@@ -117,7 +119,7 @@ def log_cost(
     log_path = log_dir / _LOG_FILE
 
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "provider": provider,
         "model": model,
         "operation": operation,
@@ -156,16 +158,14 @@ def summarize_costs(
 ) -> dict[str, dict[str, Any]]:
     """Summarize cost log entries grouped by day or month.
 
-    Returns: {date_key: {total_cost, total_calls, total_input_tokens, total_output_tokens, by_provider}}
+    Returns: {date_key: {total_cost, total_calls, total_input_tokens,
+              total_output_tokens, by_provider}}
     """
     result: dict[str, dict[str, Any]] = {}
 
     for entry in entries:
         ts = entry.get("timestamp", "")
-        if group_by == "month":
-            key = ts[:7]  # YYYY-MM
-        else:
-            key = ts[:10]  # YYYY-MM-DD
+        key = ts[:7] if group_by == "month" else ts[:10]  # YYYY-MM or YYYY-MM-DD
 
         if key not in result:
             result[key] = {
@@ -192,6 +192,7 @@ def summarize_costs(
 
 
 # -- Scenario caching ------------------------------------------------------
+
 
 def spec_cache_key(url: str, spec_text: str) -> str:
     """Generate cache key from URL + spec content."""

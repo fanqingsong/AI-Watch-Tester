@@ -48,6 +48,7 @@ def _check_python() -> bool:
 def _check_aat_cli() -> bool:
     try:
         from aat import __version__
+
         _ok(f"AWT CLI v{__version__}")
         return True
     except ImportError:
@@ -59,10 +60,13 @@ def _check_aat_cli() -> bool:
 def _check_playwright() -> bool:
     try:
         import playwright  # noqa: F401
+
         # Check if browsers are installed
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, "-m", "playwright", "install", "--dry-run"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         # dry-run doesn't exist in all versions, just check import
         _ok("Playwright installed")
@@ -75,9 +79,11 @@ def _check_playwright() -> bool:
 
     # Check if chromium is available
     try:
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, "-m", "playwright", "install", "--help"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         chromium_path = Path.home() / ".cache" / "ms-playwright"
         if not _IS_WIN:
@@ -101,7 +107,9 @@ def _check_tesseract() -> bool:
         try:
             result = subprocess.run(
                 ["tesseract", "--version"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             version = result.stdout.split("\n")[0] if result.stdout else "unknown"
             _ok(f"Tesseract OCR — {version}")
@@ -116,7 +124,9 @@ def _check_tesseract() -> bool:
     elif _IS_LINUX:
         _hint("sudo apt install tesseract-ocr tesseract-ocr-kor")
     elif _IS_WIN:
-        _hint("choco install tesseract OR download from https://github.com/UB-Mannheim/tesseract/wiki")
+        _hint(
+            "choco install tesseract OR download from https://github.com/UB-Mannheim/tesseract/wiki"
+        )
     else:
         _hint("Install Tesseract: https://tesseract-ocr.github.io/tessdoc/Installation.html")
     return False
@@ -125,6 +135,7 @@ def _check_tesseract() -> bool:
 def _check_opencv() -> bool:
     try:
         import cv2
+
         _ok(f"OpenCV {cv2.__version__}")
         return True
     except ImportError:
@@ -163,6 +174,7 @@ def _check_ai_provider(config: object | None) -> bool:
         # Test connection
         try:
             from aat.core.connection import test_ai_connection
+
             success, msg = asyncio.run(test_ai_connection(config.ai))  # type: ignore[union-attr]
             if success:
                 _ok(f"  Connection: {msg}")
@@ -184,6 +196,7 @@ def _check_ai_provider(config: object | None) -> bool:
     # Test connection
     try:
         from aat.core.connection import test_ai_connection
+
         success, msg = asyncio.run(test_ai_connection(config.ai))  # type: ignore[union-attr]
         if success:
             _ok(f"  Connection: {msg}")
@@ -198,7 +211,9 @@ def _check_ai_provider(config: object | None) -> bool:
 
 def doctor_command(
     config_path: str | None = typer.Option(None, "--config", "-c", help="Config file path."),
-    skip_connection: bool = typer.Option(False, "--skip-connection", help="Skip AI connection test."),
+    skip_connection: bool = typer.Option(
+        False, "--skip-connection", help="Skip AI connection test."
+    ),
 ) -> None:
     """Check system environment and dependencies."""
     typer.echo()
@@ -233,15 +248,22 @@ def doctor_command(
     has_config, config = _check_config()
 
     # 7. AI Provider
-    if not skip_connection:
-        if not _check_ai_provider(config):
-            issues += 1
+    if not skip_connection and not _check_ai_provider(config):
+        issues += 1
 
     # Summary
     typer.echo()
     typer.echo("  " + "-" * 40)
     if issues == 0:
-        typer.echo(typer.style("  All checks passed! Ready to test.", fg=typer.colors.GREEN, bold=True))
+        typer.echo(
+            typer.style("  All checks passed! Ready to test.", fg=typer.colors.GREEN, bold=True)
+        )
     else:
-        typer.echo(typer.style(f"  {issues} issue(s) found. Fix the items above.", fg=typer.colors.YELLOW, bold=True))
+        typer.echo(
+            typer.style(
+                f"  {issues} issue(s) found. Fix the items above.",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+        )
     typer.echo()

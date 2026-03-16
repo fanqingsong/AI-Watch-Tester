@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-from aat.core.config import load_config, save_config, DEFAULT_CONFIG_FILENAME
+from aat.core.config import DEFAULT_CONFIG_FILENAME, load_config, save_config
 from aat.core.connection import test_ai_connection
 
 PROVIDERS = [
@@ -52,7 +52,7 @@ def _print_security_notice(gitignore_updated: bool) -> None:
     typer.echo("     → Never committed to git — aat.config.yaml is in .gitignore")
     if gitignore_updated:
         typer.echo("     → .gitignore has been automatically updated to exclude aat.config.yaml")
-    typer.echo("     → Delete anytime with: aat config set ai.api_key \"\"")
+    typer.echo('     → Delete anytime with: aat config set ai.api_key ""')
     typer.echo()
 
 
@@ -68,6 +68,7 @@ def setup_command(
         cfg = load_config(config_path if config_path.exists() else None)
     except Exception:
         from aat.core.models import Config
+
         cfg = Config()
 
     typer.echo()
@@ -97,7 +98,7 @@ def setup_command(
             raise ValueError
     except ValueError:
         typer.echo("  Invalid choice.")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     provider_key, provider_label, key_hint = PROVIDERS[idx]
     cfg.ai.provider = provider_key

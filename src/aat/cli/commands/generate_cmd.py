@@ -98,11 +98,17 @@ async def _generate(
     cache_key = spec_cache_key(config.url, text)
     cached = get_cached_scenarios(cache_key, config.data_dir)
     if cached:
-        typer.echo(typer.style("  Cache hit — using previously generated scenarios", fg=typer.colors.GREEN))
+        typer.echo(
+            typer.style(
+                "  Cache hit — using previously generated scenarios", fg=typer.colors.GREEN
+            )
+        )
         scenarios = [Scenario(**s) for s in cached]
     else:
         # Cost estimation + confirmation
-        est = estimate_cost(config.ai.provider, config.ai.model, text, estimated_output_tokens=config.ai.max_tokens)
+        est = estimate_cost(
+            config.ai.provider, config.ai.model, text, estimated_output_tokens=config.ai.max_tokens
+        )
         typer.echo()
         typer.echo(f"  {format_cost_estimate(est)}")
         if not est["is_free"]:

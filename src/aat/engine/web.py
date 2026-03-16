@@ -5,6 +5,7 @@ Implements BaseEngine using Playwright async API.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path  # noqa: TC003
 
 from playwright.async_api import (
@@ -178,7 +179,8 @@ class WebEngine(BaseEngine):
 
     async def _inject_cursor(self) -> None:
         """Inject a visual cursor element into the page."""
-        try:
+        # Page might not be ready yet
+        with contextlib.suppress(Exception):
             await self.page.evaluate("""() => {
                 if (document.getElementById('awt-cursor')) return;
                 const cursor = document.createElement('div');
@@ -197,22 +199,18 @@ class WebEngine(BaseEngine):
                 `;
                 document.body.appendChild(cursor);
             }""")
-        except Exception:
-            pass  # Page might not be ready yet
 
     async def _move_cursor(self, x: int, y: int) -> None:
         """Update visual cursor position."""
-        try:
+        with contextlib.suppress(Exception):
             await self.page.evaluate(f"""() => {{
                 const c = document.getElementById('awt-cursor');
                 if (c) {{ c.style.left = '{x}px'; c.style.top = '{y}px'; }}
             }}""")
-        except Exception:
-            pass
 
     async def _click_effect(self, x: int, y: int) -> None:
         """Show a click ripple effect at coordinates."""
-        try:
+        with contextlib.suppress(Exception):
             await self.page.evaluate(f"""() => {{
                 const ring = document.createElement('div');
                 ring.style.cssText = `
@@ -236,8 +234,6 @@ class WebEngine(BaseEngine):
                 }});
                 setTimeout(() => ring.remove(), 500);
             }}""")
-        except Exception:
-            pass
 
     async def _ensure_cursor(self) -> None:
         """Re-inject cursor after page navigation."""

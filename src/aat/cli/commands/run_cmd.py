@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from pathlib import Path
 
@@ -93,13 +94,13 @@ def _js_str(s: str) -> str:
 
 
 async def _overlay_init(page: object) -> None:
-    try:
+    with contextlib.suppress(Exception):
         await page.evaluate(_OVERLAY_INIT_JS)  # type: ignore[union-attr]
-    except Exception:
-        pass
 
 
-async def _overlay_update(page: object, status: str, detail: str = "", color: str = "#e2e8f0") -> None:
+async def _overlay_update(
+    page: object, status: str, detail: str = "", color: str = "#e2e8f0"
+) -> None:
     try:
         js = _OVERLAY_UPDATE_JS % (_js_str(status), _js_str(detail), _js_str(color))
         await page.evaluate(js)  # type: ignore[union-attr]
@@ -107,7 +108,9 @@ async def _overlay_update(page: object, status: str, detail: str = "", color: st
         pass
 
 
-async def _overlay_finish(page: object, passed: int, failed: int, total: int, wait_ms: int = 3000) -> None:
+async def _overlay_finish(
+    page: object, passed: int, failed: int, total: int, wait_ms: int = 3000
+) -> None:
     try:
         if failed > 0:
             msg = f"TEST FAILED — {passed}/{total} passed"
@@ -125,6 +128,7 @@ async def _overlay_finish(page: object, passed: int, failed: int, total: int, wa
 
 
 # -- Topological sort by depends_on ----------------------------------------
+
 
 def _topo_sort(scenarios: list[Scenario]) -> list[Scenario]:
     """Sort scenarios respecting depends_on order.
@@ -160,10 +164,15 @@ def _topo_sort(scenarios: list[Scenario]) -> list[Scenario]:
 
 # -- CLI command -----------------------------------------------------------
 
+
 def run_command(
     scenarios_path: str = typer.Argument(help="Scenario file or directory path."),
     config_path: str | None = typer.Option(None, "--config", "-c", help="Config file path."),
-    slow_mo: int | None = typer.Option(None, "--slow-mo", help="Slow down each action by N ms (default: 100 in headed, 0 in headless)."),
+    slow_mo: int | None = typer.Option(
+        None,
+        "--slow-mo",
+        help="Slow down each action by N ms (default: 100 in headed, 0 in headless).",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
@@ -236,7 +245,9 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
         if headed:
             typer.echo()
             typer.echo("  " + "=" * 50)
-            typer.echo(typer.style("  ▶ TEST STARTED — browser opened", fg=typer.colors.CYAN, bold=True))
+            typer.echo(
+                typer.style("  ▶ TEST STARTED — browser opened", fg=typer.colors.CYAN, bold=True)
+            )
             if config.engine.slow_mo > 0:
                 typer.echo(f"    slowMo: {config.engine.slow_mo}ms per action")
             typer.echo("  " + "=" * 50)
@@ -247,7 +258,9 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
             if unmet:
                 skip_reason = ", ".join(unmet)
                 typer.echo(f"\nScenario: {scenario.id} — {scenario.name}")
-                typer.echo(typer.style(f"  SKIPPED — depends on: {skip_reason}", fg=typer.colors.YELLOW))
+                typer.echo(
+                    typer.style(f"  SKIPPED — depends on: {skip_reason}", fg=typer.colors.YELLOW)
+                )
                 failed_scenarios.add(scenario.id)
                 total_skipped += 1
                 continue
@@ -295,9 +308,13 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
                         page = _get_active_page()
                         if page:
                             await _overlay_init(page)
+                            fail_msg = (
+                                f"✗ Step {step.step}: FAILED"
+                                f" — {result.error_message or step.description}"
+                            )
                             await _overlay_update(
                                 page,
-                                f"✗ Step {step.step}: FAILED — {result.error_message or step.description}",
+                                fail_msg,
                                 f"{total_passed} passed / {total_failed} failed",
                                 "#f87171",
                             )
@@ -327,7 +344,9 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
         if headed:
             typer.echo()
             typer.echo("  " + "=" * 50)
-            typer.echo(typer.style("  ■ TEST FINISHED — closing browser", fg=typer.colors.CYAN, bold=True))
+            typer.echo(
+                typer.style("  ■ TEST FINISHED — closing browser", fg=typer.colors.CYAN, bold=True)
+            )
             typer.echo("  " + "=" * 50)
 
     finally:

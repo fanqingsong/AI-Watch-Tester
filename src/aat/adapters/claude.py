@@ -313,7 +313,7 @@ class ClaudeAdapter(AIAdapter):
                 ),
                 timeout=120.0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             msg = f"Claude API call timed out after 120s (model: {self._config.model})"
             raise AdapterError(msg) from None
         except Exception as exc:

@@ -295,7 +295,7 @@ class OllamaAdapter(AIAdapter):
                     timeout=120.0,
                 )
                 response.raise_for_status()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             msg = f"Ollama API call timed out after 120s (model: {self._config.model})"
             raise AdapterError(msg) from None
         except httpx.ConnectError as exc:

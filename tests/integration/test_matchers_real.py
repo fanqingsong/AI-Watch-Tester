@@ -35,9 +35,13 @@ def _make_screenshot_with_button(
     img = np.ones((height, width, 3), dtype=np.uint8) * 240  # light gray bg
 
     # Draw button rectangle (filled blue)
-    cv2.rectangle(img, (button_x, button_y), (button_x + button_w, button_y + button_h), (66, 133, 244), -1)
+    cv2.rectangle(
+        img, (button_x, button_y), (button_x + button_w, button_y + button_h), (66, 133, 244), -1
+    )
     # Draw button border
-    cv2.rectangle(img, (button_x, button_y), (button_x + button_w, button_y + button_h), (50, 100, 200), 2)
+    cv2.rectangle(
+        img, (button_x, button_y), (button_x + button_w, button_y + button_h), (50, 100, 200), 2
+    )
     # Draw button text
     font = cv2.FONT_HERSHEY_SIMPLEX
     text_size = cv2.getTextSize(button_text, font, 0.8, 2)[0]
@@ -180,7 +184,9 @@ class TestTemplateMatcher:
         result = await matcher.find(target, screenshot)
 
         # Random-noise template has no counterpart in the screenshot
-        assert result is None, f"False positive — confidence was {result.confidence if result else 'N/A'}"
+        assert result is None, (
+            f"False positive — confidence was {result.confidence if result else 'N/A'}"
+        )
 
     @pytest.mark.asyncio()
     async def test_multi_scale_finds_button(
@@ -348,7 +354,9 @@ class TestFeatureMatcher:
         assert result is None or result.confidence >= 0
 
     @pytest.mark.asyncio()
-    async def test_missing_template_returns_none(self, config: MatchingConfig, screenshot: bytes) -> None:
+    async def test_missing_template_returns_none(
+        self, config: MatchingConfig, screenshot: bytes
+    ) -> None:
         """Non-existent template path must return None, not raise."""
         matcher = FeatureMatcher(config)
         target = TargetSpec(image="/tmp/does_not_exist_xyz987.png")
