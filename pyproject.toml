@@ -4,19 +4,26 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aat-devqa"
-version = "0.2.0"
-description = "AWT (AI Watch Tester) — AI-powered E2E testing, no code required"
+version = "1.0.0"
+description = "AWT (AI Watch Tester) — AI-powered E2E testing with self-healing DevQA loop"
 readme = "README.md"
-license = "MIT"
+license = "AGPL-3.0-only"
 requires-python = ">=3.11"
-authors = [{ name = "AWT Contributors" }]
-keywords = ["testing", "automation", "ai", "devqa"]
+authors = [{ name = "AILoopLab", email = "ksgisang@gmail.com" }]
+keywords = [
+    "testing", "automation", "ai", "devqa", "e2e",
+    "playwright", "self-healing", "qa", "web-testing",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Intended Audience :: Developers",
+    "Framework :: Pytest",
 ]
 
 dependencies = [
@@ -69,6 +76,12 @@ dev = [
 
 [project.scripts]
 aat = "aat.cli.main:app"
+
+[project.urls]
+Homepage = "https://ai-watch-tester.vercel.app"
+Repository = "https://github.com/ksgisang/AI-Watch-Tester"
+"Bug Tracker" = "https://github.com/ksgisang/AI-Watch-Tester/issues"
+"Agent Skill" = "https://github.com/ksgisang/awt-skill"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aat"]
