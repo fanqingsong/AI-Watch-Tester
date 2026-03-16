@@ -146,7 +146,10 @@ def test_init_custom_options(tmp_path: object, monkeypatch: object) -> None:
 
     result = runner.invoke(
         app,
-        ["init", "--name", "custom", "--source", "/src", "--url", "https://example.com", "--skip-setup"],
+        [
+            "init", "--name", "custom", "--source", "/src",
+            "--url", "https://example.com", "--skip-setup",
+        ],
     )
     assert result.exit_code == 0
 
