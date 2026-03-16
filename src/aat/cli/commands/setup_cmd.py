@@ -11,11 +11,11 @@ from aat.core.config import DEFAULT_CONFIG_FILENAME, load_config, save_config
 from aat.core.connection import test_ai_connection
 
 PROVIDERS = [
-    ("claude", "Claude (Anthropic)", "sk-ant-..."),
-    ("openai", "OpenAI (GPT-4o)", "sk-..."),
-    ("gemini", "Gemini (Google) — generous free tier", "AI..."),
-    ("deepseek", "DeepSeek (cost-optimized)", "sk-..."),
-    ("ollama", "Ollama (free, offline — no API key)", None),
+    ("claude", "Claude (Anthropic)", "sk-ant-...", "claude-sonnet-4-20250514"),
+    ("openai", "OpenAI (GPT-4o)", "sk-...", "gpt-4o"),
+    ("gemini", "Gemini (Google) — generous free tier", "AI...", "gemini-2.0-flash"),
+    ("deepseek", "DeepSeek (cost-optimized)", "sk-...", "deepseek-chat"),
+    ("ollama", "Ollama (free, offline — no API key)", None, "codellama:7b"),
 ]
 
 _GITIGNORE_ENTRIES = """
@@ -76,7 +76,7 @@ def setup_command(
     typer.echo()
 
     # Show provider choices
-    for i, (key, label, _) in enumerate(PROVIDERS, 1):
+    for i, (key, label, _, _model) in enumerate(PROVIDERS, 1):
         current = " (current)" if cfg.ai.provider == key else ""
         typer.echo(f"  [{i}] {label}{current}")
     skip_num = len(PROVIDERS) + 1
@@ -100,8 +100,9 @@ def setup_command(
         typer.echo("  Invalid choice.")
         raise typer.Exit(1) from None
 
-    provider_key, provider_label, key_hint = PROVIDERS[idx]
+    provider_key, provider_label, key_hint, default_model = PROVIDERS[idx]
     cfg.ai.provider = provider_key
+    cfg.ai.model = default_model
 
     # API key input (skip for Ollama)
     if key_hint is not None:

@@ -31,8 +31,9 @@ class WebEngine(BaseEngine):
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
-        self._mouse_x: int = 0
-        self._mouse_y: int = 0
+        # Start at viewport center (not 0,0 which is a bot signal)
+        self._mouse_x: int = self._config.viewport_width // 2
+        self._mouse_y: int = self._config.viewport_height // 2
 
     @property
     def page(self) -> Page:

@@ -208,6 +208,29 @@ _SCENARIO_JSON_SCHEMA: dict[str, Any] = {
                                         ],
                                     },
                                     "description": {"type": "string"},
+                                    "humanize": {
+                                        "anyOf": [
+                                            {"type": "boolean"},
+                                            {"type": "null"},
+                                        ],
+                                    },
+                                    "expected": {
+                                        "anyOf": [
+                                            {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"type": "string"},
+                                                        "value": {"type": "string"},
+                                                    },
+                                                    "required": ["type", "value"],
+                                                    "additionalProperties": False,
+                                                },
+                                            },
+                                            {"type": "null"},
+                                        ],
+                                    },
                                 },
                                 "required": [
                                     "step",
@@ -217,6 +240,8 @@ _SCENARIO_JSON_SCHEMA: dict[str, Any] = {
                                     "value",
                                     "assert_type",
                                     "case_insensitive",
+                                    "humanize",
+                                    "expected",
                                 ],
                                 "additionalProperties": False,
                             },
@@ -244,7 +269,10 @@ _SCENARIO_JSON_SCHEMA: dict[str, Any] = {
                             ],
                         },
                     },
-                    "required": ["id", "name", "description", "steps"],
+                    "required": [
+                        "id", "name", "description", "steps",
+                        "tags", "depends_on",
+                    ],
                     "additionalProperties": False,
                 },
             },

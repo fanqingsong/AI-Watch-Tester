@@ -37,7 +37,8 @@ class TestWebEngineInit:
 
     def test_mouse_position_default(self) -> None:
         engine = WebEngine()
-        assert engine.mouse_position == (0, 0)
+        # Default: viewport center (1280/2=640, 720/2=360), not (0,0)
+        assert engine.mouse_position == (640, 360)
 
     def test_is_base_engine(self) -> None:
         from aat.engine.base import BaseEngine
