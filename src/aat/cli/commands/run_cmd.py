@@ -178,16 +178,26 @@ def run_command(
         "--slow-mo",
         help="Slow down each action by N ms (default: 100 in headed, 0 in headless).",
     ),
+    learn: bool = typer.Option(
+        False,
+        "--learn",
+        help="Learn from fixes: record previously failed steps that now pass.",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
-        asyncio.run(_run(scenarios_path, config_path, slow_mo))
+        asyncio.run(_run(scenarios_path, config_path, slow_mo, learn))
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
 
 
-async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: int | None) -> None:
+async def _run(
+    scenarios_path: str,
+    config_path: str | None,
+    slow_mo_override: int | None,
+    learn_mode: bool = False,
+) -> None:
     """Execute scenarios asynchronously."""
     # Load config
     cfg_path = Path(config_path) if config_path else None
@@ -228,6 +238,7 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
     total_skipped = 0
     passed_scenarios: set[str] = set()
     failed_scenarios: set[str] = set()
+    all_results: list[dict[str, str]] = []  # step-level results for learning
     try:
         await engine.start()
 
@@ -290,6 +301,18 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
                 result = await executor.execute_step(step)
                 total_steps += 1
 
+                # Track for learning
+                all_results.append(
+                    {
+                        "scenario": scenario.id,
+                        "step": str(result.step),
+                        "action": result.action.value,
+                        "description": result.description,
+                        "status": result.status.value,
+                        "error": result.error_message or "",
+                    }
+                )
+
                 # Update overlay with result + pause to let user read
                 if result.status == StepStatus.PASSED:
                     total_passed += 1
@@ -326,9 +349,7 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
                             await asyncio.sleep(2.0)  # Longer pause on failure
 
                 # CLI output (always)
-                typer.echo(
-                    f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)"
-                )
+                typer.echo(f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)")
                 if result.error_message:
                     typer.echo(f"    Error: {result.error_message}")
 
@@ -343,17 +364,11 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
                         try:
                             from aat.learning.store import LearnedStore
 
-                            store = LearnedStore(
-                                Path(config.data_dir) / "learned.db"
-                            )
-                            learned_hint = check_learned_hint(
-                                store, diag.get("failure_type", "")
-                            )
+                            store = LearnedStore(Path(config.data_dir) / "learned.db")
+                            learned_hint = check_learned_hint(store, diag.get("failure_type", ""))
                         except Exception:
                             pass
-                        typer.echo(
-                            format_diagnosis(diag, str(path), learned_hint)
-                        )
+                        typer.echo(format_diagnosis(diag, str(path), learned_hint))
                     except Exception:
                         pass  # diagnosis is best-effort
 
@@ -391,5 +406,133 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
     parts.append(f"{total_steps} steps total")
     typer.echo(f"\nSummary: {', '.join(parts)}")
 
+    # -- Learn mode: compare with previous run --------------------------------
+    run_data = _save_run_result(config.data_dir, scenarios_path, all_results)
+    if learn_mode:
+        _learn_from_fixes(config.data_dir, scenarios_path, run_data)
+
     if total_failed > 0 or total_skipped > 0:
         raise typer.Exit(code=1)
+
+
+# -- Learning helpers ------------------------------------------------------
+
+import json as _json  # noqa: E402
+
+
+def _save_run_result(
+    data_dir: str,
+    scenarios_path: str,
+    results: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Save current run results to .aat/last_run.json for learning comparison."""
+    out_dir = Path(data_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "last_run.json"
+    out_path.write_text(
+        _json.dumps(
+            {"scenarios_path": scenarios_path, "results": results},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return results
+
+
+def _learn_from_fixes(
+    data_dir: str,
+    scenarios_path: str,
+    current_results: list[dict[str, str]],
+) -> None:
+    """Compare current run with previous run and learn from fixes.
+
+    If a step was FAILED in the previous run but PASSED now,
+    record it as a learned fix pattern.
+    """
+    prev_path = Path(data_dir) / "prev_run.json"
+    last_path = Path(data_dir) / "last_run.json"
+
+    # Load previous run (saved from the run before this one)
+    if not prev_path.exists():
+        # First run with --learn: save current as prev for next time
+        if last_path.exists():
+            import shutil
+
+            shutil.copy2(last_path, prev_path)
+        return
+
+    try:
+        prev_data = _json.loads(prev_path.read_text(encoding="utf-8"))
+        prev_results = prev_data.get("results", [])
+    except Exception:
+        return
+
+    # Build lookup: (scenario, step) → previous status
+    prev_lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for r in prev_results:
+        key = (r.get("scenario", ""), r.get("step", ""))
+        prev_lookup[key] = r
+
+    # Find healed steps: was FAILED → now PASSED
+    healed: list[dict[str, str]] = []
+    for r in current_results:
+        key = (r.get("scenario", ""), r.get("step", ""))
+        prev = prev_lookup.get(key)
+        if prev and prev.get("status") == "failed" and r.get("status") == "passed":
+            healed.append(
+                {
+                    "scenario": r.get("scenario", ""),
+                    "step": r.get("step", ""),
+                    "description": r.get("description", ""),
+                    "prev_error": prev.get("error", ""),
+                    "action": r.get("action", ""),
+                }
+            )
+
+    if not healed:
+        # Rotate: current becomes prev for next run
+        import shutil
+
+        shutil.copy2(last_path, prev_path)
+        return
+
+    # Record learned fixes
+    try:
+        from aat.core.diagnosis import classify_failure
+        from aat.learning.store import LearnedStore
+
+        store = LearnedStore(Path(data_dir) / "learned.db")
+
+        typer.echo()
+        typer.echo(
+            typer.style(
+                f"  🧠 Learned {len(healed)} fix(es) from this run:",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        )
+
+        for h in healed:
+            failure_type = classify_failure(h["prev_error"])
+            fix_desc = (
+                f"Step {h['step']} ({h['action']}): "
+                f"'{h['description']}' — was: {h['prev_error'][:80]}"
+            )
+            store.record_failure(
+                error_type=failure_type,
+                error_message=h["prev_error"],
+                action=h["action"],
+                fix_description=fix_desc,
+            )
+            store.mark_fix_applied(failure_type, fix_desc)
+
+            typer.echo(f"    ✓ {h['scenario']} Step {h['step']}: {h['prev_error'][:60]} → FIXED")
+
+    except Exception as e:
+        typer.echo(f"    (learning failed: {e})")
+
+    # Rotate: current becomes prev for next run
+    import shutil
+
+    shutil.copy2(last_path, prev_path)
