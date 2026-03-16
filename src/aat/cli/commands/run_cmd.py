@@ -17,6 +17,7 @@ from aat.core.diagnosis import (
 )
 from aat.core.exceptions import AATError
 from aat.core.models import Scenario, StepStatus
+from aat.core.platform_detect import detect_platform, format_platform_info
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator
@@ -239,6 +240,7 @@ async def _run(
     passed_scenarios: set[str] = set()
     failed_scenarios: set[str] = set()
     all_results: list[dict[str, str]] = []  # step-level results for learning
+    platform_detected = False
     try:
         await engine.start()
 
@@ -300,6 +302,27 @@ async def _run(
 
                 result = await executor.execute_step(step)
                 total_steps += 1
+
+                # Platform detection (once, after first navigate)
+                if not platform_detected and step.action.value == "navigate":
+                    platform_detected = True
+                    try:
+                        pinfo = await detect_platform(engine)
+                        ptext = format_platform_info(pinfo)
+                        if ptext:
+                            typer.echo(ptext)
+                            # Load user tips from LearnedStore
+                            try:
+                                from aat.learning.store import LearnedStore
+
+                                ls = LearnedStore(Path(config.data_dir) / "learned.db")
+                                user_tips = ls.get_platform_tips(pinfo["platform"])
+                                for tip in user_tips:
+                                    typer.echo(f"    💡 {tip}")
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
 
                 # Track for learning
                 all_results.append(

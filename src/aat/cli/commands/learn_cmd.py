@@ -139,3 +139,44 @@ def _save_to_store(store: object, target_name: str, img_hash: str, dest: str) ->
         store.save(element)  # type: ignore[attr-defined]
     except (ImportError, AttributeError, TypeError):
         pass
+
+
+@learn_app.command(name="platform")
+def learn_platform(
+    platform: str = typer.Option(
+        ...,
+        "--platform",
+        "-p",
+        help="Platform key (e.g., flutter_canvaskit, react_spa, vue_spa).",
+    ),
+    tip: str = typer.Option(
+        ...,
+        "--tip",
+        "-t",
+        help="Tip or pattern to remember for this platform.",
+    ),
+    config_path: str | None = typer.Option(None, "--config", "-c", help="Config file path."),
+) -> None:
+    """Add a custom platform-specific testing tip."""
+    cfg_path = Path(config_path) if config_path else None
+    try:
+        config = load_config(config_path=cfg_path)
+        data_dir = config.data_dir
+    except Exception:
+        data_dir = ".aat"
+
+    try:
+        from aat.learning.store import LearnedStore
+
+        db_path = Path(data_dir) / "learned.db"
+        store = LearnedStore(db_path)
+        store.add_platform_tip(platform, tip)
+        typer.echo(
+            typer.style(
+                f"  ✓ Saved tip for '{platform}': {tip}",
+                fg=typer.colors.GREEN,
+            )
+        )
+    except Exception as e:
+        typer.echo(f"  Error: {e}", err=True)
+        raise typer.Exit(1) from None
