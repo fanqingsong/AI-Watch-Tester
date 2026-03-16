@@ -10,6 +10,11 @@ from pathlib import Path
 import typer
 
 from aat.core.config import load_config
+from aat.core.diagnosis import (
+    check_learned_hint,
+    collect_failure_context,
+    format_diagnosis,
+)
 from aat.core.exceptions import AATError
 from aat.core.models import Scenario, StepStatus
 from aat.core.scenario_loader import load_scenarios
@@ -321,9 +326,36 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
                             await asyncio.sleep(2.0)  # Longer pause on failure
 
                 # CLI output (always)
-                typer.echo(f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)")
+                typer.echo(
+                    f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)"
+                )
                 if result.error_message:
                     typer.echo(f"    Error: {result.error_message}")
+
+                # Structured diagnosis on failure
+                if result.status != StepStatus.PASSED:
+                    try:
+                        diag = await collect_failure_context(
+                            engine, result, str(path), config.data_dir
+                        )
+                        # Check learned hints
+                        learned_hint = None
+                        try:
+                            from aat.learning.store import LearnedStore
+
+                            store = LearnedStore(
+                                Path(config.data_dir) / "learned.db"
+                            )
+                            learned_hint = check_learned_hint(
+                                store, diag.get("failure_type", "")
+                            )
+                        except Exception:
+                            pass
+                        typer.echo(
+                            format_diagnosis(diag, str(path), learned_hint)
+                        )
+                    except Exception:
+                        pass  # diagnosis is best-effort
 
             scenario_elapsed = (time.monotonic() - scenario_start) * 1000
             typer.echo(f"  Scenario completed in {scenario_elapsed:.0f}ms")

@@ -1,0 +1,228 @@
+"""Failure diagnosis — structured analysis without AI dependency.
+
+Collects browser context (URL, console errors, network failures, DOM snapshot)
+and classifies failures into actionable categories with investigation checklists.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aat.core.models import StepResult
+    from aat.learning.store import LearnedStore
+
+logger = logging.getLogger(__name__)
+
+# -- Failure classification + checklists -----------------------------------
+
+_INVESTIGATION_CHECKLISTS: dict[str, list[str]] = {
+    "element_not_found": [
+        "Check if the element's text/selector changed in the latest commit",
+        "Check if the element is inside an iframe",
+        "Check if the page requires login/auth before this element appears",
+        "Try adding a wait step before this step",
+        "Use browser DevTools to find the current selector",
+    ],
+    "timeout": [
+        "Check if the server is running and responding",
+        "Check network tab for slow API calls (>5s)",
+        "Check if a modal/popup is blocking the page",
+        "Increase timeout_ms in the step or config",
+    ],
+    "navigation_error": [
+        "Verify the URL is correct and accessible",
+        "Check if the server is running on the expected port",
+        "Check for CORS or SSL certificate issues",
+    ],
+    "auth_error": [
+        "Verify login credentials in the scenario",
+        "Check if the session/token has expired",
+        "Check if the auth API endpoint has changed",
+    ],
+    "server_error": [
+        "Check server logs for the error details",
+        "Verify database connection and migrations",
+        "Check if required environment variables are set",
+    ],
+    "selector_changed": [
+        "The UI was updated — find the new selector with DevTools",
+        "Consider using OCR text matching instead of CSS selectors",
+        "Add selector + text together for resilience",
+    ],
+    "assertion_failed": [
+        "Verify the expected text matches what's actually on screen",
+        "Check if the page is in the correct language/locale",
+        "Check if the content is loaded dynamically (add wait)",
+        "Check the screenshot to see what's actually displayed",
+    ],
+    "unknown": [
+        "Check the screenshot at the failure point",
+        "Check browser console for JavaScript errors",
+        "Try running the scenario with --slow-mo 300 to observe",
+    ],
+}
+
+
+def classify_failure(error_message: str) -> str:
+    """Classify a failure into an actionable category."""
+    err = (error_message or "").lower()
+    if "not visible" in err or "not found" in err:
+        return "element_not_found"
+    if "timeout" in err or "timed out" in err:
+        return "timeout"
+    if "navigation" in err or "goto" in err or "net::" in err:
+        return "navigation_error"
+    if "401" in err or "403" in err or "auth" in err:
+        return "auth_error"
+    if "500" in err or "502" in err or "503" in err:
+        return "server_error"
+    if "selector" in err:
+        return "selector_changed"
+    if "assert" in err or "text_visible" in err:
+        return "assertion_failed"
+    return "unknown"
+
+
+async def collect_failure_context(
+    engine: object,
+    step_result: StepResult,
+    scenario_path: str,
+    data_dir: str = ".aat",
+) -> dict[str, Any]:
+    """Collect structured diagnostic data from the browser at failure point.
+
+    This runs WITHOUT AI — pure data collection from Playwright.
+    """
+    context: dict[str, Any] = {
+        "step": step_result.step,
+        "action": step_result.action.value,
+        "description": step_result.description,
+        "error": step_result.error_message or "",
+        "elapsed_ms": step_result.elapsed_ms,
+    }
+
+    try:
+        # Current URL
+        if hasattr(engine, "get_url"):
+            context["url"] = await engine.get_url()
+
+        # Screenshot
+        if hasattr(engine, "screenshot"):
+            ss_dir = Path(data_dir) / "screenshots"
+            ss_dir.mkdir(parents=True, exist_ok=True)
+            ss_path = ss_dir / f"fail_step{step_result.step}.png"
+            ss_bytes = await engine.screenshot()
+            ss_path.write_bytes(ss_bytes)
+            context["screenshot"] = str(ss_path)
+
+        # Console errors
+        if hasattr(engine, "page"):
+            try:
+                page = engine.page
+                # Collect console errors via JS
+                errors = await page.evaluate("""() => {
+                    return (window.__awtConsoleErrors || []).slice(-10);
+                }""")
+                if errors:
+                    context["console_errors"] = errors
+            except Exception:
+                pass
+
+        # Page title
+        if hasattr(engine, "page"):
+            with contextlib.suppress(Exception):
+                context["page_title"] = await engine.page.title()
+
+    except Exception as e:
+        logger.debug("Failed to collect some diagnostic data: %s", e)
+
+    # Classify
+    context["failure_type"] = classify_failure(context.get("error", ""))
+    context["investigation"] = _INVESTIGATION_CHECKLISTS.get(
+        context["failure_type"], _INVESTIGATION_CHECKLISTS["unknown"]
+    )
+
+    return context
+
+
+def format_diagnosis(
+    context: dict[str, Any],
+    scenario_file: str = "",
+    learned_hint: dict[str, Any] | None = None,
+) -> str:
+    """Format diagnosis into readable CLI output."""
+    lines: list[str] = []
+    lines.append("")
+    lines.append("  " + "=" * 55)
+    lines.append("  📊 AWT Diagnosis (deterministic — no AI)")
+    lines.append("  " + "=" * 55)
+
+    # Basic info
+    lines.append(
+        f"  Step:     {context.get('step')} — {context.get('description', '')}"
+    )
+    lines.append(f"  Action:   {context.get('action', '')}")
+    lines.append(f"  Error:    {context.get('error', '')}")
+
+    # Browser context
+    if context.get("url"):
+        lines.append(f"  URL:      {context['url']}")
+    if context.get("page_title"):
+        lines.append(f"  Title:    {context['page_title']}")
+    if context.get("screenshot"):
+        lines.append(f"  Screenshot: {context['screenshot']}")
+
+    # Console errors
+    if context.get("console_errors"):
+        lines.append(f"  Console:  {len(context['console_errors'])} error(s)")
+        for err in context["console_errors"][:3]:
+            lines.append(f"    → {str(err)[:120]}")
+
+    # Classification
+    ftype = context.get("failure_type", "unknown")
+    lines.append("")
+    lines.append(f"  Category: {ftype}")
+
+    # Investigation checklist
+    checklist = context.get("investigation", [])
+    if checklist:
+        lines.append("  Investigation:")
+        for item in checklist:
+            lines.append(f"    □ {item}")
+
+    # Learned hint
+    if learned_hint:
+        lines.append("")
+        lines.append("  💡 Previously solved:")
+        lines.append(
+            f"    This failure ({learned_hint.get('error_type', '')}) "
+            f"was fixed before: {learned_hint.get('fix_description', '')}"
+        )
+        lines.append(
+            f"    (seen {learned_hint.get('hit_count', 0)} time(s))"
+        )
+
+    # Re-run guide
+    if scenario_file:
+        lines.append("")
+        lines.append(f"  Retest: aat run {scenario_file}")
+
+    lines.append("  " + "=" * 55)
+    return "\n".join(lines)
+
+
+def check_learned_hint(
+    store: LearnedStore | None,
+    failure_type: str,
+) -> dict[str, Any] | None:
+    """Check if we've seen this failure before."""
+    if store is None:
+        return None
+    try:
+        return store.find_similar_failure(failure_type)
+    except Exception:
+        return None
