@@ -23,7 +23,7 @@ def test_init_creates_directories(tmp_path: object, monkeypatch: object) -> None
     assert hasattr(mp, "chdir")
     mp.chdir(tmp_path)  # type: ignore[union-attr]
 
-    result = runner.invoke(app, ["init", "--name", "test-project"])
+    result = runner.invoke(app, ["init", "--name", "test-project", "--skip-setup"])
     assert result.exit_code == 0
     assert (tmp_path / ".aat").is_dir()
     assert (tmp_path / "scenarios").is_dir()
@@ -41,7 +41,7 @@ def test_init_creates_config_file(tmp_path: object, monkeypatch: object) -> None
     assert hasattr(mp, "chdir")
     mp.chdir(tmp_path)  # type: ignore[union-attr]
 
-    result = runner.invoke(app, ["init", "--name", "test-project"])
+    result = runner.invoke(app, ["init", "--name", "test-project", "--skip-setup"])
     assert result.exit_code == 0
 
     config_file = tmp_path / "aat.config.yaml"
@@ -51,8 +51,9 @@ def test_init_creates_config_file(tmp_path: object, monkeypatch: object) -> None
 
 
 def test_init_appends_gitignore(tmp_path: object, monkeypatch: object) -> None:
-    """aat init appends AAT entries to .gitignore if it exists."""
+    """aat init appends AAT entries to .gitignore via setup_command."""
     from pathlib import Path
+    from unittest.mock import patch
 
     assert isinstance(tmp_path, Path)
 
@@ -65,17 +66,25 @@ def test_init_appends_gitignore(tmp_path: object, monkeypatch: object) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("node_modules/\n", encoding="utf-8")
 
-    result = runner.invoke(app, ["init", "--name", "test-project"])
+    # Mock setup_command to only run the gitignore update (skip interactive prompts)
+    def _fake_setup(config: str = "") -> None:
+        from aat.cli.commands.setup_cmd import _ensure_gitignore
+        _ensure_gitignore(tmp_path)  # type: ignore[arg-type]
+
+    with patch("aat.cli.commands.setup_cmd.setup_command", side_effect=_fake_setup):
+        result = runner.invoke(app, ["init", "--name", "test-project"])
     assert result.exit_code == 0
 
     content = gitignore.read_text(encoding="utf-8")
     assert "node_modules/" in content
-    assert ".aat/config.yaml" in content
+    # setup_cmd._GITIGNORE_ENTRIES writes "aat.config.yaml" (not ".aat/config.yaml")
+    assert "aat.config.yaml" in content
 
 
 def test_init_no_duplicate_gitignore(tmp_path: object, monkeypatch: object) -> None:
     """aat init does not duplicate .gitignore entries on second run."""
     from pathlib import Path
+    from unittest.mock import patch
 
     assert isinstance(tmp_path, Path)
 
@@ -88,11 +97,16 @@ def test_init_no_duplicate_gitignore(tmp_path: object, monkeypatch: object) -> N
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("node_modules/\n", encoding="utf-8")
 
-    runner.invoke(app, ["init"])
-    runner.invoke(app, ["init"])
+    def _fake_setup(config: str = "") -> None:
+        from aat.cli.commands.setup_cmd import _ensure_gitignore
+        _ensure_gitignore(tmp_path)  # type: ignore[arg-type]
+
+    with patch("aat.cli.commands.setup_cmd.setup_command", side_effect=_fake_setup):
+        runner.invoke(app, ["init"])
+        runner.invoke(app, ["init"])
 
     content = gitignore.read_text(encoding="utf-8")
-    assert content.count(".aat/config.yaml") == 1
+    assert content.count("aat.config.yaml") == 1
 
 
 def test_init_success_message(tmp_path: object, monkeypatch: object) -> None:
@@ -107,7 +121,7 @@ def test_init_success_message(tmp_path: object, monkeypatch: object) -> None:
     assert hasattr(mp, "chdir")
     mp.chdir(tmp_path)  # type: ignore[union-attr]
 
-    result = runner.invoke(app, ["init", "--name", "my-app"])
+    result = runner.invoke(app, ["init", "--name", "my-app", "--skip-setup"])
     assert result.exit_code == 0
     assert "my-app" in result.output
     assert "initialized successfully" in result.output
@@ -131,7 +145,8 @@ def test_init_custom_options(tmp_path: object, monkeypatch: object) -> None:
             mp.delenv(key, raising=False)  # type: ignore[union-attr]
 
     result = runner.invoke(
-        app, ["init", "--name", "custom", "--source", "/src", "--url", "https://example.com"]
+        app,
+        ["init", "--name", "custom", "--source", "/src", "--url", "https://example.com", "--skip-setup"],
     )
     assert result.exit_code == 0
 

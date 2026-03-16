@@ -116,8 +116,11 @@ class TestFind:
         assert result is not None
         assert result.found is True
         assert result.method == MatchMethod.OCR
-        assert result.x == 140  # 100 + 80//2
-        assert result.y == 60  # 50 + 20//2
+        # After 2x upscale, pytesseract coords are divided by 2:
+        # left=100//2=50, top=50//2=25, w=80//2=40, h=20//2=10
+        # cx = 50 + 40//2 = 70, cy = 25 + 10//2 = 30
+        assert result.x == 70
+        assert result.y == 30
         assert result.confidence == pytest.approx(0.95)
         assert result.elapsed_ms > 0
 

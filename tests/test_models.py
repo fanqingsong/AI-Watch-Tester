@@ -307,15 +307,14 @@ class TestStepConfig:
         assert len(step.expected) == 1
         assert step.expected[0].value == "/dashboard"
 
-    def test_assert_no_type_no_value_uses_description(self) -> None:
-        """Assert step with no assert_type/value falls back to description."""
-        step = StepConfig(
-            step=3,
-            action=ActionType.ASSERT,
-            description="Welcome page loaded",
-        )
-        assert step.assert_type == AssertType.TEXT_VISIBLE
-        assert step.expected[0].value == "Welcome page loaded"
+    def test_assert_no_type_no_value_raises_validation_error(self) -> None:
+        """Assert step without type or value should raise ValidationError."""
+        with pytest.raises(ValidationError):
+            StepConfig(
+                step=3,
+                action=ActionType.ASSERT,
+                description="Welcome page loaded",
+            )
 
     def test_find_and_type_valid(self) -> None:
         step = StepConfig(

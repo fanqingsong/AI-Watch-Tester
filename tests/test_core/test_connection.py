@@ -274,12 +274,12 @@ class TestUnknownProvider:
 
     async def test_unknown_provider(self) -> None:
         """Returns failure for an unrecognized provider."""
-        config = _make_config(provider="gemini", api_key="key")
+        config = _make_config(provider="nonexistent_provider", api_key="key")
         ok, msg = await check_ai_connection(config)
 
         assert ok is False
         assert "Unknown provider" in msg
-        assert "gemini" in msg
+        assert "nonexistent_provider" in msg
 
 
 # ---------------------------------------------------------------------------

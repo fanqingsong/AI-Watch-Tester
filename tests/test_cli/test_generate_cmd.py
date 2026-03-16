@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
@@ -12,6 +13,45 @@ from aat.cli.main import app
 from aat.core.models import Scenario
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def mock_cost(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock cost module functions so generate tests don't hit real AI cost logic."""
+    # These functions are lazily imported inside _generate(), so patch at source module.
+    monkeypatch.setattr(
+        "aat.core.cost.estimate_cost",
+        lambda *a, **kw: {
+            "is_free": True,
+            "provider": "test",
+            "model": "test",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_cost": 0.0,
+            "input_cost": 0.0,
+            "output_cost": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "aat.core.cost.format_cost_estimate",
+        lambda est: "Free",
+    )
+    monkeypatch.setattr(
+        "aat.core.cost.spec_cache_key",
+        lambda *a: "test_key",
+    )
+    monkeypatch.setattr(
+        "aat.core.cost.get_cached_scenarios",
+        lambda *a: None,
+    )
+    monkeypatch.setattr(
+        "aat.core.cost.save_cached_scenarios",
+        lambda *a: None,
+    )
+    monkeypatch.setattr(
+        "aat.core.cost.log_cost",
+        lambda *a, **kw: 0.0,
+    )
 
 
 def _make_scenario(scenario_id: str = "SC-001", name: str = "Login Test") -> Scenario:

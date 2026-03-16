@@ -115,7 +115,7 @@ class TestInitE2E:
         """aat init should create .aat/, scenarios/, and config file."""
         result = runner.invoke(
             app,
-            ["init", "--name", "my-project", "--url", "http://example.com"],
+            ["init", "--name", "my-project", "--url", "http://example.com", "--skip-setup"],
             catch_exceptions=False,
         )
         assert result.exit_code == 0
@@ -123,8 +123,8 @@ class TestInitE2E:
 
     def test_init_idempotent(self, tmp_path: Path) -> None:
         """Running init twice should not fail."""
-        runner.invoke(app, ["init", "--name", "p1"])
-        result = runner.invoke(app, ["init", "--name", "p1"])
+        runner.invoke(app, ["init", "--name", "p1", "--skip-setup"])
+        result = runner.invoke(app, ["init", "--name", "p1", "--skip-setup"])
         assert result.exit_code == 0
 
 
