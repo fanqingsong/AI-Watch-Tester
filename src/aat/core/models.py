@@ -256,6 +256,14 @@ class StepConfig(BaseModel):
     value: str | None = Field(default=None)
     description: str = Field(..., min_length=1)
     humanize: bool = Field(default=True)
+
+    @field_validator("humanize", mode="before")
+    @classmethod
+    def coerce_humanize(cls, v: object) -> bool:
+        """Convert null/None to default True."""
+        if v is None:
+            return True
+        return bool(v)
     screenshot_before: bool = Field(default=False)
     screenshot_after: bool = Field(default=False)
     timeout_ms: int = Field(default=10000, ge=0, le=120000)
@@ -378,6 +386,26 @@ class Scenario(BaseModel):
         description="Scenario IDs that must pass before this one runs (e.g. ['SC-001'])",
     )
     steps: list[StepConfig] = Field(..., min_length=1)
+
+    @field_validator("depends_on", mode="before")
+    @classmethod
+    def coerce_depends_on(cls, v: object) -> list[str]:
+        """Convert null/None to empty list."""
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(x) for x in v if x is not None]
+        return []
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def coerce_tags(cls, v: object) -> list[str]:
+        """Convert null/None to empty list."""
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(x) for x in v if x is not None]
+        return []
     expected_result: list[ExpectedResult] = Field(default_factory=list)
     variables: dict[str, str] = Field(default_factory=dict)
 

@@ -235,9 +235,10 @@ async def test_fail_deny_fix() -> None:
     assert result.reason == "user denied fix"
     assert result.iterations[0].approved is False
     assert result.iterations[0].analysis is not None
-    assert result.iterations[0].fix is None
+    # Fix is now generated BEFORE approval (so user can see diff)
+    assert result.iterations[0].fix is not None
 
-    adapter.generate_fix.assert_not_called()
+    adapter.generate_fix.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

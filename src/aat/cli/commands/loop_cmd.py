@@ -198,12 +198,37 @@ def _rich_approval_callback(prompt_text: str) -> bool:
         elif choice == "3":
             return False
         elif choice == "4":
-            # Show diff — we print the prompt text which has the fix details
+            # Show diff — parse embedded diff from prompt_text
             typer.echo()
-            typer.echo(typer.style("  📋 Fix Details:", bold=True))
-            typer.echo(f"    {prompt_text}")
+            if "__FIX_DIFF__" in prompt_text:
+                typer.echo(typer.style("  📋 Code Changes:", bold=True))
+                diff_part = prompt_text.split("__FIX_DIFF__", 1)[1]
+                for line in diff_part.splitlines():
+                    line = line.rstrip()
+                    if line.startswith("FILE: "):
+                        typer.echo(
+                            typer.style(f"\n  📄 {line[6:]}", bold=True)
+                        )
+                    elif line.startswith("DESC: "):
+                        typer.echo(f"    {line[6:]}")
+                    elif line.startswith("- "):
+                        typer.echo(
+                            typer.style(f"  {line}", fg=typer.colors.RED)
+                        )
+                    elif line.startswith("+ "):
+                        typer.echo(
+                            typer.style(f"  {line}", fg=typer.colors.GREEN)
+                        )
+                    elif line == "---":
+                        typer.echo()
+            else:
+                typer.echo(typer.style("  📋 Fix Details:", bold=True))
+                desc = prompt_text.split(" — ", 1)
+                typer.echo(f"    Cause: {desc[0]}")
+                if len(desc) > 1:
+                    typer.echo(f"    Fix: {desc[1]}")
+                typer.echo("    (No source code changes — text fix only)")
             typer.echo()
-            # Re-show menu
             continue
         elif choice == "5":
             # Explain — reformat the analysis for non-developers

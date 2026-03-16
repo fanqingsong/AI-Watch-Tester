@@ -8,6 +8,7 @@ from collections.abc import Callable  # noqa: TC003
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from aat.core.cost import log_cost
 from aat.core.exceptions import LoopError
 from aat.core.models import (
     ApprovalMode,
@@ -20,7 +21,7 @@ from aat.core.models import (
 if TYPE_CHECKING:
     from aat.adapters.base import AIAdapter
     from aat.core.git_ops import GitOps
-    from aat.core.models import AnalysisResult, Config, FileChange, Scenario, StepResult
+    from aat.core.models import AnalysisResult, Config, FileChange, FixResult, Scenario, StepResult
     from aat.engine.base import BaseEngine
     from aat.engine.executor import StepExecutor
     from aat.reporters.base import BaseReporter
@@ -119,6 +120,14 @@ class DevQALoop:
                 failure_type = self._classify_failure(test_result)
                 logger.info("Failure classified as: %s", failure_type)
                 analysis = await self._adapter.analyze_failure(test_result)
+                log_cost(
+                    self._config.ai.provider,
+                    self._config.ai.model,
+                    "analyze_failure",
+                    input_tokens=len(str(test_result)) // 4,
+                    output_tokens=len(analysis.cause + analysis.suggestion) // 4,
+                    data_dir=self._config.data_dir,
+                )
 
                 # Dispatch to mode handler
                 if mode == ApprovalMode.MANUAL:
@@ -199,19 +208,35 @@ class DevQALoop:
         analysis: AnalysisResult,
         scenarios: list[Scenario],
     ) -> LoopIteration:
-        """Manual mode: prompt approval, generate fix text only (no file changes)."""
-        approved = self._approval_callback(f"{analysis.cause} — {analysis.suggestion}")
+        """Manual mode: generate fix first, then prompt approval with diff."""
+        # Generate fix BEFORE asking for approval (so user can see the diff)
+        source_files = await self._read_source_files(analysis)
+        fix = await self._adapter.generate_fix(analysis, source_files)
+        self._log_fix_cost(fix)
+
+        # Build approval prompt with fix details
+        prompt = f"{analysis.cause} — {analysis.suggestion}"
+        if fix.files_changed:
+            prompt += "\n__FIX_DIFF__\n"
+            for change in fix.files_changed:
+                prompt += f"FILE: {change.path}\n"
+                prompt += f"DESC: {change.description}\n"
+                for line in change.original.splitlines():
+                    prompt += f"- {line}\n"
+                for line in change.modified.splitlines():
+                    prompt += f"+ {line}\n"
+                prompt += "---\n"
+
+        approved = self._approval_callback(prompt)
 
         if not approved:
             return LoopIteration(
                 iteration=iteration_num,
                 test_result=test_result,
                 analysis=analysis,
+                fix=fix,
                 approved=False,
             )
-
-        source_files = await self._read_source_files(analysis)
-        fix = await self._adapter.generate_fix(analysis, source_files)
 
         return LoopIteration(
             iteration=iteration_num,
@@ -233,6 +258,7 @@ class DevQALoop:
 
         source_files = await self._read_source_files(analysis)
         fix = await self._adapter.generate_fix(analysis, source_files)
+        self._log_fix_cost(fix)
 
         self._fix_counter += 1
         branch_name = f"aat/fix-{self._fix_counter:03d}"
@@ -282,6 +308,7 @@ class DevQALoop:
         """Auto mode: apply fix directly, retest."""
         source_files = await self._read_source_files(analysis)
         fix = await self._adapter.generate_fix(analysis, source_files)
+        self._log_fix_cost(fix)
 
         # Apply changes directly to working directory
         project_root = Path(self._config.source_path)
@@ -422,6 +449,20 @@ class DevQALoop:
                 "Please commit or stash your changes first."
             )
             raise LoopError(msg)
+
+    def _log_fix_cost(self, fix: FixResult) -> None:
+        """Log estimated cost for generate_fix API call."""
+        fix_text = fix.description + "".join(
+            c.modified for c in fix.files_changed
+        )
+        log_cost(
+            self._config.ai.provider,
+            self._config.ai.model,
+            "generate_fix",
+            input_tokens=500,  # source files context (estimate)
+            output_tokens=len(fix_text) // 4,
+            data_dir=self._config.data_dir,
+        )
 
     @staticmethod
     def _classify_failure(test_result: TestResult) -> str:
