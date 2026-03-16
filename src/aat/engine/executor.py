@@ -75,21 +75,31 @@ def _parse_coordinates(value: str | None) -> tuple[int, int]:
         raise StepExecutionError(msg, step=0, action="click_at") from e
 
 
+_SCROLL_SHORTCUTS = {
+    "down": (640, 360, 500),
+    "up": (640, 360, -500),
+    "down-far": (640, 360, 1500),
+    "up-far": (640, 360, -1500),
+}
+
+
 def _parse_scroll_params(value: str | None) -> tuple[int, int, int]:
-    """Parse 'x,y,delta' scroll parameter string.
+    """Parse scroll parameter: 'x,y,delta' or shortcut ('down', 'up').
 
-    Args:
-        value: Scroll params like '100,200,300'.
-
-    Returns:
-        Tuple of (x, y, delta) integers.
+    Shortcuts use viewport center (640,360) with 500px delta.
     """
     if not value:
-        msg = "scroll requires value in 'x,y,delta' format"
+        msg = "scroll requires value: 'x,y,delta' or 'down'/'up'"
         raise StepExecutionError(msg, step=0, action="scroll")
+
+    # Shortcut support
+    shortcut = _SCROLL_SHORTCUTS.get(value.strip().lower())
+    if shortcut:
+        return shortcut
+
     parts = value.split(",")
     if len(parts) != 3:
-        msg = f"Invalid scroll format: '{value}'. Expected 'x,y,delta'"
+        msg = f"Invalid scroll format: '{value}'. Use 'x,y,delta' or 'down'/'up'"
         raise StepExecutionError(msg, step=0, action="scroll")
     try:
         return int(parts[0].strip()), int(parts[1].strip()), int(parts[2].strip())
@@ -214,7 +224,25 @@ class StepExecutor:
 
         elif step.action == ActionType.CLICK_AT:
             x, y = _parse_coordinates(step.value)
+            # Capture before screenshot for change detection
+            before_ss = None
+            if step.screenshot_before or step.screenshot_after:
+                with contextlib.suppress(Exception):
+                    before_ss = await self._engine.screenshot()
             await self._do_click(x, y, step.humanize)
+            # Verify click had effect (change detection)
+            if before_ss is not None:
+                try:
+                    after_ss = await self._engine.screenshot()
+                    if before_ss == after_ss:
+                        logger.warning(
+                            "click_at(%d, %d) had no visible effect. "
+                            "The click may have missed the target.",
+                            x,
+                            y,
+                        )
+                except Exception:
+                    pass
 
         elif step.action == ActionType.TYPE_TEXT:
             await self._do_type(step.value or "", step.humanize)
@@ -347,13 +375,43 @@ class StepExecutor:
         return None
 
     async def _act_at_pos(
-        self, step: StepConfig, x: int, y: int, confidence: float = 1.0,
+        self,
+        step: StepConfig,
+        x: int,
+        y: int,
+        confidence: float = 1.0,
     ) -> MatchResult:
         """Execute find_and_* action at given position, return MatchResult."""
         from aat.core.models import MatchMethod, MatchResult
 
+        # Warn if element is outside viewport (Flutter hidden input issue)
+        try:
+            vw = getattr(self._engine, "_config", None)
+            viewport_w = (
+                int(getattr(vw, "viewport_width", 1280)) if vw else 1280
+            )
+            viewport_h = (
+                int(getattr(vw, "viewport_height", 720)) if vw else 720
+            )
+        except (TypeError, ValueError):
+            viewport_w, viewport_h = 1280, 720
+        if x < 0 or y < 0 or x > viewport_w or y > viewport_h:
+            logger.warning(
+                "Element at (%d, %d) is outside viewport (%dx%d). "
+                "This may be a hidden element (e.g., Flutter invisible input). "
+                "Consider using click_at + type_text instead of find_and_type.",
+                x,
+                y,
+                viewport_w,
+                viewport_h,
+            )
+
         result = MatchResult(
-            found=True, x=x, y=y, confidence=confidence, method=MatchMethod.OCR,
+            found=True,
+            x=x,
+            y=y,
+            confidence=confidence,
+            method=MatchMethod.OCR,
         )
         if step.action in (
             ActionType.FIND_AND_CLICK,
@@ -361,7 +419,9 @@ class StepExecutor:
             ActionType.FIND_AND_RIGHT_CLICK,
         ):
             await self._do_click(
-                x, y, step.humanize,
+                x,
+                y,
+                step.humanize,
                 double=(step.action == ActionType.FIND_AND_DOUBLE_CLICK),
                 right=(step.action == ActionType.FIND_AND_RIGHT_CLICK),
             )
@@ -413,7 +473,10 @@ class StepExecutor:
                                 await cb.scroll_into_view_if_needed(timeout=2000)
                             await cb.click(timeout=3000)
                             return await self._act_at_pos(
-                                step, 0, 0, confidence=1.0,
+                                step,
+                                0,
+                                0,
+                                confidence=1.0,
                             )
                     except Exception:
                         logger.debug(
@@ -425,15 +488,22 @@ class StepExecutor:
                         pass
                     try:
                         # 2) Click parent <label> containing the text
-                        lbl = page.locator("label").filter(
-                            has_text=target.text,
-                        ).first
+                        lbl = (
+                            page.locator("label")
+                            .filter(
+                                has_text=target.text,
+                            )
+                            .first
+                        )
                         if await lbl.count() > 0:
                             with contextlib.suppress(Exception):
                                 await lbl.scroll_into_view_if_needed(timeout=2000)
                             await lbl.click(timeout=3000)
                             return await self._act_at_pos(
-                                step, 0, 0, confidence=1.0,
+                                step,
+                                0,
+                                0,
+                                confidence=1.0,
                             )
                     except Exception:
                         logger.debug(
@@ -452,7 +522,10 @@ class StepExecutor:
                                 await txt.scroll_into_view_if_needed(timeout=2000)
                             await txt.click(timeout=3000)
                             return await self._act_at_pos(
-                                step, 0, 0, confidence=1.0,
+                                step,
+                                0,
+                                0,
+                                confidence=1.0,
                             )
                     except Exception:
                         logger.debug(
@@ -521,7 +594,10 @@ class StepExecutor:
                 for t in texts_to_try:
                     if await self._engine.force_click_by_text(t):
                         result = MatchResult(
-                            found=True, x=0, y=0, confidence=0.8,
+                            found=True,
+                            x=0,
+                            y=0,
+                            confidence=0.8,
                             method=MatchMethod.OCR,
                         )
                         if step.action == ActionType.FIND_AND_TYPE:
@@ -577,7 +653,10 @@ class StepExecutor:
 
         # Perform action at matched location
         return await self._act_at_pos(
-            step, match_result.x, match_result.y, match_result.confidence,
+            step,
+            match_result.x,
+            match_result.y,
+            match_result.confidence,
         )
 
     async def _do_click(

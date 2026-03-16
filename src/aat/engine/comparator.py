@@ -31,11 +31,19 @@ class Comparator:
             engine: BaseEngine instance for querying current state.
         """
         if expected.type == AssertType.TEXT_VISIBLE:
+            # 1. Try DOM text first
             page_text = await engine.get_page_text()
             if expected.case_insensitive:
                 found = expected.value.lower() in page_text.lower()
             else:
                 found = expected.value in page_text
+
+            # 2. Fallback: OCR on screenshot (Canvas/Flutter/WebGL)
+            if not found and hasattr(engine, "screenshot"):
+                found = await self._ocr_text_check(
+                    engine, expected.value, expected.case_insensitive
+                )
+
             if not found:
                 raise StepExecutionError(
                     f"Text '{expected.value}' not visible on page",
@@ -59,7 +67,9 @@ class Comparator:
         elif expected.type == AssertType.URL_CONTAINS:
             # Retry with short polling to handle post-navigation race condition
             current_url = await self._wait_for_url(
-                engine, expected.value, contains=True,
+                engine,
+                expected.value,
+                contains=True,
                 case_insensitive=expected.case_insensitive,
             )
             check_val = expected.value.lower() if expected.case_insensitive else expected.value
@@ -74,7 +84,9 @@ class Comparator:
         elif expected.type == AssertType.URL_NOT_CONTAINS:
             # Retry with short polling to handle post-navigation race condition
             current_url = await self._wait_for_url(
-                engine, expected.value, contains=False,
+                engine,
+                expected.value,
+                contains=False,
                 case_insensitive=expected.case_insensitive,
             )
             check_val = expected.value.lower() if expected.case_insensitive else expected.value
@@ -138,6 +150,28 @@ class Comparator:
             step=step.step,
             action="assert",
         )
+
+    @staticmethod
+    async def _ocr_text_check(
+        engine: BaseEngine,
+        text: str,
+        case_insensitive: bool = False,
+    ) -> bool:
+        """Fallback: check text via OCR on screenshot (for Canvas/Flutter)."""
+        try:
+            import pytesseract  # type: ignore[import-untyped]
+
+            screenshot = await engine.screenshot()
+            img_arr = np.frombuffer(screenshot, dtype=np.uint8)
+            img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return False
+            ocr_text: str = pytesseract.image_to_string(img)
+            if case_insensitive:
+                return text.lower() in ocr_text.lower()
+            return text in ocr_text
+        except Exception:
+            return False
 
     @staticmethod
     async def _wait_for_url(
