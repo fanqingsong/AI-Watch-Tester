@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path  # noqa: TC003
+from typing import Any
 
 from playwright.async_api import (
     Browser,
@@ -58,7 +59,7 @@ class WebEngine(BaseEngine):
                 raise EngineError(msg)
 
             launch_args = getattr(self, "_launch_args", None)
-            launch_kwargs: dict = {
+            launch_kwargs: dict[str, Any] = {
                 "headless": self._config.headless,
                 "args": launch_args or [],
             }

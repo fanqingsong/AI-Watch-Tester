@@ -200,21 +200,24 @@ def spec_cache_key(url: str, spec_text: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
-def get_cached_scenarios(cache_key: str, data_dir: str | Path = ".aat") -> list[dict] | None:
+def get_cached_scenarios(
+    cache_key: str, data_dir: str | Path = ".aat"
+) -> list[dict[str, Any]] | None:
     """Load cached scenarios if they exist."""
     cache_path = Path(data_dir) / "cache" / f"scenarios_{cache_key}.json"
     if not cache_path.exists():
         return None
     try:
         with open(cache_path, encoding="utf-8") as f:
-            return json.load(f)
+            result: list[dict[str, Any]] = json.load(f)
+            return result
     except (json.JSONDecodeError, OSError):
         return None
 
 
 def save_cached_scenarios(
     cache_key: str,
-    scenarios: list[dict],
+    scenarios: list[dict[str, Any]],
     data_dir: str | Path = ".aat",
 ) -> Path:
     """Save generated scenarios to cache."""

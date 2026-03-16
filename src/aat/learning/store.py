@@ -7,6 +7,7 @@ import logging
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path  # noqa: TC003
+from typing import Any
 
 from aat.core.exceptions import LearningError
 from aat.core.models import LearnedElement
@@ -279,7 +280,7 @@ class LearnedStore:
             msg = f"record_failure failed: {exc}"
             raise LearningError(msg) from exc
 
-    def find_similar_failure(self, error_type: str, action: str = "") -> dict | None:
+    def find_similar_failure(self, error_type: str, action: str = "") -> dict[str, Any] | None:
         """fix가 적용된 동일 유형의 실패 패턴을 반환한다."""
         try:
             cursor = self._conn.execute(
@@ -320,7 +321,7 @@ class LearnedStore:
             msg = f"mark_fix_applied failed: {exc}"
             raise LearningError(msg) from exc
 
-    def get_failure_stats(self) -> list[dict]:
+    def get_failure_stats(self) -> list[dict[str, Any]]:
         """실패 패턴 통계를 hit_count 내림차순으로 반환한다 (최대 20개)."""
         try:
             cursor = self._conn.execute(

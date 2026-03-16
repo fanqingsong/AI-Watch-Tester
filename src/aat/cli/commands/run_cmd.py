@@ -95,7 +95,7 @@ def _js_str(s: str) -> str:
 
 async def _overlay_init(page: object) -> None:
     with contextlib.suppress(Exception):
-        await page.evaluate(_OVERLAY_INIT_JS)  # type: ignore[union-attr]
+        await page.evaluate(_OVERLAY_INIT_JS)  # type: ignore[attr-defined]
 
 
 async def _overlay_update(
@@ -103,7 +103,7 @@ async def _overlay_update(
 ) -> None:
     try:
         js = _OVERLAY_UPDATE_JS % (_js_str(status), _js_str(detail), _js_str(color))
-        await page.evaluate(js)  # type: ignore[union-attr]
+        await page.evaluate(js)  # type: ignore[attr-defined]
     except Exception:
         pass
 
@@ -121,7 +121,7 @@ async def _overlay_finish(
             color = "'#4ade80'"
             border = "'#22c55e'"
         js = _OVERLAY_REMOVE_JS % (border, _js_str(msg), color, wait_ms)
-        await page.evaluate(js)  # type: ignore[union-attr]
+        await page.evaluate(js)  # type: ignore[attr-defined]
         await asyncio.sleep(wait_ms / 1000 + 0.5)
     except Exception:
         pass
@@ -233,11 +233,11 @@ async def _run(scenarios_path: str, config_path: str | None, slow_mo_override: i
             try:
                 pages = engine._context.pages
                 if pages:
-                    return pages[-1]  # Latest (most recently opened) tab
+                    return pages[-1]  # type: ignore[no-any-return]  # Latest (most recently opened) tab
             except Exception:
                 pass
             try:
-                return engine.page
+                return engine.page  # type: ignore[no-any-return]
             except Exception:
                 return None
 

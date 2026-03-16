@@ -8,10 +8,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
 from aat.core.config import load_config
+
+if TYPE_CHECKING:
+    from aat.core.models import Config
 
 _IS_MAC = platform.system() == "Darwin"
 _IS_LINUX = platform.system() == "Linux"
@@ -144,7 +148,7 @@ def _check_opencv() -> bool:
         return False
 
 
-def _check_config() -> tuple[bool, object | None]:
+def _check_config() -> tuple[bool, Config | None]:
     try:
         config = load_config()
         config_path = Path.cwd() / "aat.config.yaml"
@@ -160,14 +164,14 @@ def _check_config() -> tuple[bool, object | None]:
         return False, None
 
 
-def _check_ai_provider(config: object | None) -> bool:
+def _check_ai_provider(config: Config | None) -> bool:
     if config is None:
         _warn("AI Provider — skipped (no config)")
         return False
 
-    provider = config.ai.provider  # type: ignore[union-attr]
-    api_key = config.ai.api_key  # type: ignore[union-attr]
-    model = config.ai.model  # type: ignore[union-attr]
+    provider = config.ai.provider
+    api_key = config.ai.api_key
+    model = config.ai.model
 
     if provider == "ollama":
         _ok(f"AI Provider: {provider} ({model}) — free, offline")
@@ -175,7 +179,7 @@ def _check_ai_provider(config: object | None) -> bool:
         try:
             from aat.core.connection import test_ai_connection
 
-            success, msg = asyncio.run(test_ai_connection(config.ai))  # type: ignore[union-attr]
+            success, msg = asyncio.run(test_ai_connection(config.ai))
             if success:
                 _ok(f"  Connection: {msg}")
             else:
@@ -197,7 +201,7 @@ def _check_ai_provider(config: object | None) -> bool:
     try:
         from aat.core.connection import test_ai_connection
 
-        success, msg = asyncio.run(test_ai_connection(config.ai))  # type: ignore[union-attr]
+        success, msg = asyncio.run(test_ai_connection(config.ai))
         if success:
             _ok(f"  Connection: {msg}")
         else:

@@ -123,8 +123,12 @@ class FeatureMatcher(BaseMatcher):
         )
 
         # RANSAC 호모그래피로 정확한 위치 추정 (반복 패턴 오검출 방지)
-        src_pts = np.float32([kp_tmpl[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp_screen[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        src_pts = np.array(
+            [kp_tmpl[m.queryIdx].pt for m in good_matches], dtype=np.float32
+        ).reshape(-1, 1, 2)
+        dst_pts = np.array(
+            [kp_screen[m.trainIdx].pt for m in good_matches], dtype=np.float32
+        ).reshape(-1, 1, 2)
 
         h_matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
@@ -132,14 +136,16 @@ class FeatureMatcher(BaseMatcher):
         if h_matrix is not None:
             # 템플릿 코너를 스크린샷 공간으로 변환하여 바운딩 박스 계산
             h_tmpl, w_tmpl = tmpl_gray.shape[:2]
-            corners = np.float32(
-                [[0, 0], [w_tmpl, 0], [w_tmpl, h_tmpl], [0, h_tmpl]]
+            corners = np.array(
+                [[0, 0], [w_tmpl, 0], [w_tmpl, h_tmpl], [0, h_tmpl]], dtype=np.float32
             ).reshape(-1, 1, 2)
             transformed = cv2.perspectiveTransform(corners, h_matrix)
             pts = transformed.reshape(-1, 2)
 
-            x_min, y_min = pts.min(axis=0).astype(int)
-            x_max, y_max = pts.max(axis=0).astype(int)
+            _min = pts.min(axis=0).astype(int)
+            _max = pts.max(axis=0).astype(int)
+            x_min, y_min = int(_min[0]), int(_min[1])
+            x_max, y_max = int(_max[0]), int(_max[1])
             w = x_max - x_min
             h = y_max - y_min
 
