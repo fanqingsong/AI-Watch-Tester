@@ -26,6 +26,18 @@ AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트�
 - 순환 의존 금지: cli → core → engine/matchers/adapters/reporters → models
 - 플러그인 레지스트리: 각 __init__.py의 딕셔너리 기반
 
+## 작업 완료 절차
+
+코드를 수정한 모든 작업은 아래 절차를 완료한 후에만 "완료"로 보고한다:
+
+1. 로컬 테스트 실행 (관련 테스트가 있는 경우)
+2. `git commit` & `git push`
+3. GitHub Actions CI 통과 확인 (`gh run list --limit 1`으로 status 확인)
+4. CI가 실패하면 에러를 수정하고 1번부터 반복
+5. CI가 `"completed/success"`일 때만 작업 완료 보고
+
+커밋은 Phase나 기능 단위로 나눠서 한다. 한 번에 10개 이상 파일을 변경하는 커밋은 피한다.
+
 ## Commands
 
 - `make dev` — 개발 환경 설치
