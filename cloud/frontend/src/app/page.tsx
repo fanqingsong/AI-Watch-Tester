@@ -481,6 +481,56 @@ export default async function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* SKILL MODE vs CLI MODE                                        */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50 px-4 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <span className="mb-3 inline-block font-mono text-xs uppercase tracking-widest text-blue-600">
+              Modes
+            </span>
+            <h2 className="mb-4 text-2xl font-bold text-gray-900 sm:text-3xl">
+              {t("skillTitle")}
+            </h2>
+            <p className="text-sm text-gray-500">{t("skillDesc")}</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Skill Mode — highlighted */}
+            <div className="relative flex flex-col rounded-xl border-2 border-blue-500 bg-blue-50/30 p-6">
+              <span className="absolute -top-3 left-4 rounded-full bg-blue-600 px-3 py-0.5 text-xs font-bold text-white">
+                {t("skillModeBadge")}
+              </span>
+              <h3 className="mb-2 text-lg font-bold text-gray-900">{t("skillModeTitle")}</h3>
+              <p className="mb-4 text-sm text-gray-500">{t("skillModeDesc")}</p>
+              <ul className="flex-1 space-y-2">
+                {["skillModeFeat1", "skillModeFeat2", "skillModeFeat3", "skillModeFeat4", "skillModeFeat5"].map((key) => (
+                  <li key={key} className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="mt-0.5 text-blue-600">✓</span>
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* CLI Mode */}
+            <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-6">
+              <h3 className="mb-2 text-lg font-bold text-gray-900">{t("cliModeTitle")}</h3>
+              <p className="mb-4 text-sm text-gray-500">{t("cliModeDesc")}</p>
+              <ul className="flex-1 space-y-2">
+                {["cliModeFeat1", "cliModeFeat2", "cliModeFeat3", "cliModeFeat4", "cliModeFeat5"].map((key) => (
+                  <li key={key} className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="mt-0.5 text-green-600">✓</span>
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════ */}
       {/* TECH STACK                                                    */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       <section className="px-4 py-20">
