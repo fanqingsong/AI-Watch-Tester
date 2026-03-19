@@ -13,6 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="https://ai-watch-tester.vercel.app"><img src="https://img.shields.io/badge/Cloud-Try_Now-00d4aa?logo=vercel&logoColor=white" alt="Cloud"></a>
+  <a href="https://github.com/ksgisang/awt-skill"><img src="https://img.shields.io/badge/Agent_Skill-Available-brightgreen?logo=npm&logoColor=white" alt="Agent Skill"></a>
   <a href="https://github.com/ksgisang/AI-Watch-Tester/stargazers"><img src="https://img.shields.io/github/stars/ksgisang/AI-Watch-Tester?style=flat&logo=github" alt="GitHub Stars"></a>
 </p>
 
@@ -42,19 +43,19 @@ No test code. No recording. No manual maintenance.
 
 ---
 
-## Cloud Version vs Local CLI
+## Three Ways to Use AWT
 
-AWT ships in two modes. Pick one — or use both.
+Pick one — or use all three.
 
-| | **Cloud** | **Local CLI** |
-|---|-----------|---------------|
-| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 |
-| **Install** | None — just sign up | `pip install aat-devqa` |
-| **Browser** | Headless Chromium on server | Real Chromium on your machine |
-| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) |
-| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use |
-| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) |
-| **Data** | Stored on our servers | Never leaves your machine |
+| | **Cloud** | **Local CLI** | **Agent Skill** |
+|---|-----------|---------------|-----------------|
+| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 | Works inside your AI coding tool |
+| **Install** | None — just sign up | `pip install aat-devqa` | `npx skills add ksgisang/awt-skill` |
+| **Browser** | Headless Chromium on server | Real Chromium on your machine | Real Chromium on your machine |
+| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) | **None needed** — your AI tool is the brain |
+| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use | AI-assisted dev with integrated testing |
+| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) | Free forever |
+| **Data** | Stored on our servers | Never leaves your machine | Never leaves your machine |
 
 ### Cloud — Start in 30 seconds
 
@@ -78,6 +79,19 @@ aat dashboard                    # http://localhost:9500
 aat start                        # guided mode
 aat generate --url https://example.com --provider openai
 aat run scenarios/
+```
+
+### Agent Skill — Let your AI coding tool drive
+
+AWT is also available as an [Agent Skill](https://github.com/ksgisang/awt-skill) for AI coding tools like Claude Code, Cursor, Codex, and [11+ others](https://github.com/ksgisang/awt-skill#supported-ai-coding-tools). Your AI tool writes YAML scenarios and runs AWT — **no extra AI API key needed**.
+
+```bash
+# Install globally (one-line)
+npx skills add ksgisang/awt-skill --skill awt -g
+
+# Then just ask your AI coding tool:
+# "Test the login flow on https://mysite.com"
+# → It writes scenarios, runs aat, reads results, and fixes failures automatically.
 ```
 
 ### From Source
@@ -106,6 +120,7 @@ aat dashboard     # launch web UI
 | :key: | **BYOK** | Bring your own AI API key (OpenAI, Anthropic, Ollama) — encrypted at rest |
 | :test_tube: | **CI/CD Ready** | One-line `curl` integration with any pipeline |
 | :jigsaw: | **Plugin Architecture** | Engines, matchers, AI adapters, and reporters are all swappable via registries |
+| :wrench: | **[Agent Skill](https://github.com/ksgisang/awt-skill)** | Use AWT inside Claude Code, Cursor, Codex, and 11+ AI coding tools — no extra AI key needed |
 
 ---
 
