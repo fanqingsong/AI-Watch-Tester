@@ -495,8 +495,8 @@ export default async function LandingPage() {
             <p className="text-sm text-gray-500">{t("skillDesc")}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* Skill Mode — highlighted */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {/* Agent Skill — highlighted */}
             <div className="relative flex flex-col rounded-xl border-2 border-blue-500 bg-blue-50/30 p-6">
               <span className="absolute -top-3 left-4 rounded-full bg-blue-600 px-3 py-0.5 text-xs font-bold text-white">
                 {t("skillModeBadge")}
@@ -507,6 +507,31 @@ export default async function LandingPage() {
                 {["skillModeFeat1", "skillModeFeat2", "skillModeFeat3", "skillModeFeat4", "skillModeFeat5"].map((key) => (
                   <li key={key} className="flex items-start gap-2 text-sm text-gray-600">
                     <span className="mt-0.5 text-blue-600">✓</span>
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 rounded-lg bg-gray-900 p-3">
+                <code className="text-xs text-green-400 break-all">{t("skillModeInstall")}</code>
+              </div>
+              <a
+                href={t("skillModeLink")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 text-center text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                View on GitHub →
+              </a>
+            </div>
+
+            {/* Cloud Mode */}
+            <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-6">
+              <h3 className="mb-2 text-lg font-bold text-gray-900">{t("cloudModeTitle")}</h3>
+              <p className="mb-4 text-sm text-gray-500">{t("cloudModeDesc")}</p>
+              <ul className="flex-1 space-y-2">
+                {["cloudModeFeat1", "cloudModeFeat2", "cloudModeFeat3", "cloudModeFeat4", "cloudModeFeat5"].map((key) => (
+                  <li key={key} className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="mt-0.5 text-teal-500">✓</span>
                     {t(key)}
                   </li>
                 ))}
