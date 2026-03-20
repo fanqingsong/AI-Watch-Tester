@@ -652,7 +652,7 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                 "steps_total": total_steps,
             })
 
-        # -- Build matcher + executor --
+        # -- Build matcher + executor (3-tier hybrid matching) --
         matching_config = MatchingConfig()
         matchers = []
         for name in ["template", "ocr"]:
@@ -662,6 +662,16 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
                     matchers.append(matcher_cls(matching_config))
                 except Exception:
                     logger.debug("Matcher %s not available, skipping", name)
+
+        # Tier 3: Vision AI matcher (Claude Vision API fallback)
+        try:
+            from aat.matchers.vision_ai import VisionAIMatcher
+            matchers.append(VisionAIMatcher(
+                ai_config=ai_config,
+                matching_config=matching_config,
+            ))
+        except Exception:
+            logger.debug("VisionAIMatcher not available, skipping")
 
         hybrid = HybridMatcher(matchers, matching_config) if matchers else None
 
