@@ -215,6 +215,51 @@ def format_diagnosis(
     return "\n".join(lines)
 
 
+def format_skill_diagnosis(
+    context: dict[str, Any],
+    scenario_file: str = "",
+    attempt: int = 1,
+    max_attempts: int = 5,
+) -> str:
+    """Format diagnosis as structured block for AI coding assistants.
+
+    Output is a machine-readable block that Claude Code, Gemini Code Assist,
+    GitHub Copilot, and other AI tools can parse and act on.
+    """
+    # Infer possible cause from failure type
+    cause_map = {
+        "element_not_found": "Target text/selector changed or not yet rendered",
+        "timeout": "Page/element load exceeded timeout",
+        "navigation_error": "URL unreachable — check server",
+        "auth_error": "Auth failed — wrong credentials or expired session",
+        "server_error": "Server returned 5xx — check server logs",
+        "selector_changed": "CSS selector no longer matches — UI updated",
+        "assertion_failed": "Expected content not found on page",
+        "unknown": "Unexpected error — check screenshot",
+    }
+    ftype = context.get("failure_type", "unknown")
+    possible_cause = cause_map.get(ftype, cause_map["unknown"])
+
+    lines = [
+        "",
+        "=== AWT SKILL DEVQA ===",
+        f"SCENARIO: {scenario_file}",
+        f"FAILED_STEP: {context.get('step', '?')} - {context.get('action', '?')}",
+        f"ERROR: {context.get('error', 'unknown')}",
+        f"SCREENSHOT: {context.get('screenshot', 'N/A')}",
+        f"URL: {context.get('url', 'N/A')}",
+        f"PAGE_TITLE: {context.get('page_title', 'N/A')}",
+        f"CATEGORY: {ftype}",
+        f"POSSIBLE_CAUSE: {possible_cause}",
+        f"FIX_TARGET: {scenario_file}",
+        f"RETRY_CMD: aat run --skill-mode {scenario_file}",
+        f"ATTEMPTS: {attempt}/{max_attempts}",
+        "=======================",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def check_learned_hint(
     store: LearnedStore | None,
     failure_type: str,

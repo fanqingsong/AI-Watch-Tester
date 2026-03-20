@@ -14,6 +14,7 @@ from aat.core.diagnosis import (
     check_learned_hint,
     collect_failure_context,
     format_diagnosis,
+    format_skill_diagnosis,
 )
 from aat.core.exceptions import AATError
 from aat.core.models import Scenario, StepStatus
@@ -184,10 +185,15 @@ def run_command(
         "--learn",
         help="Learn from fixes: record previously failed steps that now pass.",
     ),
+    skill_mode: bool = typer.Option(
+        False,
+        "--skill-mode",
+        help="Output structured diagnosis for AI coding assistants (Claude Code, Copilot, etc.).",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
-        asyncio.run(_run(scenarios_path, config_path, slow_mo, learn))
+        asyncio.run(_run(scenarios_path, config_path, slow_mo, learn, skill_mode))
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -198,6 +204,7 @@ async def _run(
     config_path: str | None,
     slow_mo_override: int | None,
     learn_mode: bool = False,
+    skill_mode: bool = False,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Load config
@@ -252,6 +259,23 @@ async def _run(
     waiter = Waiter()
     comparator = Comparator()
     executor = StepExecutor(engine, hybrid, humanizer, waiter, comparator)
+
+    # Skill-mode attempt tracking
+    skill_attempt = 1
+    skill_max_attempts = 5
+    if skill_mode:
+        skill_state_path = Path(config.data_dir) / "skill_attempts.json"
+        try:
+            if skill_state_path.exists():
+                import json as _sjson
+
+                state = _sjson.loads(skill_state_path.read_text("utf-8"))
+                if state.get("scenario") == scenarios_path:
+                    skill_attempt = state.get("attempt", 0) + 1
+                else:
+                    skill_attempt = 1  # Different scenario, reset
+        except Exception:
+            pass
 
     total_passed = 0
     total_failed = 0
@@ -412,6 +436,15 @@ async def _run(
                         except Exception:
                             pass
                         typer.echo(format_diagnosis(diag, str(path), learned_hint))
+
+                        # Skill-mode: structured block for AI coding assistants
+                        if skill_mode:
+                            typer.echo(format_skill_diagnosis(
+                                diag,
+                                scenario_file=str(path),
+                                attempt=skill_attempt,
+                                max_attempts=skill_max_attempts,
+                            ))
                     except Exception:
                         pass  # diagnosis is best-effort
 
@@ -454,13 +487,53 @@ async def _run(
     if learn_mode:
         _learn_from_fixes(config.data_dir, scenarios_path, run_data)
 
+    # -- Skill-mode: save attempt state + cloud recommendation ----------------
+    if skill_mode:
+        _save_skill_attempt(config.data_dir, scenarios_path, skill_attempt, total_failed)
+
     if total_failed > 0 or total_skipped > 0:
         raise typer.Exit(code=1)
+    elif skill_mode:
+        # All passed — reset attempt counter
+        _save_skill_attempt(config.data_dir, scenarios_path, 0, 0)
+
+
+# -- Skill-mode helpers ----------------------------------------------------
+
+import json as _json  # noqa: E402
+
+
+def _save_skill_attempt(
+    data_dir: str,
+    scenarios_path: str,
+    attempt: int,
+    total_failed: int,
+) -> None:
+    """Save skill-mode attempt state for cross-invocation tracking."""
+    state_dir = Path(data_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_path = state_dir / "skill_attempts.json"
+    state_path.write_text(
+        _json.dumps(
+            {"scenario": scenarios_path, "attempt": attempt},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    # Cloud recommendation after 3+ failures
+    if attempt >= 3 and total_failed > 0:
+        typer.echo()
+        typer.echo(
+            typer.style(
+                "  Repeated failures detected. AWT Cloud provides dedicated AI\n"
+                "  that analyzes more accurately. → https://awt.dev",
+                fg=typer.colors.YELLOW,
+            )
+        )
 
 
 # -- Learning helpers ------------------------------------------------------
-
-import json as _json  # noqa: E402
 
 
 def _save_run_result(
