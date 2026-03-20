@@ -314,13 +314,31 @@ async def _loop(
         raise AATError(msg)
     engine = engine_cls(config.engine)
 
-    # Assemble matchers
-    matchers = [
-        MATCHER_REGISTRY[m.value](config.matching)  # type: ignore[call-arg]
-        for m in config.matching.chain_order
-        if m.value in MATCHER_REGISTRY
-    ]
-    hybrid = HybridMatcher(matchers, config.matching)
+    # Assemble matchers (3-tier hybrid with Vision AI)
+    matchers = []
+    for m in config.matching.chain_order:
+        if m.value not in MATCHER_REGISTRY:
+            continue
+        if m.value == "vision_ai":
+            vis = MATCHER_REGISTRY[m.value](  # type: ignore[call-arg]
+                ai_config=config.ai,
+                matching_config=config.matching,
+            )
+            matchers.append(vis)
+        else:
+            matchers.append(MATCHER_REGISTRY[m.value](config.matching))  # type: ignore[call-arg]
+    if not any(m.name == "vision_ai" for m in matchers):
+        from aat.matchers.vision_ai import VisionAIMatcher
+
+        matchers.append(VisionAIMatcher(ai_config=config.ai, matching_config=config.matching))
+    learned_store = None
+    try:
+        from aat.learning.store import LearnedStore
+
+        learned_store = LearnedStore(Path(config.data_dir) / "learned.db")
+    except Exception:
+        pass
+    hybrid = HybridMatcher(matchers, config.matching, learned_store=learned_store)
 
     # Assemble executor
     humanizer = Humanizer(config.humanizer)

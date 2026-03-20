@@ -60,19 +60,20 @@ class OCRMatcher(BaseMatcher):
         if screen_bgr is None:
             return None
 
-        # Preprocessing
+        # Preprocessing — enhanced for Canvas/CanvasKit rendered text
         gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
 
-        # 1. Upscale 2x for small text
-        h_img, w_img = gray.shape
-        gray = cv2.resize(gray, (w_img * 2, h_img * 2), interpolation=cv2.INTER_CUBIC)
-
-        # 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # 1. CLAHE with stronger contrast (clipLimit=3.0 for Canvas text)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         gray = clahe.apply(gray)
 
-        # 3. Mild denoising (preserve edges)
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        # 2. Sharpening filter (enhances edges of pixel-rendered text)
+        sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
+        gray = cv2.filter2D(gray, -1, sharpen_kernel)
+
+        # 3. Upscale 2x for small text
+        h_img, w_img = gray.shape
+        gray = cv2.resize(gray, (w_img * 2, h_img * 2), interpolation=cv2.INTER_CUBIC)
 
         lang = "+".join(self._config.ocr_languages)
 
@@ -80,6 +81,7 @@ class OCRMatcher(BaseMatcher):
             data: dict[str, list[Any]] = pytesseract.image_to_data(
                 gray,
                 lang=lang,
+                config="--oem 3",
                 output_type=pytesseract.Output.DICT,
             )
         except Exception as e:

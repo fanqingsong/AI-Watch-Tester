@@ -643,9 +643,23 @@ class StepExecutor:
                     await self._engine.press_key("Delete")
                 return result
 
-        # Fallback: screenshot + matcher pipeline (OCR/template/feature)
+        # Fallback: screenshot + 3-tier matcher pipeline
         screenshot = await self._engine.screenshot()
-        match_result = await self._matcher.find(target, screenshot)
+
+        # Use find_with_options if HybridMatcher (3-tier system)
+        from aat.matchers.hybrid import HybridMatcher
+
+        if isinstance(self._matcher, HybridMatcher):
+            match_result = await self._matcher.find_with_options(
+                target,
+                screenshot,
+                method=step.method.value,
+                fallback=step.fallback,
+                learn=step.learn,
+            )
+        else:
+            match_result = await self._matcher.find(target, screenshot)
+
         if match_result is None or not match_result.found:
             target_desc = target.image or target.text or "unknown"
             msg = f"Target '{target_desc}' not found"

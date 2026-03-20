@@ -160,6 +160,7 @@ class TestMatchingConfig:
             MatchMethod.TEMPLATE,
             MatchMethod.OCR,
             MatchMethod.FEATURE,
+            MatchMethod.VISION_AI,
         ]
 
     def test_custom_chain_order(self) -> None:

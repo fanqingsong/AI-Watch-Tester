@@ -73,6 +73,23 @@ _CREATE_IDX_PLATFORMS = (
     "CREATE INDEX IF NOT EXISTS idx_platform_key ON platform_patterns(platform_key);"
 )
 
+_CREATE_TABLE_MATCH_HISTORY = """\
+CREATE TABLE IF NOT EXISTS match_history (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_name     TEXT NOT NULL,
+    method          TEXT NOT NULL,
+    success         INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL DEFAULT 0.0,
+    elapsed_ms      REAL DEFAULT 0.0,
+    tier            INTEGER DEFAULT 1,
+    created_at      TEXT NOT NULL
+);
+"""
+
+_CREATE_IDX_MATCH_HISTORY = (
+    "CREATE INDEX IF NOT EXISTS idx_match_target ON match_history(target_name, method);"
+)
+
 
 def _row_to_element(row: sqlite3.Row) -> LearnedElement:
     """Convert a sqlite3.Row to a LearnedElement."""
@@ -108,6 +125,8 @@ class LearnedStore:
             self._conn.execute(_CREATE_IDX_FAILURES)
             self._conn.execute(_CREATE_TABLE_PLATFORMS)
             self._conn.execute(_CREATE_IDX_PLATFORMS)
+            self._conn.execute(_CREATE_TABLE_MATCH_HISTORY)
+            self._conn.execute(_CREATE_IDX_MATCH_HISTORY)
             self._conn.commit()
         except sqlite3.Error as exc:
             msg = f"Failed to open database: {db_path}"
@@ -531,6 +550,90 @@ class LearnedStore:
             }
             for row in cursor.fetchall()
         ]
+
+    # -- Match History ---------------------------------------------------------
+
+    def record_match(
+        self,
+        target_name: str,
+        method: str,
+        success: bool,
+        confidence: float = 0.0,
+        elapsed_ms: float = 0.0,
+        tier: int = 1,
+    ) -> None:
+        """Record a match attempt result for learning."""
+        now = datetime.now(UTC).isoformat()
+        try:
+            self._conn.execute(
+                """\
+                INSERT INTO match_history
+                    (target_name, method, success, confidence, elapsed_ms, tier, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (target_name, method, 1 if success else 0, confidence, elapsed_ms, tier, now),
+            )
+            self._conn.commit()
+        except sqlite3.Error as exc:
+            logger.warning("record_match failed: %s", exc)
+
+    def get_best_method(self, target_name: str) -> str | None:
+        """Get the most successful method for a target (by success rate, then speed).
+
+        Returns method name or None if no history.
+        """
+        try:
+            cursor = self._conn.execute(
+                """\
+                SELECT method,
+                       SUM(success) AS wins,
+                       COUNT(*) AS total,
+                       AVG(elapsed_ms) AS avg_ms
+                FROM match_history
+                WHERE target_name = ?
+                GROUP BY method
+                HAVING wins > 0
+                ORDER BY CAST(wins AS REAL) / total DESC, avg_ms ASC
+                LIMIT 1
+                """,
+                (target_name,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return str(row["method"])
+        except sqlite3.Error as exc:
+            logger.warning("get_best_method failed: %s", exc)
+        return None
+
+    def get_match_stats(self) -> list[dict[str, Any]]:
+        """Get match history stats grouped by target and method."""
+        try:
+            cursor = self._conn.execute(
+                """\
+                SELECT target_name, method,
+                       SUM(success) AS wins,
+                       COUNT(*) AS total,
+                       AVG(confidence) AS avg_conf,
+                       AVG(elapsed_ms) AS avg_ms
+                FROM match_history
+                GROUP BY target_name, method
+                ORDER BY target_name, wins DESC
+                """
+            )
+            return [
+                {
+                    "target": row["target_name"],
+                    "method": row["method"],
+                    "wins": row["wins"],
+                    "total": row["total"],
+                    "avg_confidence": round(row["avg_conf"], 3),
+                    "avg_ms": round(row["avg_ms"], 1),
+                }
+                for row in cursor.fetchall()
+            ]
+        except sqlite3.Error as exc:
+            logger.warning("get_match_stats failed: %s", exc)
+            return []
 
     def close(self) -> None:
         """Close the database connection."""

@@ -158,6 +158,7 @@ class MatchingConfig(BaseModel):
             MatchMethod.TEMPLATE,
             MatchMethod.OCR,
             MatchMethod.FEATURE,
+            MatchMethod.VISION_AI,
         ],
     )
 
@@ -247,6 +248,15 @@ class ExpectedResult(BaseModel):
     case_insensitive: bool = Field(default=False)
 
 
+class FindMethod(StrEnum):
+    """find_and_click matching method preference."""
+
+    AUTO = "auto"
+    TEMPLATE = "template"
+    OCR = "ocr"
+    VISION = "vision"
+
+
 class StepConfig(BaseModel):
     """Individual test step within a scenario."""
 
@@ -256,6 +266,18 @@ class StepConfig(BaseModel):
     value: str | None = Field(default=None)
     description: str = Field(..., min_length=1)
     humanize: bool = Field(default=True)
+    method: FindMethod = Field(
+        default=FindMethod.AUTO,
+        description="Matching method: auto (3-tier fallback), template, ocr, vision",
+    )
+    learn: bool = Field(
+        default=True,
+        description="Save successful match to pattern DB for future runs",
+    )
+    fallback: bool = Field(
+        default=True,
+        description="Allow tier fallback when specific method fails",
+    )
 
     @field_validator("humanize", mode="before")
     @classmethod
