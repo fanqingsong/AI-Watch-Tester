@@ -14,12 +14,17 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import cv2
+import numpy as np
+
 from aat.core.exceptions import MatchError, StepExecutionError
 from aat.core.models import (
     FIND_ACTIONS,
     ActionType,
+    ScreenRegion,
     StepResult,
     StepStatus,
+    compute_region_bounds,
 )
 
 if TYPE_CHECKING:
@@ -127,6 +132,7 @@ class StepExecutor:
         self._matcher = matcher
         self._humanizer = humanizer
         self._waiter = waiter
+        self._last_screenshot: bytes | None = None  # for assert_screen_changed
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
 
@@ -148,6 +154,10 @@ class StepExecutor:
             # 1. screenshot_before
             if step.screenshot_before:
                 screenshots["before"] = await self._save_screenshot("before")
+
+            # Capture screenshot before action (for assert_screen_changed)
+            with contextlib.suppress(Exception):
+                self._last_screenshot = await self._engine.screenshot()
 
             # 2. Execute action
             match_result = await self._dispatch_action(step)
@@ -246,6 +256,8 @@ class StepExecutor:
 
         elif step.action == ActionType.TYPE_TEXT:
             await self._do_type(step.value or "", step.humanize)
+            if step.verify and step.value:
+                await self._verify_text_on_screen(step.value, step.region, step.message)
 
         elif step.action == ActionType.PRESS_KEY:
             await self._engine.press_key(step.value or "")
@@ -256,6 +268,13 @@ class StepExecutor:
 
         elif step.action == ActionType.ASSERT:
             await self._comparator.check_assert(step, self._engine)
+
+        elif step.action == ActionType.ASSERT_TEXT:
+            target_text = (step.target.text if step.target else None) or step.value or ""
+            await self._verify_text_on_screen(target_text, step.region, step.message)
+
+        elif step.action == ActionType.ASSERT_SCREEN_CHANGED:
+            await self._check_screen_changed(step.threshold, step.region, step.message)
 
         elif step.action == ActionType.WAIT:
             await asyncio.sleep(int(step.value or "1000") / 1000)
@@ -661,30 +680,48 @@ class StepExecutor:
         # Fallback: screenshot + 3-tier matcher pipeline
         screenshot = await self._engine.screenshot()
 
+        # Region cropping: restrict search area
+        region_offset_x, region_offset_y = 0, 0
+        search_screenshot = screenshot
+        if step.region != ScreenRegion.FULL:
+            cropped, region_offset_x, region_offset_y = _crop_screenshot(
+                screenshot,
+                step.region,
+                self._get_viewport_size(),
+            )
+            if cropped is not None:
+                search_screenshot = cropped
+
         # Use find_with_options if HybridMatcher (3-tier system)
         from aat.matchers.hybrid import HybridMatcher
 
         if isinstance(self._matcher, HybridMatcher):
             match_result = await self._matcher.find_with_options(
                 target,
-                screenshot,
+                search_screenshot,
                 method=step.method.value,
                 fallback=step.fallback,
                 learn=step.learn,
             )
         else:
-            match_result = await self._matcher.find(target, screenshot)
+            match_result = await self._matcher.find(target, search_screenshot)
 
         if match_result is None or not match_result.found:
             target_desc = target.image or target.text or "unknown"
-            msg = f"Target '{target_desc}' not found"
+            rgn = step.region
+            region_hint = f" (region={rgn.value})" if rgn != ScreenRegion.FULL else ""
+            msg = f"Target '{target_desc}' not found{region_hint}"
             raise MatchError(msg)
+
+        # Adjust coordinates back to full viewport if region was cropped
+        abs_x = match_result.x + region_offset_x
+        abs_y = match_result.y + region_offset_y
 
         # Perform action at matched location
         return await self._act_at_pos(
             step,
-            match_result.x,
-            match_result.y,
+            abs_x,
+            abs_y,
             match_result.confidence,
         )
 
@@ -790,3 +827,161 @@ class StepExecutor:
         path = self._screenshot_dir / filename
         await self._engine.save_screenshot(path)
         return str(path)
+
+    def _get_viewport_size(self) -> tuple[int, int]:
+        """Get viewport width and height from engine config."""
+        try:
+            vw = getattr(self._engine, "_config", None)
+            w = int(getattr(vw, "viewport_width", 1280)) if vw else 1280
+            h = int(getattr(vw, "viewport_height", 720)) if vw else 720
+        except (TypeError, ValueError):
+            w, h = 1280, 720
+        return w, h
+
+    async def _verify_text_on_screen(
+        self,
+        text: str,
+        region: ScreenRegion = ScreenRegion.FULL,
+        message: str = "",
+    ) -> None:
+        """Verify text exists on screen via OCR (region-aware)."""
+        import pytesseract  # type: ignore[import-untyped]
+
+        screenshot = await self._engine.screenshot()
+
+        # Crop to region
+        if region != ScreenRegion.FULL:
+            cropped, _, _ = _crop_screenshot(
+                screenshot, region, self._get_viewport_size()
+            )
+            if cropped is not None:
+                screenshot = cropped
+
+        img_arr = np.frombuffer(screenshot, dtype=np.uint8)
+        img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            raise StepExecutionError(
+                message or "Failed to decode screenshot for text verification",
+                step=0,
+                action="assert_text",
+            )
+
+        # Enhanced preprocessing for Canvas text
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        img = clahe.apply(img)
+        h, w = img.shape
+        img = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+
+        ocr_text: str = pytesseract.image_to_string(img, config="--oem 3")
+        search = text.strip().lower()
+        if search not in ocr_text.lower():
+            err = message or (
+                f"Text '{text}' not found in "
+                f"region={region.value} via OCR"
+            )
+            raise StepExecutionError(err, step=0, action="assert_text")
+
+        logger.info(
+            "assert_text: '%s' found in region=%s",
+            text,
+            region.value,
+        )
+
+    async def _check_screen_changed(
+        self,
+        threshold: float = 0.05,
+        region: ScreenRegion = ScreenRegion.FULL,
+        message: str = "",
+    ) -> None:
+        """Verify the screen changed since the last screenshot."""
+        current = await self._engine.screenshot()
+        previous = self._last_screenshot
+
+        if previous is None:
+            logger.warning("assert_screen_changed: no previous screenshot")
+            return  # Can't compare without baseline
+
+        vp = self._get_viewport_size()
+
+        # Decode both
+        prev_arr = np.frombuffer(previous, dtype=np.uint8)
+        curr_arr = np.frombuffer(current, dtype=np.uint8)
+        prev_img = cv2.imdecode(prev_arr, cv2.IMREAD_GRAYSCALE)
+        curr_img = cv2.imdecode(curr_arr, cv2.IMREAD_GRAYSCALE)
+
+        if prev_img is None or curr_img is None:
+            return
+
+        # Crop to region
+        if region != ScreenRegion.FULL:
+            rx, ry, rw, rh = compute_region_bounds(region, vp[0], vp[1])
+            prev_img = prev_img[ry : ry + rh, rx : rx + rw]
+            curr_img = curr_img[ry : ry + rh, rx : rx + rw]
+
+        # Resize to same dimensions if needed
+        if prev_img.shape != curr_img.shape:
+            curr_img = cv2.resize(
+                curr_img, (prev_img.shape[1], prev_img.shape[0])
+            )
+
+        # Compute pixel difference ratio
+        diff = cv2.absdiff(prev_img, curr_img)
+        changed_pixels = np.count_nonzero(diff > 25)
+        total_pixels = diff.size
+        change_ratio = changed_pixels / total_pixels if total_pixels > 0 else 0
+
+        logger.info(
+            "assert_screen_changed: %.2f%% pixels changed "
+            "(threshold=%.2f%%, region=%s)",
+            change_ratio * 100,
+            threshold * 100,
+            region.value,
+        )
+
+        if change_ratio < threshold:
+            err = message or (
+                f"Screen change {change_ratio:.1%} below threshold "
+                f"{threshold:.1%} in region={region.value}"
+            )
+            raise StepExecutionError(
+                err, step=0, action="assert_screen_changed"
+            )
+
+
+# -- Module-level helpers --------------------------------------------------
+
+
+def _crop_screenshot(
+    screenshot: bytes,
+    region: ScreenRegion,
+    viewport: tuple[int, int],
+) -> tuple[bytes | None, int, int]:
+    """Crop a screenshot to a named region.
+
+    Returns (cropped_png_bytes, offset_x, offset_y).
+    Returns (None, 0, 0) on failure.
+    """
+    try:
+        arr = np.frombuffer(screenshot, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            return None, 0, 0
+
+        h, w = img.shape[:2]
+        rx, ry, rw, rh = compute_region_bounds(region, w, h)
+
+        # Clamp to image bounds
+        rx = max(0, min(rx, w - 1))
+        ry = max(0, min(ry, h - 1))
+        rw = min(rw, w - rx)
+        rh = min(rh, h - ry)
+
+        if rw < 4 or rh < 4:
+            return None, 0, 0
+
+        cropped = img[ry : ry + rh, rx : rx + rw]
+        _, buf = cv2.imencode(".png", cropped)
+        return buf.tobytes(), rx, ry
+    except Exception:
+        logger.debug("Region crop failed", exc_info=True)
+        return None, 0, 0

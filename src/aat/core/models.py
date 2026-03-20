@@ -39,10 +39,24 @@ class ActionType(StrEnum):
     KEY_COMBO = "key_combo"
     # Assert
     ASSERT = "assert"
+    ASSERT_TEXT = "assert_text"
+    ASSERT_SCREEN_CHANGED = "assert_screen_changed"
     # Utility
     WAIT = "wait"
     SCREENSHOT = "screenshot"
     SCROLL = "scroll"
+
+
+class ScreenRegion(StrEnum):
+    """Screen region for restricting search/assert area."""
+
+    FULL = "full"
+    TOP = "top"
+    BOTTOM = "bottom"
+    LEFT = "left"
+    RIGHT = "right"
+    CENTER = "center"
+    MAIN = "main"
 
 
 class LabelPosition(StrEnum):
@@ -201,6 +215,43 @@ class Config(BaseSettings):
 # Scenario Models
 # ============================================================
 
+def compute_region_bounds(
+    region: ScreenRegion,
+    width: int,
+    height: int,
+) -> tuple[int, int, int, int]:
+    """Compute pixel bounds (x, y, w, h) for a named screen region.
+
+    Args:
+        region: Named region.
+        width: Viewport width in pixels.
+        height: Viewport height in pixels.
+
+    Returns:
+        Tuple of (x, y, crop_width, crop_height).
+    """
+    if region == ScreenRegion.FULL:
+        return 0, 0, width, height
+    if region == ScreenRegion.TOP:
+        return 0, 0, width, int(height * 0.3)
+    if region == ScreenRegion.BOTTOM:
+        y = int(height * 0.7)
+        return 0, y, width, height - y
+    if region == ScreenRegion.LEFT:
+        return 0, 0, int(width * 0.2), height
+    if region == ScreenRegion.RIGHT:
+        x = int(width * 0.2)
+        return x, 0, width - x, height
+    if region == ScreenRegion.CENTER:
+        x = int(width * 0.2)
+        y = int(height * 0.2)
+        return x, y, int(width * 0.6), int(height * 0.6)
+    if region == ScreenRegion.MAIN:
+        x = int(width * 0.2)
+        return x, 0, width - x, height
+    return 0, 0, width, height
+
+
 # Actions that require a target for image matching
 FIND_ACTIONS: frozenset[ActionType] = frozenset(
     {
@@ -277,6 +328,24 @@ class StepConfig(BaseModel):
     fallback: bool = Field(
         default=True,
         description="Allow tier fallback when specific method fails",
+    )
+    region: ScreenRegion = Field(
+        default=ScreenRegion.FULL,
+        description="Screen region to search: full, top, bottom, left, right, center, main",
+    )
+    threshold: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Change threshold for assert_screen_changed (0.0-1.0)",
+    )
+    verify: bool = Field(
+        default=False,
+        description="For type_text: verify typed text appears on screen via OCR",
+    )
+    message: str = Field(
+        default="",
+        description="Custom error message for assert_text / assert_screen_changed",
     )
 
     @field_validator("humanize", mode="before")
@@ -392,6 +461,9 @@ class StepConfig(BaseModel):
             raise ValueError(msg)
         if self.action == ActionType.NAVIGATE and not self.value:
             msg = "action=navigate requires value (URL)"
+            raise ValueError(msg)
+        if self.action == ActionType.ASSERT_TEXT and self.target is None:
+            msg = "action=assert_text requires a target (text to find)"
             raise ValueError(msg)
         return self
 
