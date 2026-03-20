@@ -406,6 +406,21 @@ class StepExecutor:
                 viewport_h,
             )
 
+        # Nav-zone warning: clicks in the left 20% are likely navigation
+        # panel hits, not main content — common False Positive source.
+        if 0 <= x <= viewport_w and 0 <= y <= viewport_h:
+            nav_boundary = viewport_w * 0.2
+            if x < nav_boundary:
+                logger.warning(
+                    "Click at (%d, %d) is in the LEFT 20%% of viewport "
+                    "(navigation zone, x < %d). This may be a nav panel "
+                    "element instead of main content — verify this is the "
+                    "intended target.",
+                    x,
+                    y,
+                    int(nav_boundary),
+                )
+
         result = MatchResult(
             found=True,
             x=x,

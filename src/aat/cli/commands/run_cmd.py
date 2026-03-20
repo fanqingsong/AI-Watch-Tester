@@ -17,7 +17,7 @@ from aat.core.diagnosis import (
     format_skill_diagnosis,
 )
 from aat.core.exceptions import AATError
-from aat.core.models import Scenario, StepStatus
+from aat.core.models import FIND_ACTIONS, Scenario, StepStatus
 from aat.core.platform_detect import detect_platform, format_platform_info
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
@@ -284,6 +284,7 @@ async def _run(
     passed_scenarios: set[str] = set()
     failed_scenarios: set[str] = set()
     all_results: list[dict[str, str]] = []  # step-level results for learning
+    nav_warnings: list[str] = []  # nav-zone click warnings for skill-mode
     platform_detected = False
     try:
         await engine.start()
@@ -420,6 +421,31 @@ async def _run(
                 if result.error_message:
                     typer.echo(f"    Error: {result.error_message}")
 
+                # Nav-zone warning: click in left 20% is likely nav panel
+                nav_warning = ""
+                if (
+                    result.match_result is not None
+                    and result.match_result.found
+                    and step.action in FIND_ACTIONS
+                ):
+                    mr = result.match_result
+                    vw = config.engine.viewport_width
+                    nav_boundary = vw * 0.2
+                    if 0 < mr.x < nav_boundary:
+                        nav_warning = (
+                            f"Step {step.step}: click at x={mr.x} is in "
+                            f"the left 20% (nav zone, x < "
+                            f"{int(nav_boundary)}). "
+                            f"May be nav panel, not main content."
+                        )
+                        nav_warnings.append(nav_warning)
+                        typer.echo(
+                            typer.style(
+                                f"    WARNING: {nav_warning}",
+                                fg=typer.colors.YELLOW,
+                            )
+                        )
+
                 # Structured diagnosis on failure
                 if result.status != StepStatus.PASSED:
                     try:
@@ -439,6 +465,8 @@ async def _run(
 
                         # Skill-mode: structured block for AI coding assistants
                         if skill_mode:
+                            if nav_warnings:
+                                diag["nav_warnings"] = nav_warnings
                             typer.echo(format_skill_diagnosis(
                                 diag,
                                 scenario_file=str(path),
@@ -462,6 +490,19 @@ async def _run(
             if page:
                 await _overlay_init(page)
                 await _overlay_finish(page, total_passed, total_failed, total_steps)
+
+        # Skill-mode: save final screenshot for verification
+        final_screenshot_path = ""
+        if skill_mode:
+            try:
+                ss_dir = Path(config.data_dir) / "screenshots"
+                ss_dir.mkdir(parents=True, exist_ok=True)
+                ss_path = ss_dir / "final_screen.png"
+                ss_bytes = await engine.screenshot()
+                ss_path.write_bytes(ss_bytes)
+                final_screenshot_path = str(ss_path)
+            except Exception:
+                pass
 
         # CLI: test finished
         if headed:
@@ -494,8 +535,33 @@ async def _run(
     if total_failed > 0 or total_skipped > 0:
         raise typer.Exit(code=1)
     elif skill_mode:
-        # All passed — reset attempt counter
+        # All passed — output verification block + reset counter
         _save_skill_attempt(config.data_dir, scenarios_path, 0, 0)
+        verify_lines = [
+            "",
+            "=== AWT SKILL VERIFY ===",
+            f"STATUS: ALL_PASSED ({total_passed}/{total_steps})",
+            f"SCENARIO: {scenarios_path}",
+        ]
+        if final_screenshot_path:
+            verify_lines.append(f"FINAL_SCREENSHOT: {final_screenshot_path}")
+        if nav_warnings:
+            verify_lines.append(f"NAV_ZONE_WARNINGS: {len(nav_warnings)}")
+            for w in nav_warnings:
+                verify_lines.append(f"  - {w}")
+            verify_lines.append(
+                "ACTION: Read FINAL_SCREENSHOT to verify the screen "
+                "shows the expected page, not a nav panel or wrong page. "
+                "If wrong page → False Positive → fix scenario and retest."
+            )
+        else:
+            verify_lines.append(
+                "ACTION: Read FINAL_SCREENSHOT to confirm the test "
+                "ended on the correct page."
+            )
+        verify_lines.append("========================")
+        verify_lines.append("")
+        typer.echo("\n".join(verify_lines))
 
 
 # -- Skill-mode helpers ----------------------------------------------------

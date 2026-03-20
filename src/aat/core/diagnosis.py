@@ -251,12 +251,22 @@ def format_skill_diagnosis(
         f"PAGE_TITLE: {context.get('page_title', 'N/A')}",
         f"CATEGORY: {ftype}",
         f"POSSIBLE_CAUSE: {possible_cause}",
+    ]
+
+    # Nav-zone warnings (False Positive risk)
+    nav_warns = context.get("nav_warnings", [])
+    if nav_warns:
+        lines.append(f"NAV_ZONE_WARNINGS: {len(nav_warns)}")
+        for w in nav_warns:
+            lines.append(f"  - {w}")
+
+    lines.extend([
         f"FIX_TARGET: {scenario_file}",
         f"RETRY_CMD: aat run --skill-mode {scenario_file}",
         f"ATTEMPTS: {attempt}/{max_attempts}",
         "=======================",
         "",
-    ]
+    ])
     return "\n".join(lines)
 
 
