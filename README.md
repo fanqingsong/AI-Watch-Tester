@@ -43,19 +43,19 @@ No test code. No recording. No manual maintenance.
 
 ---
 
-## Three Ways to Use AWT
+## Four Ways to Use AWT
 
-Pick one — or use all three.
+Pick one — or use all four.
 
-| | **Cloud** | **Local CLI** | **Agent Skill** |
-|---|-----------|---------------|-----------------|
-| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 | Works inside your AI coding tool |
-| **Install** | None — just sign up | `pip install aat-devqa` | `npx skills add ksgisang/awt-skill` |
-| **Browser** | Headless Chromium on server | Real Chromium on your machine | Real Chromium on your machine |
-| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) | **None needed** — your AI tool is the brain |
-| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use | AI-assisted dev with integrated testing |
-| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) | Free forever |
-| **Data** | Stored on our servers | Never leaves your machine | Never leaves your machine |
+| | **Cloud** | **Local CLI** | **Agent Skill** | **MCP Server** |
+|---|-----------|---------------|-----------------|----------------|
+| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 | Works inside your AI coding tool | Works inside MCP-compatible tools |
+| **Install** | None — just sign up | `pip install aat-devqa` | `npx skills add ksgisang/awt-skill` | `pip install aat-devqa mcp` |
+| **Browser** | Headless Chromium on server | Real Chromium on your machine | Real Chromium on your machine | Real Chromium on your machine |
+| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) | **None needed** — your AI tool is the brain | **None needed** |
+| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use | AI-assisted dev with integrated testing | Claude Desktop, Cursor, Windsurf |
+| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) | Free forever | Free forever |
+| **Data** | Stored on our servers | Never leaves your machine | Never leaves your machine | Never leaves your machine |
 
 ### Cloud — Start in 30 seconds
 
@@ -94,6 +94,19 @@ npx skills add ksgisang/awt-skill --skill awt -g
 # → It writes scenarios, runs aat, reads results, and fixes failures automatically.
 ```
 
+### MCP Server — Protocol-native integration
+
+AWT is available as an [MCP server](mcp/) for tools that support the [Model Context Protocol](https://modelcontextprotocol.io) — Claude Code, Claude Desktop, Cursor, Windsurf, and more.
+
+```bash
+# Claude Code (one-line)
+claude mcp add awt -- python mcp/server.py
+
+# Claude Desktop / Cursor / Windsurf — see mcp/README.md for config
+```
+
+6 tools exposed: `aat_run`, `aat_run_skill_mode`, `aat_doctor`, `aat_list_scenarios`, `aat_validate`, `aat_cost`
+
 ### From Source
 
 ```bash
@@ -121,6 +134,7 @@ aat dashboard     # launch web UI
 | :test_tube: | **CI/CD Ready** | One-line `curl` integration with any pipeline |
 | :jigsaw: | **Plugin Architecture** | Engines, matchers, AI adapters, and reporters are all swappable via registries |
 | :wrench: | **[Agent Skill](https://github.com/ksgisang/awt-skill)** | Use AWT inside Claude Code, Cursor, Codex, and 11+ AI coding tools — no extra AI key needed |
+| :electric_plug: | **[MCP Server](mcp/)** | Protocol-native integration for Claude Desktop, Cursor, Windsurf via Model Context Protocol |
 
 ---
 
