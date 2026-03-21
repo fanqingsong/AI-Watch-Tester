@@ -250,6 +250,8 @@ class StepExecutor:
 
         elif step.action == ActionType.NAVIGATE:
             await self._engine.navigate(step.value or "")
+            # Auto-activate Flutter Semantics after navigation
+            await self._maybe_activate_flutter_semantics()
 
         elif step.action == ActionType.CLICK_AT:
             x, y = _parse_coordinates(step.value)
@@ -937,6 +939,24 @@ class StepExecutor:
         else:
             logger.warning("Engine does not support load_session")
 
+    async def _maybe_activate_flutter_semantics(self) -> None:
+        """Auto-activate Flutter Semantics after navigation (if Flutter)."""
+        if not hasattr(self._engine, "page"):
+            return
+        try:
+            from aat.engine.flutter_semantics import (
+                activate_semantics,
+                is_flutter_page,
+                reset_semantics_cache,
+            )
+
+            page = self._engine.page  # type: ignore[attr-defined]
+            if await is_flutter_page(page):
+                await reset_semantics_cache()
+                await activate_semantics(page)
+        except Exception:
+            logger.debug("Flutter Semantics activation skipped", exc_info=True)
+
     async def _find_by_flutter_semantics(
         self,
         text: str,
@@ -946,8 +966,6 @@ class StepExecutor:
             from aat.engine.flutter_semantics import find_by_semantics, is_flutter_page
 
             page = self._engine.page  # type: ignore[attr-defined]
-
-            # Quick check: is this a Flutter page?
             if not await is_flutter_page(page):
                 return None
 

@@ -35,7 +35,7 @@ from aat.core.models import (
 
 
 def test_version() -> None:
-    assert __version__ == "1.3.0"
+    assert __version__ == "1.3.1"
 
 
 # ── Enum Tests ──
