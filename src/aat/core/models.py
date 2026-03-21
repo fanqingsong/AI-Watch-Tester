@@ -135,6 +135,28 @@ class AIConfig(BaseModel):
     temperature: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
+class VisionConfig(BaseModel):
+    """Vision AI configuration for 3-tier matching Tier 3.
+
+    Separate from AIConfig so users can use different providers
+    for scenario generation (AIConfig) and visual matching (VisionConfig).
+    If api_key is empty, Vision AI tier is skipped (free tiers only).
+    """
+
+    provider: str = Field(
+        default="",
+        description="Vision provider: claude, openai, gemini, or empty (disabled)",
+    )
+    api_key: str = Field(
+        default="",
+        description="Vision API key (env: AAT_VISION__API_KEY)",
+    )
+    model: str = Field(
+        default="",
+        description="Vision model ID (auto-detected from provider if empty)",
+    )
+
+
 class EngineConfig(BaseModel):
     """Test engine configuration."""
 
@@ -200,6 +222,7 @@ class Config(BaseSettings):
     source_path: str = Field(default=".")
     url: str = Field(default="")
     ai: AIConfig = Field(default_factory=AIConfig)
+    vision: VisionConfig = Field(default_factory=VisionConfig)
     engine: EngineConfig = Field(default_factory=EngineConfig)
     matching: MatchingConfig = Field(default_factory=MatchingConfig)
     humanizer: HumanizerConfig = Field(default_factory=HumanizerConfig)

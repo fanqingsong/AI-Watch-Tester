@@ -321,8 +321,9 @@ async def _loop(
             continue
         if m.value == "vision_ai":
             vis = MATCHER_REGISTRY[m.value](  # type: ignore[call-arg]
-                ai_config=config.ai,
+                vision_config=config.vision,
                 matching_config=config.matching,
+                ai_config=config.ai,
             )
             matchers.append(vis)
         else:
@@ -330,7 +331,11 @@ async def _loop(
     if not any(m.name == "vision_ai" for m in matchers):
         from aat.matchers.vision_ai import VisionAIMatcher
 
-        matchers.append(VisionAIMatcher(ai_config=config.ai, matching_config=config.matching))
+        matchers.append(VisionAIMatcher(
+            vision_config=config.vision,
+            matching_config=config.matching,
+            ai_config=config.ai,
+        ))
     learned_store = None
     try:
         from aat.learning.store import LearnedStore

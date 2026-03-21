@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 if TYPE_CHECKING:
-    from aat.core.models import AIConfig
+    from aat.core.models import AIConfig, VisionConfig
 
 
 async def test_ai_connection(config: AIConfig) -> tuple[bool, str]:
@@ -111,6 +111,36 @@ async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
         return True, f"Connected to Gemini API. Models: {', '.join(model_ids)}"
     except Exception as exc:
         return False, f"Gemini API error: {exc}"
+
+
+async def test_vision_connection(
+    config: VisionConfig,
+) -> tuple[bool, str]:
+    """Test Vision AI provider connection.
+
+    Routes to the same provider tests as AIConfig but uses VisionConfig.
+    """
+    if not config.provider:
+        return False, "Vision provider not configured."
+    if not config.api_key:
+        return False, "Vision API key is empty."
+
+    from aat.core.models import AIConfig
+
+    # Reuse existing provider tests via AIConfig adapter
+    ai = AIConfig(
+        provider=config.provider,
+        api_key=config.api_key,
+        model=config.model or {
+            "claude": "claude-sonnet-4-20250514",
+            "openai": "gpt-4o",
+            "gemini": "gemini-2.0-flash",
+        }.get(config.provider, ""),
+    )
+    success, msg = await test_ai_connection(ai)
+    if success:
+        return True, f"Vision AI ({config.provider}): {msg}"
+    return False, f"Vision AI ({config.provider}): {msg}"
 
 
 async def test_url(url: str) -> tuple[bool, str]:
