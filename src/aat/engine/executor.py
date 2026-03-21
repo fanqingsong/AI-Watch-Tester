@@ -607,6 +607,27 @@ class StepExecutor:
             if pos is not None:
                 return await self._act_at_pos(step, pos[0], pos[1], confidence=0.9)
 
+        # Priority 0.8: Flutter Semantics (CanvasKit apps)
+        # Runs before OCR/text search — more reliable for Flutter Canvas
+        if (
+            target.text
+            and hasattr(self._engine, "page")
+            and (step.method.value in ("auto", "semantics"))
+        ):
+            pos = await self._find_by_flutter_semantics(target.text)
+            if pos is not None:
+                from aat.core.models import MatchMethod, MatchResult
+
+                logger.info(
+                    "Found '%s' via Flutter Semantics at (%d, %d)",
+                    target.text,
+                    pos[0],
+                    pos[1],
+                )
+                return await self._act_at_pos(
+                    step, pos[0], pos[1], confidence=0.95
+                )
+
         # Try Playwright native text search first (no screenshot needed)
         if target.text and hasattr(self._engine, "find_text_position"):
             pos = await self._find_text_with_synonyms(target.text)
@@ -827,6 +848,25 @@ class StepExecutor:
         path = self._screenshot_dir / filename
         await self._engine.save_screenshot(path)
         return str(path)
+
+    async def _find_by_flutter_semantics(
+        self,
+        text: str,
+    ) -> tuple[int, int] | None:
+        """Try Flutter Semantics finder. Returns None if not Flutter or not found."""
+        try:
+            from aat.engine.flutter_semantics import find_by_semantics, is_flutter_page
+
+            page = self._engine.page  # type: ignore[attr-defined]
+
+            # Quick check: is this a Flutter page?
+            if not await is_flutter_page(page):
+                return None
+
+            return await find_by_semantics(page, text)
+        except Exception:
+            logger.debug("Flutter Semantics lookup failed", exc_info=True)
+            return None
 
     def _get_viewport_size(self) -> tuple[int, int]:
         """Get viewport width and height from engine config."""

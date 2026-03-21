@@ -35,7 +35,7 @@ from aat.core.models import (
 
 
 def test_version() -> None:
-    assert __version__ == "1.2.0"
+    assert __version__ == "1.2.1"
 
 
 # ── Enum Tests ──
@@ -77,7 +77,7 @@ class TestAssertType:
 
 class TestMatchMethod:
     def test_all_values(self) -> None:
-        assert len(MatchMethod) == 5
+        assert len(MatchMethod) == 6
         assert MatchMethod.LEARNED == "learned"
         assert MatchMethod.VISION_AI == "vision_ai"
 

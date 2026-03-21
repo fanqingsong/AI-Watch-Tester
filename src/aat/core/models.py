@@ -84,6 +84,7 @@ class MatchMethod(StrEnum):
     """Image matching algorithm."""
 
     LEARNED = "learned"
+    SEMANTICS = "semantics"
     TEMPLATE = "template"
     OCR = "ocr"
     FEATURE = "feature"
@@ -326,6 +327,7 @@ class FindMethod(StrEnum):
     """find_and_click matching method preference."""
 
     AUTO = "auto"
+    SEMANTICS = "semantics"
     TEMPLATE = "template"
     OCR = "ocr"
     VISION = "vision"
