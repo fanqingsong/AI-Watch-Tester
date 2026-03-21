@@ -44,6 +44,7 @@ _OVERLAY_INIT_JS = """
     box-shadow: 0 2px 12px rgba(0,0,0,0.3);
     border-bottom: 2px solid #22d3ee;
     transition: all 0.3s ease;
+    pointer-events: none;
   `;
   // Left: logo + status
   const left = document.createElement('div');
@@ -61,9 +62,6 @@ _OVERLAY_INIT_JS = """
   bar.appendChild(left);
   bar.appendChild(right);
   document.body.appendChild(bar);
-  // Push page content down
-  document.body.style.marginTop = (document.body.style.marginTop ?
-    parseInt(document.body.style.marginTop) + 40 : 40) + 'px';
 })();
 """
 
