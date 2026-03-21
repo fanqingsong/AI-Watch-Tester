@@ -46,6 +46,15 @@ class StepExecutionError(AATError):
         super().__init__(f"Step {step} ({action}): {message}")
 
 
+class CriticalStepError(AATError):
+    """Critical step failed — test must stop immediately."""
+
+    def __init__(self, message: str, step: int, action: str) -> None:
+        self.step = step
+        self.action = action
+        super().__init__(f"CRITICAL Step {step} ({action}): {message}")
+
+
 class LoopError(AATError):
     """DevQA Loop error."""
 

@@ -17,7 +17,7 @@ from aat.core.diagnosis import (
     format_skill_diagnosis,
 )
 from aat.core.exceptions import AATError
-from aat.core.models import FIND_ACTIONS, Scenario, StepStatus
+from aat.core.models import FIND_ACTIONS, Scenario, StepResult, StepStatus
 from aat.core.platform_detect import detect_platform, format_platform_info
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
@@ -307,6 +307,7 @@ async def _run(
     total_failed = 0
     total_steps = 0
     total_skipped = 0
+    had_critical = False
     passed_scenarios: set[str] = set()
     failed_scenarios: set[str] = set()
     all_results: list[dict[str, str]] = []  # step-level results for learning
@@ -367,6 +368,7 @@ async def _run(
                 typer.echo(f"  (depends on: {', '.join(scenario.depends_on)})")
             scenario_start = time.monotonic()
             scenario_failed = False
+            critical_failure = False
 
             for step in scenario.steps:
                 # Browser overlay: show current step BEFORE execution
@@ -379,7 +381,66 @@ async def _run(
                         await _overlay_update(page, step_label, counter, "#22d3ee")
                         await asyncio.sleep(0.8)  # Let user read the step name
 
-                result = await executor.execute_step(step)
+                try:
+                    result = await executor.execute_step(step)
+                except Exception as _crit_err:
+                    # CriticalStepError — stop scenario immediately
+                    from aat.core.exceptions import CriticalStepError
+
+                    if isinstance(_crit_err, CriticalStepError):
+                        total_steps += 1
+                        total_failed += 1
+                        scenario_failed = True
+                        critical_failure = True
+                        remaining = len(scenario.steps) - scenario.steps.index(step) - 1
+                        total_skipped += remaining
+
+                        if skill_mode:
+                            typer.echo(
+                                f"[AWT] ❌ {step.step}/{total_scenario_steps} "
+                                f"{step.description} (critical)"
+                            )
+                            typer.echo(
+                                f"[AWT] 🛑 Test stopped — "
+                                f"{step.message or str(_crit_err)}"
+                            )
+                        else:
+                            typer.echo(
+                                typer.style(
+                                    f"  Step {step.step}: CRITICAL FAILURE",
+                                    fg=typer.colors.RED,
+                                    bold=True,
+                                )
+                            )
+                            typer.echo(f"    {step.message or str(_crit_err)}")
+                            typer.echo(
+                                f"    Skipping remaining {remaining} step(s)"
+                            )
+
+                        # Skill-mode: CRITICAL_FAILURE block
+                        if skill_mode:
+                            try:
+                                diag = await collect_failure_context(
+                                    engine, StepResult(
+                                        step=step.step,
+                                        action=step.action,
+                                        status=StepStatus.FAILED,
+                                        description=step.description,
+                                        error_message=str(_crit_err),
+                                    ),
+                                    str(path), config.data_dir,
+                                )
+                                diag["critical"] = True
+                                typer.echo(format_skill_diagnosis(
+                                    diag,
+                                    scenario_file=str(path),
+                                    attempt=skill_attempt,
+                                    max_attempts=skill_max_attempts,
+                                ))
+                            except Exception:
+                                pass
+                        break
+                    raise
                 total_steps += 1
 
                 # Platform detection (once, after first navigate)
@@ -523,6 +584,8 @@ async def _run(
 
             if scenario_failed:
                 failed_scenarios.add(scenario.id)
+                if critical_failure:
+                    had_critical = True
             else:
                 passed_scenarios.add(scenario.id)
 
@@ -559,9 +622,12 @@ async def _run(
         await engine.stop()
 
     # Summary
-    parts = [f"{total_passed} passed", f"{total_failed} failed"]
+    fail_label = f"{total_failed} failed"
+    if had_critical:
+        fail_label += " (critical)"
+    parts = [f"{total_passed} passed", fail_label]
     if total_skipped > 0:
-        parts.append(f"{total_skipped} skipped (dependency)")
+        parts.append(f"{total_skipped} skipped")
     parts.append(f"{total_steps} steps total")
     typer.echo(f"\nSummary: {', '.join(parts)}")
 
@@ -574,9 +640,11 @@ async def _run(
     if skill_mode:
         _save_skill_attempt(config.data_dir, scenarios_path, skill_attempt, total_failed)
 
-    # Exit code: failed → 1, skipped → 0 (unless --strict)
+    # Exit code: critical → 2, failed → 1, skipped → 0 (unless --strict)
     has_failure = total_failed > 0
     has_skip = total_skipped > 0
+    if had_critical:
+        raise typer.Exit(code=2)
     if has_failure or (has_skip and strict_mode):
         raise typer.Exit(code=1)
     elif skill_mode:

@@ -41,6 +41,7 @@ class ActionType(StrEnum):
     ASSERT = "assert"
     ASSERT_TEXT = "assert_text"
     ASSERT_SCREEN_CHANGED = "assert_screen_changed"
+    ASSERT_URL = "assert_url"
     # Session
     SAVE_SESSION = "save_session"
     LOAD_SESSION = "load_session"
@@ -382,6 +383,14 @@ class StepConfig(BaseModel):
     name: str = Field(
         default="",
         description="Session name for save_session/load_session",
+    )
+    critical: bool = Field(
+        default=False,
+        description="If True, test stops immediately on failure",
+    )
+    on_fail: str = Field(
+        default="",
+        description="Action on failure: 'stop' to halt test immediately",
     )
 
     @field_validator("humanize", mode="before")

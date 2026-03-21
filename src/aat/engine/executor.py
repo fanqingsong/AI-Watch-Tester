@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 import cv2
 import numpy as np
 
-from aat.core.exceptions import MatchError, StepExecutionError
+from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
 from aat.core.models import (
     FIND_ACTIONS,
     ActionType,
@@ -187,6 +187,15 @@ class StepExecutor:
         except (StepExecutionError, MatchError) as e:
             elapsed = (time.monotonic() - start) * 1000
             status = StepStatus.SKIPPED if step.optional else StepStatus.FAILED
+
+            # Critical step or on_fail=stop → raise to abort scenario
+            if step.critical or step.on_fail == "stop":
+                raise CriticalStepError(
+                    step.message or str(e),
+                    step=step.step,
+                    action=step.action.value,
+                ) from e
+
             return StepResult(
                 step=step.step,
                 action=step.action,
@@ -195,9 +204,19 @@ class StepExecutor:
                 error_message=str(e),
                 elapsed_ms=elapsed,
             )
+        except CriticalStepError:
+            raise  # Propagate to run_cmd
         except Exception as e:  # noqa: BLE001
             elapsed = (time.monotonic() - start) * 1000
             error_msg = str(e) or f"{type(e).__name__}"
+
+            if step.critical or step.on_fail == "stop":
+                raise CriticalStepError(
+                    step.message or error_msg,
+                    step=step.step,
+                    action=step.action.value,
+                ) from e
+
             return StepResult(
                 step=step.step,
                 action=step.action,
@@ -275,6 +294,9 @@ class StepExecutor:
 
         elif step.action == ActionType.ASSERT_SCREEN_CHANGED:
             await self._check_screen_changed(step.threshold, step.region, step.message)
+
+        elif step.action == ActionType.ASSERT_URL:
+            await self._check_assert_url(step)
 
         elif step.action == ActionType.SAVE_SESSION:
             await self._handle_save_session(step)
@@ -854,6 +876,32 @@ class StepExecutor:
         path = self._screenshot_dir / filename
         await self._engine.save_screenshot(path)
         return str(path)
+
+    async def _check_assert_url(self, step: StepConfig) -> None:
+        """Assert current URL contains expected substring."""
+        expected = step.value or ""
+        if not expected:
+            raise StepExecutionError(
+                "assert_url requires value (expected URL substring)",
+                step=step.step,
+                action="assert_url",
+            )
+
+        current_url = await self._engine.get_url()
+
+        # Poll briefly for navigation to complete
+        if expected.lower() not in current_url.lower():
+            await asyncio.sleep(1.0)
+            current_url = await self._engine.get_url()
+
+        if expected.lower() not in current_url.lower():
+            err = step.message or (
+                f"URL does not contain '{expected}'. "
+                f"Current: {current_url}"
+            )
+            raise StepExecutionError(err, step=step.step, action="assert_url")
+
+        logger.info("assert_url: '%s' found in %s", expected, current_url)
 
     async def _handle_save_session(self, step: StepConfig) -> None:
         """Save browser session to .aat/sessions/{name}.json."""

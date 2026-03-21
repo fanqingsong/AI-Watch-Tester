@@ -253,6 +253,11 @@ def format_skill_diagnosis(
         f"POSSIBLE_CAUSE: {possible_cause}",
     ]
 
+    # Critical failure flag
+    if context.get("critical"):
+        lines.append("CRITICAL_FAILURE: true")
+        lines.append("EFFECT: Test stopped, remaining steps skipped")
+
     # Nav-zone warnings (False Positive risk)
     nav_warns = context.get("nav_warnings", [])
     if nav_warns:
