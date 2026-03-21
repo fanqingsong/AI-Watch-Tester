@@ -104,6 +104,50 @@ class WebEngine(BaseEngine):
             self._browser = None
             self._playwright = None
 
+    async def save_session(self, path: str) -> None:
+        """Save browser session (cookies, localStorage) to file."""
+        from pathlib import Path
+
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if self._context:
+            await self._context.storage_state(path=str(p))
+
+    async def load_session(self, path: str) -> None:
+        """Reload browser context with saved session state."""
+        from pathlib import Path
+
+        p = Path(path)
+        if not p.exists():
+            return
+
+        # Recreate context with stored session
+        old_page = self._page
+        old_context = self._context
+        try:
+            self._context = await self._browser.new_context(  # type: ignore[union-attr]
+                viewport={
+                    "width": self._config.viewport_width,
+                    "height": self._config.viewport_height,
+                },
+                ignore_https_errors=True,
+                storage_state=str(p),
+            )
+            self._context.set_default_timeout(self._config.timeout_ms)
+            self._page = await self._context.new_page()
+            if not self._config.headless:
+                await self._inject_cursor()
+        except Exception:
+            # Restore old context on failure
+            self._page = old_page
+            self._context = old_context
+            raise
+        else:
+            # Close old context
+            if old_context:
+                with __import__("contextlib").suppress(Exception):
+                    await old_context.close()
+
     async def screenshot(self) -> bytes:
         """Capture current page as PNG bytes."""
         try:

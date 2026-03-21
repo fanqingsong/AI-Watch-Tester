@@ -41,6 +41,9 @@ class ActionType(StrEnum):
     ASSERT = "assert"
     ASSERT_TEXT = "assert_text"
     ASSERT_SCREEN_CHANGED = "assert_screen_changed"
+    # Session
+    SAVE_SESSION = "save_session"
+    LOAD_SESSION = "load_session"
     # Utility
     WAIT = "wait"
     SCREENSHOT = "screenshot"
@@ -372,6 +375,14 @@ class StepConfig(BaseModel):
         default="",
         description="Custom error message for assert_text / assert_screen_changed",
     )
+    match_index: int = Field(
+        default=0,
+        description="Select Nth match when multiple found (0=first, -1=last)",
+    )
+    name: str = Field(
+        default="",
+        description="Session name for save_session/load_session",
+    )
 
     @field_validator("humanize", mode="before")
     @classmethod
@@ -489,6 +500,12 @@ class StepConfig(BaseModel):
             raise ValueError(msg)
         if self.action == ActionType.ASSERT_TEXT and self.target is None:
             msg = "action=assert_text requires a target (text to find)"
+            raise ValueError(msg)
+        if self.action in (
+            ActionType.SAVE_SESSION,
+            ActionType.LOAD_SESSION,
+        ) and not (self.name or self.value):
+            msg = f"action={self.action.value} requires name or value"
             raise ValueError(msg)
         return self
 

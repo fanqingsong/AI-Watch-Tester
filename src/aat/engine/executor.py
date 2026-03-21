@@ -276,6 +276,12 @@ class StepExecutor:
         elif step.action == ActionType.ASSERT_SCREEN_CHANGED:
             await self._check_screen_changed(step.threshold, step.region, step.message)
 
+        elif step.action == ActionType.SAVE_SESSION:
+            await self._handle_save_session(step)
+
+        elif step.action == ActionType.LOAD_SESSION:
+            await self._handle_load_session(step)
+
         elif step.action == ActionType.WAIT:
             await asyncio.sleep(int(step.value or "1000") / 1000)
 
@@ -848,6 +854,40 @@ class StepExecutor:
         path = self._screenshot_dir / filename
         await self._engine.save_screenshot(path)
         return str(path)
+
+    async def _handle_save_session(self, step: StepConfig) -> None:
+        """Save browser session to .aat/sessions/{name}.json."""
+        session_name = step.name or step.value or "default"
+        session_path = self._screenshot_dir.parent / "sessions" / f"{session_name}.json"
+        if hasattr(self._engine, "save_session"):
+            await self._engine.save_session(str(session_path))
+            logger.info("Session saved: %s", session_path)
+        else:
+            logger.warning("Engine does not support save_session")
+
+    async def _handle_load_session(self, step: StepConfig) -> None:
+        """Load browser session from .aat/sessions/{name}.json."""
+        session_name = step.name or step.value or "default"
+        session_path = self._screenshot_dir.parent / "sessions" / f"{session_name}.json"
+
+        if not session_path.exists():
+            logger.info("No saved session '%s', skipping", session_name)
+            return
+
+        # Check expiry (24h default)
+        import os
+
+        age_hours = (time.time() - os.path.getmtime(session_path)) / 3600
+        if age_hours > 24:
+            logger.info("Session '%s' expired (%.0fh old)", session_name, age_hours)
+            session_path.unlink(missing_ok=True)
+            return
+
+        if hasattr(self._engine, "load_session"):
+            await self._engine.load_session(str(session_path))
+            logger.info("Session loaded: %s (%.1fh old)", session_path, age_hours)
+        else:
+            logger.warning("Engine does not support load_session")
 
     async def _find_by_flutter_semantics(
         self,

@@ -95,10 +95,32 @@ class OCRMatcher(BaseMatcher):
             else self._config.confidence_threshold
         )
 
-        # Try exact single-token match first
-        result = self._find_single_token(data, search_text, threshold)
-        if result is None:
-            result = self._find_phrase(data, search_text, threshold)
+        # Collect all candidates (for debug log + match_index)
+        candidates = self._find_all_candidates(data, search_text, threshold)
+
+        # Debug log: show all candidates
+        if candidates:
+            for i, (cx, cy, _cw, _ch, cc) in enumerate(candidates):
+                logger.debug(
+                    "[OCR] candidate %d: '%s' x=%d y=%d conf=%.2f",
+                    i,
+                    target.text,
+                    cx,
+                    cy,
+                    cc,
+                )
+
+        # Select by match_index (stored in self._match_index)
+        idx = getattr(self, "_match_index", 0)
+        if candidates:
+            if idx == -1:
+                result = candidates[-1]
+            elif 0 <= idx < len(candidates):
+                result = candidates[idx]
+            else:
+                result = candidates[0]
+        else:
+            result = None
 
         if result is None:
             return None
@@ -116,6 +138,49 @@ class OCRMatcher(BaseMatcher):
             method=MatchMethod.OCR,
             elapsed_ms=elapsed,
         )
+
+    def set_match_index(self, index: int) -> None:
+        """Set which match to return when multiple found."""
+        self._match_index = index
+
+    def _find_all_candidates(
+        self,
+        data: dict[str, list[Any]],
+        search_text: str,
+        threshold: float,
+    ) -> list[tuple[int, int, int, int, float]]:
+        """Find all matching candidates, sorted by confidence desc."""
+        candidates: list[tuple[int, int, int, int, float]] = []
+
+        # Single-token candidates
+        n = len(data.get("text", []))
+        for i in range(n):
+            conf_val = data["conf"][i]
+            if not isinstance(conf_val, (int, float)) or conf_val <= 0:
+                continue
+            text = str(data["text"][i]).strip().lower()
+            if not text or search_text not in text:
+                continue
+            conf = float(conf_val) / 100.0
+            if conf < threshold:
+                continue
+            left = int(data["left"][i]) // 2
+            top = int(data["top"][i]) // 2
+            w = int(data["width"][i]) // 2
+            h = int(data["height"][i]) // 2
+            cx = left + w // 2
+            cy = top + h // 2
+            candidates.append((cx, cy, w, h, conf))
+
+        # Phrase candidates (if no single-token hits)
+        if not candidates:
+            phrase = self._find_phrase(data, search_text, threshold)
+            if phrase:
+                candidates.append(phrase)
+
+        # Sort by confidence descending
+        candidates.sort(key=lambda c: c[4], reverse=True)
+        return candidates
 
     def _find_single_token(
         self,

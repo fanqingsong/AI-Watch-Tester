@@ -40,6 +40,9 @@ async def find_by_semantics(
     if not search:
         return None
 
+    # Ensure Semantics tree is active before searching
+    await ensure_semantics_enabled(page)
+
     # Strategy 1: Flutter CanvasKit flt-semantics nodes
     result = await _try_locator(
         page,
@@ -121,6 +124,130 @@ async def is_flutter_page(page: Any) -> bool:
             );
         }""")
         return bool(result)
+    except Exception:
+        return False
+
+
+async def ensure_semantics_enabled(page: Any) -> bool:
+    """Detect if Flutter Semantics is active; if not, try to enable it.
+
+    Flutter only creates flt-semantics nodes when Semantics is enabled.
+    By default, Semantics activates when an accessibility tool is detected
+    (screen reader, Playwright's accessibility API, etc.).
+
+    This function:
+    1. Checks if flt-semantics nodes already exist (already active)
+    2. If not, tries to enable via Flutter's JS binding
+    3. Falls back to simulating an accessibility event
+    4. Waits briefly for the Semantics tree to populate
+
+    Returns True if Semantics is active after all attempts.
+    """
+    # Check if already active
+    if await _check_semantics_active(page):
+        return True
+
+    logger.info("FlutterSemantics: no nodes found, attempting to enable...")
+
+    # Method 1: Enable via Flutter's accessibility announcement
+    # This triggers SemanticsBinding to activate the Semantics tree
+    try:
+        await page.evaluate("""() => {
+            // Trigger Flutter's Semantics activation via EngineSemanticsOwner
+            if (window._flutter_web_set_location_strategy) {
+                // Flutter 2.x
+                window._flutter_web_set_location_strategy();
+            }
+
+            // Enable accessibility via the semantics placeholder
+            const placeholder = document.querySelector(
+                'flt-semantics-placeholder'
+            );
+            if (placeholder) {
+                placeholder.click();
+                return;
+            }
+
+            // Force enable via Flutter's accessibility bridge
+            const glassPane = document.querySelector('flt-glass-pane');
+            if (glassPane && glassPane.shadowRoot) {
+                const sem = glassPane.shadowRoot.querySelector(
+                    'flt-semantics-host'
+                );
+                if (sem) {
+                    sem.style.display = '';
+                }
+            }
+
+            // Flutter 3.x: enable via flutter-view semantics
+            const flutterView = document.querySelector('flutter-view');
+            if (flutterView && flutterView.shadowRoot) {
+                const host = flutterView.shadowRoot.querySelector(
+                    'flt-semantics-host'
+                );
+                if (host) {
+                    host.style.display = '';
+                }
+            }
+        }""")
+    except Exception:
+        logger.debug("Method 1 (JS binding) failed", exc_info=True)
+
+    # Method 2: Request accessibility tree via Playwright
+    # This signals to Flutter that an accessibility tool is present,
+    # which activates the SemanticsBinding
+    try:
+        await page.accessibility.snapshot()  # type: ignore[union-attr]
+    except Exception:
+        logger.debug("Method 2 (a11y snapshot) failed", exc_info=True)
+
+    # Method 3: Dispatch a focus/hover event on the Flutter container
+    # to trigger accessibility activation
+    try:
+        await page.evaluate("""() => {
+            const target = (
+                document.querySelector('flutter-view') ||
+                document.querySelector('flt-glass-pane')
+            );
+            if (target) {
+                target.dispatchEvent(
+                    new Event('focus', { bubbles: true })
+                );
+                target.dispatchEvent(
+                    new MouseEvent('mouseover', { bubbles: true })
+                );
+            }
+        }""")
+    except Exception:
+        logger.debug("Method 3 (focus event) failed", exc_info=True)
+
+    # Wait for Semantics tree to populate
+    import asyncio
+
+    for _ in range(5):
+        await asyncio.sleep(0.3)
+        if await _check_semantics_active(page):
+            logger.info("FlutterSemantics: enabled successfully")
+            return True
+
+    logger.warning(
+        "FlutterSemantics: could not enable Semantics tree. "
+        "The app may not have Semantics widgets, or it requires "
+        "a different activation method. Falling back to OCR."
+    )
+    return False
+
+
+async def _check_semantics_active(page: Any) -> bool:
+    """Check if flt-semantics nodes exist in the DOM."""
+    try:
+        count: int = await page.evaluate("""() => {
+            return document.querySelectorAll(
+                'flt-semantics, flt-semantics-container, '
+                + '[role][aria-label]'
+            ).length;
+        }""")
+        return count > 0
     except Exception:
         return False
 

@@ -190,10 +190,23 @@ def run_command(
         "--skill-mode",
         help="Output structured diagnosis for AI coding assistants (Claude Code, Copilot, etc.).",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Enable debug logging (OCR candidates, matcher details).",
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Treat skipped steps as failures (exit code 1).",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
-        asyncio.run(_run(scenarios_path, config_path, slow_mo, learn, skill_mode))
+        asyncio.run(_run(
+            scenarios_path, config_path, slow_mo, learn,
+            skill_mode, debug, strict,
+        ))
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -205,8 +218,16 @@ async def _run(
     slow_mo_override: int | None,
     learn_mode: bool = False,
     skill_mode: bool = False,
+    debug_mode: bool = False,
+    strict_mode: bool = False,
 ) -> None:
     """Execute scenarios asynchronously."""
+    # Debug logging
+    if debug_mode:
+        import logging as _logging
+
+        _logging.basicConfig(level=_logging.DEBUG, format="[AWT DEBUG] %(message)s")
+
     # Load config
     cfg_path = Path(config_path) if config_path else None
     config = load_config(config_path=cfg_path)
@@ -320,6 +341,14 @@ async def _run(
                 typer.echo(f"    slowMo: {config.engine.slow_mo}ms per action")
             typer.echo("  " + "=" * 50)
 
+        # Skill-mode start banner
+        if skill_mode:
+            sc_names = [f"{s.id}" for s in scenarios]
+            typer.echo(
+                f"[AWT] Test started: {', '.join(sc_names)} "
+                f"({total_scenario_steps} steps)"
+            )
+
         for scenario in scenarios:
             # Check depends_on: skip if any dependency failed or was skipped
             unmet = [d for d in scenario.depends_on if d not in passed_scenarios]
@@ -422,7 +451,15 @@ async def _run(
                             await asyncio.sleep(2.0)  # Longer pause on failure
 
                 # CLI output (always)
-                typer.echo(f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)")
+                if skill_mode:
+                    # Skill-mode progress format
+                    icon = "✅" if result.status == StepStatus.PASSED else "❌"
+                    typer.echo(
+                        f"[AWT] {icon} {result.step}/{total_scenario_steps} "
+                        f"{step.description}"
+                    )
+                else:
+                    typer.echo(f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)")
                 if result.error_message:
                     typer.echo(f"    Error: {result.error_message}")
 
@@ -537,7 +574,10 @@ async def _run(
     if skill_mode:
         _save_skill_attempt(config.data_dir, scenarios_path, skill_attempt, total_failed)
 
-    if total_failed > 0 or total_skipped > 0:
+    # Exit code: failed → 1, skipped → 0 (unless --strict)
+    has_failure = total_failed > 0
+    has_skip = total_skipped > 0
+    if has_failure or (has_skip and strict_mode):
         raise typer.Exit(code=1)
     elif skill_mode:
         # All passed — output verification block + reset counter

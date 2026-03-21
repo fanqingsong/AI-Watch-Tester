@@ -35,7 +35,7 @@ from aat.core.models import (
 
 
 def test_version() -> None:
-    assert __version__ == "1.2.1"
+    assert __version__ == "1.3.0"
 
 
 # ── Enum Tests ──
@@ -49,7 +49,7 @@ class TestActionType:
         assert ActionType.SCREENSHOT == "screenshot"
 
     def test_all_members(self) -> None:
-        assert len(ActionType) == 18
+        assert len(ActionType) == 20
 
     def test_from_string(self) -> None:
         assert ActionType("navigate") is ActionType.NAVIGATE
