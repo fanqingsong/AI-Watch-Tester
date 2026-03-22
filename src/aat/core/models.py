@@ -392,6 +392,12 @@ class StepConfig(BaseModel):
         default="",
         description="Action on failure: 'stop' to halt test immediately",
     )
+    change_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="For critical steps: required pixel change ratio (auto-detected if None)",
+    )
 
     @field_validator("humanize", mode="before")
     @classmethod

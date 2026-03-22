@@ -162,6 +162,11 @@ class StepExecutor:
             # 2. Execute action
             match_result = await self._dispatch_action(step)
 
+            # 2.5. Critical step auto-verification (screen change check)
+            if step.critical and self._should_verify_change(step):
+                await asyncio.sleep(1.0)
+                await self._verify_critical_change(step)
+
             # 3. screenshot_after
             if step.screenshot_after:
                 screenshots["after"] = await self._save_screenshot("after")
@@ -973,6 +978,88 @@ class StepExecutor:
         except Exception:
             logger.debug("Flutter Semantics lookup failed", exc_info=True)
             return None
+
+    # -- Critical step auto-verification ------------------------------------
+
+    # Actions that should show screen change when critical
+    _CRITICAL_CHANGE_ACTIONS: frozenset[ActionType] = frozenset({
+        ActionType.NAVIGATE,
+        ActionType.FIND_AND_CLICK,
+        ActionType.FIND_AND_DOUBLE_CLICK,
+        ActionType.FIND_AND_RIGHT_CLICK,
+        ActionType.CLICK_AT,
+    })
+
+    # Default change thresholds per action type
+    _CRITICAL_THRESHOLDS: dict[ActionType, float] = {
+        ActionType.NAVIGATE: 0.50,
+        ActionType.FIND_AND_CLICK: 0.05,
+        ActionType.FIND_AND_DOUBLE_CLICK: 0.05,
+        ActionType.FIND_AND_RIGHT_CLICK: 0.05,
+        ActionType.CLICK_AT: 0.05,
+    }
+
+    def _should_verify_change(self, step: StepConfig) -> bool:
+        """Check if this critical step should verify screen change."""
+        if step.action in self._CRITICAL_CHANGE_ACTIONS:
+            return True
+        # press_key "Enter" should verify change
+        if step.action == ActionType.PRESS_KEY:
+            return (step.value or "").strip().lower() == "enter"
+        return False
+
+    async def _verify_critical_change(self, step: StepConfig) -> None:
+        """Verify screen changed after critical step. Raise on no change."""
+        if self._last_screenshot is None:
+            return
+
+        current = await self._engine.screenshot()
+
+        # Determine threshold
+        if step.change_threshold is not None:
+            threshold = step.change_threshold
+        elif step.action == ActionType.PRESS_KEY:
+            threshold = 0.10  # Enter key
+        else:
+            threshold = self._CRITICAL_THRESHOLDS.get(step.action, 0.05)
+
+        # Pixel diff
+        prev_arr = np.frombuffer(self._last_screenshot, dtype=np.uint8)
+        curr_arr = np.frombuffer(current, dtype=np.uint8)
+        prev_img = cv2.imdecode(prev_arr, cv2.IMREAD_GRAYSCALE)
+        curr_img = cv2.imdecode(curr_arr, cv2.IMREAD_GRAYSCALE)
+
+        if prev_img is None or curr_img is None:
+            return
+
+        if prev_img.shape != curr_img.shape:
+            curr_img = cv2.resize(
+                curr_img, (prev_img.shape[1], prev_img.shape[0])
+            )
+
+        diff = cv2.absdiff(prev_img, curr_img)
+        changed = np.count_nonzero(diff > 25)
+        total = diff.size
+        ratio = changed / total if total > 0 else 0
+
+        if ratio >= threshold:
+            logger.info(
+                "[AWT] critical verify: %.1f%% change (threshold %.1f%%) — OK",
+                ratio * 100,
+                threshold * 100,
+            )
+        else:
+            msg = (
+                step.message
+                or f"Screen change {ratio:.1%} below {threshold:.1%} "
+                f"after critical step"
+            )
+            logger.warning(
+                "[AWT] critical verify FAILED: %.1f%% change < %.1f%%",
+                ratio * 100,
+                threshold * 100,
+            )
+            raise StepExecutionError(msg, step=step.step, action=step.action.value)
 
     def _get_viewport_size(self) -> tuple[int, int]:
         """Get viewport width and height from engine config."""
