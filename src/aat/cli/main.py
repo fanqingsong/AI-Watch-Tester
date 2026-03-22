@@ -105,12 +105,14 @@ from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
 from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
 from aat.cli.commands.doctor_cmd import doctor_command  # noqa: E402
 from aat.cli.commands.generate_cmd import generate_command  # noqa: E402
+from aat.cli.commands.hook_cmd import hook_app  # noqa: E402
 from aat.cli.commands.init_cmd import init_command  # noqa: E402
 from aat.cli.commands.learn_cmd import learn_app  # noqa: E402
 from aat.cli.commands.learned_cmd import learned_app  # noqa: E402
 from aat.cli.commands.loop_cmd import loop_command  # noqa: E402
 from aat.cli.commands.report_cmd import report_app  # noqa: E402
 from aat.cli.commands.run_cmd import run_command  # noqa: E402
+from aat.cli.commands.scan_cmd import scan_command  # noqa: E402
 from aat.cli.commands.serve_cmd import serve_command  # noqa: E402
 from aat.cli.commands.setup_cmd import setup_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
@@ -132,3 +134,5 @@ app.command(name="loop")(loop_command)
 app.add_typer(report_app, name="report")
 app.add_typer(learn_app, name="learn")
 app.add_typer(learned_app, name="learned")
+app.command(name="scan")(scan_command)
+app.add_typer(hook_app, name="hook")
