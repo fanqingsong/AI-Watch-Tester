@@ -103,6 +103,7 @@ from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
 from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
 from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
+from aat.cli.commands.devqa_cmd import devqa_command  # noqa: E402
 from aat.cli.commands.doctor_cmd import doctor_command  # noqa: E402
 from aat.cli.commands.generate_cmd import generate_command  # noqa: E402
 from aat.cli.commands.hook_cmd import hook_app  # noqa: E402
@@ -135,4 +136,5 @@ app.add_typer(report_app, name="report")
 app.add_typer(learn_app, name="learn")
 app.add_typer(learned_app, name="learned")
 app.command(name="scan")(scan_command)
+app.command(name="devqa")(devqa_command)
 app.add_typer(hook_app, name="hook")
