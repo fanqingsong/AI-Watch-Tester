@@ -88,7 +88,9 @@ async def _devqa(
     scenario_dir = Path("scenarios")
     scenario_dir.mkdir(exist_ok=True)
 
-    scenario_yaml = _generate_scenario(description, scan_data, app_url)
+    scenario_yaml = _generate_scenario(
+        description, scan_data, app_url, config.test_accounts,
+    )
     # Extract generated ID for filename
     sc_id = _next_scenario_id()
     # Re-read from generated YAML (id already set by _generate_scenario)
@@ -191,63 +193,109 @@ def _generate_scenario(
     description: str,
     scan_data: dict[str, Any],
     app_url: str,
+    test_accounts: dict[str, dict[str, str]] | None = None,
 ) -> str:
-    """Generate YAML scenario from scan_result.json elements."""
+    """Generate YAML scenario from scan_result.json elements.
+
+    Smart generation:
+    1. Detect form fields (input/textarea) and add fill steps
+    2. Use test_accounts for login/signup flows
+    3. Match description keywords to infer intent
+    4. Validate: every input has a value, submit follows inputs
+    """
     import yaml
 
     elements = scan_data.get("elements", [])
+    account = (test_accounts or {}).get("default", {})
+    desc_lower = description.lower()
 
-    # Build steps from scan elements
-    steps: list[dict[str, Any]] = [
-        {
-            "step": 1,
-            "action": "navigate",
-            "value": app_url,
-            "description": f"Open {app_url}",
-        },
-    ]
-
+    steps: list[dict[str, Any]] = [{
+        "step": 1,
+        "action": "navigate",
+        "value": app_url,
+        "description": f"Open {app_url}",
+    }]
     step_num = 2
 
-    # Match description keywords to elements
-    keywords = _extract_keywords(description)
+    # Classify elements
+    inputs = [e for e in elements if e.get("type") in ("input", "textarea")]
+    buttons = [
+        e for e in elements
+        if e.get("type") in ("button", "a", "semantics")
+        and e.get("source") in ("dom", "semantics")
+        and e.get("x", 0) > 100
+    ]
 
-    for kw in keywords:
-        matched = _find_matching_elements(kw, elements)
-        for el in matched[:1]:  # Best match per keyword
-            region = "main" if el.get("x", 0) > 200 else "full"
-            step: dict[str, Any] = {
+    # Detect intent from description
+    intent = _detect_intent(desc_lower)
+
+    # --- Form filling: add input steps before button clicks ---
+    if intent in ("login", "signup", "search") or inputs:
+        for inp in inputs:
+            value = _infer_input_value(inp, intent, account)
+            if not value:
+                continue
+
+            target: dict[str, Any] = {}
+            if inp.get("selector") and inp["source"] == "dom":
+                target["selector"] = inp["selector"]
+            label = inp.get("label", "")
+            if label:
+                target["text"] = label
+            if not target:
+                continue
+
+            steps.append({
                 "step": step_num,
-                "action": "find_and_click",
-                "target": {"text": el["label"]},
-                "region": region,
-                "description": f'Click "{el["label"]}"',
-            }
-            if el.get("selector") and el["source"] == "dom":
-                step["target"]["selector"] = el["selector"]
-
-            steps.append(step)
+                "action": "find_and_type",
+                "target": target,
+                "value": value,
+                "region": "main",
+                "description": f'Enter {_input_description(inp)}',
+            })
             step_num += 1
 
-            # Add screen change assert after click
+    # --- Button clicks: match keywords to buttons ---
+    keywords = _extract_keywords(description)
+    clicked_labels: set[str] = set()
+
+    for kw in keywords:
+        matched = _find_matching_elements(kw, buttons)
+        for el in matched[:1]:
+            label = el["label"]
+            if label in clicked_labels:
+                continue
+            clicked_labels.add(label)
+
+            is_submit = _is_submit_button(el, intent)
+            step_dict: dict[str, Any] = {
+                "step": step_num,
+                "action": "find_and_click",
+                "target": {"text": label},
+                "region": "main",
+                "description": f'Click "{label}"',
+            }
+            if el.get("selector") and el["source"] == "dom":
+                step_dict["target"]["selector"] = el["selector"]
+            if is_submit:
+                step_dict["critical"] = True
+
+            steps.append(step_dict)
+            step_num += 1
+
+            # Assert after click
             steps.append({
                 "step": step_num,
                 "action": "assert_screen_changed",
                 "threshold": 0.05,
                 "region": "main",
-                "description": f'Verify screen changed after "{el["label"]}"',
+                "description": f'Verify screen changed after "{label}"',
             })
             step_num += 1
 
-    # If no keywords matched, add clicks for prominent buttons
-    if step_num == 2:
-        buttons = [
-            e for e in elements
-            if e.get("type") in ("button", "a")
-            and e.get("source") in ("dom", "semantics")
-            and e.get("x", 0) > 200  # main area
-        ]
-        for el in buttons[:5]:
+    # --- Fallback: if no keywords matched, use prominent buttons ---
+    if not clicked_labels:
+        for el in buttons[:3]:
             steps.append({
                 "step": step_num,
                 "action": "find_and_click",
@@ -257,12 +305,19 @@ def _generate_scenario(
             })
             step_num += 1
 
-    # Final screenshot assertion
+    # --- Validate: ensure inputs before submit ---
+    steps = _validate_form_flow(steps, inputs, account)
+
+    # Final screenshot
     steps.append({
-        "step": step_num,
+        "step": len(steps) + 1,
         "action": "screenshot",
         "description": "Capture final state",
     })
+
+    # Re-number steps
+    for i, s in enumerate(steps, 1):
+        s["step"] = i
 
     scenario = {
         "id": _next_scenario_id(),
@@ -277,6 +332,173 @@ def _generate_scenario(
         allow_unicode=True,
         sort_keys=False,
     )
+
+
+# -- Intent detection ---------------------------------------------------------
+
+
+_INTENT_KEYWORDS: dict[str, list[str]] = {
+    "login": ["로그인", "login", "sign in", "signin", "로그 인"],
+    "signup": ["회원가입", "signup", "sign up", "register", "가입"],
+    "search": ["검색", "search", "찾기", "find"],
+    "generate": ["생성", "generate", "만들기", "create"],
+}
+
+
+def _detect_intent(desc_lower: str) -> str:
+    """Detect test intent from description."""
+    for intent, keywords in _INTENT_KEYWORDS.items():
+        if any(kw in desc_lower for kw in keywords):
+            return intent
+    return "explore"
+
+
+# -- Input value inference ----------------------------------------------------
+
+
+_INPUT_TYPE_MAP: dict[str, str] = {
+    "email": "test@example.com",
+    "password": "Test1234!",
+    "tel": "010-1234-5678",
+    "search": "test query",
+    "number": "1",
+    "url": "https://example.com",
+}
+
+_LABEL_HINTS: dict[str, str] = {
+    "이메일": "email",
+    "email": "email",
+    "e-mail": "email",
+    "비밀번호": "password",
+    "password": "password",
+    "패스워드": "password",
+    "이름": "name",
+    "name": "name",
+    "nickname": "name",
+    "닉네임": "name",
+    "전화": "tel",
+    "phone": "tel",
+    "연락처": "tel",
+    "검색": "search",
+    "search": "search",
+}
+
+
+def _infer_input_value(
+    inp: dict[str, Any],
+    intent: str,
+    account: dict[str, str],
+) -> str:
+    """Infer a test value for an input field."""
+    # Check input_type from scan data first
+    input_type = (inp.get("input_type") or "").lower()
+    if input_type in _INPUT_TYPE_MAP:
+        if input_type == "email" and account.get("email"):
+            return account["email"]
+        if input_type == "password" and account.get("password"):
+            return account["password"]
+        return _INPUT_TYPE_MAP[input_type]
+
+    # Check selector/label for type hints
+    selector = (inp.get("selector") or "").lower()
+    label = (inp.get("label") or "").lower()
+    role = (inp.get("role") or "").lower()
+    combined = f"{selector} {label} {role}"
+
+    # Match by label hints
+    for hint_text, field_type in _LABEL_HINTS.items():
+        if hint_text in combined:
+            # Use account data if available
+            if field_type == "email" and account.get("email"):
+                return account["email"]
+            if field_type == "password" and account.get("password"):
+                return account["password"]
+            if field_type == "name" and account.get("name"):
+                return account["name"]
+            return _INPUT_TYPE_MAP.get(field_type, "test input")
+
+    # Match by input type in selector
+    for input_type, default_val in _INPUT_TYPE_MAP.items():
+        if f'type="{input_type}"' in selector or f"type={input_type}" in selector:
+            if input_type == "email" and account.get("email"):
+                return account["email"]
+            if input_type == "password" and account.get("password"):
+                return account["password"]
+            return default_val
+
+    # Default for text inputs
+    if intent == "search":
+        return "test query"
+    return "test input"
+
+
+def _input_description(inp: dict[str, Any]) -> str:
+    """Human-readable description of an input field."""
+    label = str(inp.get("label", ""))
+    if label and len(label) < 30:
+        return label
+    selector = inp.get("selector", "")
+    if "email" in selector.lower():
+        return "email"
+    if "password" in selector.lower():
+        return "password"
+    return "text field"
+
+
+def _is_submit_button(el: dict[str, Any], intent: str) -> bool:
+    """Check if element is a form submit button."""
+    label = (el.get("label") or "").lower()
+    submit_words = [
+        "로그인", "login", "sign in", "submit", "제출",
+        "가입", "register", "확인", "검색", "search",
+        "생성", "create", "만들기", "generate",
+    ]
+    return any(w in label for w in submit_words)
+
+
+# -- Flow validation ----------------------------------------------------------
+
+
+def _validate_form_flow(
+    steps: list[dict[str, Any]],
+    inputs: list[dict[str, Any]],
+    account: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Validate and fix: ensure inputs are filled before submit."""
+    # Check if there are find_and_type steps
+    has_type_steps = any(s.get("action") == "find_and_type" for s in steps)
+
+    if not has_type_steps and inputs:
+        # Inputs exist but no type steps — add them before first click
+        first_click_idx = next(
+            (i for i, s in enumerate(steps) if s.get("action") == "find_and_click"),
+            len(steps),
+        )
+        insert_steps: list[dict[str, Any]] = []
+        for inp in inputs:
+            value = _infer_input_value(inp, "explore", account)
+            if not value:
+                continue
+            target: dict[str, Any] = {}
+            if inp.get("selector"):
+                target["selector"] = inp["selector"]
+            if inp.get("label"):
+                target["text"] = inp["label"]
+            if not target:
+                continue
+            insert_steps.append({
+                "step": 0,
+                "action": "find_and_type",
+                "target": target,
+                "value": value,
+                "region": "main",
+                "description": f"Enter {_input_description(inp)}",
+            })
+
+        for s in reversed(insert_steps):
+            steps.insert(first_click_idx, s)
+
+    return steps
 
 
 def _next_scenario_id() -> str:

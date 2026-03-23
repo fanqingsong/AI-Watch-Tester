@@ -208,6 +208,7 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                     results.push({
                         label: label,
                         type: el.tagName.toLowerCase(),
+                        input_type: el.getAttribute('type') || '',
                         role: el.getAttribute('role') || '',
                         selector: _bestSelector(el),
                         x: Math.round(rect.x + rect.width / 2),

@@ -231,6 +231,10 @@ class Config(BaseSettings):
     engine: EngineConfig = Field(default_factory=EngineConfig)
     matching: MatchingConfig = Field(default_factory=MatchingConfig)
     humanizer: HumanizerConfig = Field(default_factory=HumanizerConfig)
+    test_accounts: dict[str, dict[str, str]] = Field(
+        default_factory=dict,
+        description="Test accounts: {name: {email, password, ...}}",
+    )
     scenarios_dir: str = Field(default="scenarios")
     reports_dir: str = Field(default="reports")
     assets_dir: str = Field(default="assets")
