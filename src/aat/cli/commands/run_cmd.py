@@ -367,6 +367,26 @@ async def _run(
             typer.echo(f"\nScenario: {scenario.id} — {scenario.name}")
             if scenario.depends_on:
                 typer.echo(f"  (depends on: {', '.join(scenario.depends_on)})")
+
+            # Auto-reset between scenarios (multi-case)
+            if len(scenarios) > 1 and scenario != scenarios[0]:
+                try:
+                    # 1. Navigate to base URL (reset page state)
+                    if config.url:
+                        await engine.navigate(config.url)
+                    else:
+                        await engine.refresh()
+                    await asyncio.sleep(1.0)
+
+                    # 2. Reset executor page state
+                    executor._current_page_state = "normal"
+                    executor._last_screenshot = None
+
+                    if skill_mode:
+                        typer.echo("[AWT] State reset for new scenario")
+                except Exception:
+                    pass
+
             scenario_start = time.monotonic()
             scenario_failed = False
             critical_failure = False
