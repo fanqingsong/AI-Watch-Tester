@@ -45,6 +45,8 @@ class ActionType(StrEnum):
     # Session
     SAVE_SESSION = "save_session"
     LOAD_SESSION = "load_session"
+    # File
+    UPLOAD_FILE = "upload_file"
     # Utility
     WAIT = "wait"
     SCREENSHOT = "screenshot"
@@ -395,6 +397,14 @@ class StepConfig(BaseModel):
     on_fail: str = Field(
         default="",
         description="Action on failure: 'stop' to halt test immediately",
+    )
+    file_path: str = Field(
+        default="",
+        description="File path for upload_file action",
+    )
+    file_paths: list[str] = Field(
+        default_factory=list,
+        description="Multiple file paths for upload_file action",
     )
     change_threshold: float | None = Field(
         default=None,

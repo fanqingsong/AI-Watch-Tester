@@ -318,6 +318,9 @@ class StepExecutor:
         elif step.action == ActionType.LOAD_SESSION:
             await self._handle_load_session(step)
 
+        elif step.action == ActionType.UPLOAD_FILE:
+            await self._handle_upload_file(step)
+
         elif step.action == ActionType.WAIT:
             await asyncio.sleep(int(step.value or "1000") / 1000)
 
@@ -1028,6 +1031,54 @@ class StepExecutor:
             logger.info("Session loaded: %s (%.1fh old)", session_path, age_hours)
         else:
             logger.warning("Engine does not support load_session")
+
+    async def _handle_upload_file(self, step: StepConfig) -> None:
+        """Upload file(s) via input[type=file]."""
+        if not hasattr(self._engine, "page"):
+            raise StepExecutionError(
+                "upload_file requires web engine",
+                step=step.step, action="upload_file",
+            )
+
+        selector = ""
+        if step.target and step.target.selector:
+            selector = step.target.selector
+        elif step.value:
+            selector = step.value
+        else:
+            selector = 'input[type="file"]'
+
+        # Collect file paths
+        paths: list[str] = []
+        if step.file_paths:
+            paths = step.file_paths
+        elif step.file_path:
+            paths = [step.file_path]
+
+        if not paths:
+            raise StepExecutionError(
+                "upload_file requires file_path or file_paths",
+                step=step.step, action="upload_file",
+            )
+
+        page = self._engine.page  # type: ignore[attr-defined]
+        loc = page.locator(selector)
+
+        if await loc.count() == 0:
+            raise StepExecutionError(
+                f"File input not found: {selector}",
+                step=step.step, action="upload_file",
+            )
+
+        if len(paths) == 1:
+            await loc.first.set_input_files(paths[0])
+        else:
+            await loc.first.set_input_files(paths)
+
+        logger.info(
+            "upload_file: %d file(s) via %s",
+            len(paths), selector,
+        )
 
     async def _maybe_activate_flutter_semantics(self) -> None:
         """Auto-activate Flutter Semantics after navigation (if Flutter)."""
