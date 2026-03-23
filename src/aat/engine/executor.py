@@ -1060,47 +1060,135 @@ class StepExecutor:
     # -- Page state detection --------------------------------------------------
 
     async def _detect_page_state(self) -> str:
-        """Detect current page state: normal, error, loading, modal."""
+        """Detect current page state: normal, error, loading, modal.
+
+        Uses 3 sources:
+        1. DOM text (regular web apps)
+        2. Semantics aria-labels (Flutter CanvasKit)
+        3. OCR on screenshot (final fallback)
+        """
         if not hasattr(self._engine, "page"):
             return "normal"
-        try:
-            state: str = await self._engine.page.evaluate("""() => {
-                const body = document.body;
-                if (!body) return 'normal';
-                const text = body.innerText || '';
-                const lower = text.toLowerCase();
 
-                // Error indicators
+        page = self._engine.page  # type: ignore[attr-defined]
+
+        # Source 1+2: DOM text + Semantics labels (combined in one JS call)
+        try:
+            state: str = await page.evaluate("""() => {
+                // Collect all visible text from multiple sources
+                const texts = [];
+
+                // DOM innerText
+                if (document.body && document.body.innerText) {
+                    texts.push(document.body.innerText);
+                }
+
+                // Semantics aria-labels (Flutter CanvasKit)
+                function collectLabels(root) {
+                    const nodes = root.querySelectorAll('[aria-label]');
+                    for (const n of nodes) {
+                        const label = n.getAttribute('aria-label');
+                        if (label) texts.push(label);
+                    }
+                }
+                collectLabels(document);
+                const fv = document.querySelector('flutter-view');
+                if (fv && fv.shadowRoot) collectLabels(fv.shadowRoot);
+                const gp = document.querySelector('flt-glass-pane');
+                if (gp && gp.shadowRoot) collectLabels(gp.shadowRoot);
+
+                // Also check aria-live regions (error announcements)
+                const live = document.querySelectorAll(
+                    '[aria-live], [role="alert"], [role="status"]'
+                );
+                for (const el of live) {
+                    const t = el.textContent || el.getAttribute('aria-label');
+                    if (t) texts.push(t);
+                }
+
+                const combined = texts.join(' ').toLowerCase();
+
+                // Error patterns
                 const errorPatterns = [
                     '오류', 'error', '실패', 'failed', 'invalid',
-                    '잘못된', 'incorrect', '비밀번호가 틀', 'wrong password',
-                    '존재하지 않', 'not found', '확인해주세요',
+                    '잘못된', 'incorrect', '비밀번호가 틀',
+                    'wrong password', '존재하지 않', 'not found',
+                    '확인해주세요', '일치하지 않',
+                    '필수', 'required', '형식이',
                 ];
                 for (const p of errorPatterns) {
-                    if (lower.includes(p)) return 'error';
+                    if (combined.includes(p)) return 'error';
                 }
 
-                // Loading indicators
+                // Loading patterns
                 const loadingPatterns = [
                     '로딩', 'loading', '처리 중', 'processing',
-                    'please wait', '잠시만',
+                    'please wait', '잠시만', '생성 중',
                 ];
                 for (const p of loadingPatterns) {
-                    if (lower.includes(p)) return 'loading';
+                    if (combined.includes(p)) return 'loading';
                 }
 
-                // Modal/dialog detection
+                // Modal/dialog
                 const modals = document.querySelectorAll(
                     '[role="dialog"], [role="alertdialog"], '
-                    + '.modal, .dialog, [class*="modal"]'
+                    + '.modal, .dialog'
                 );
                 if (modals.length > 0) return 'modal';
 
                 return 'normal';
             }""")
-            return state
+
+            if state != "normal":
+                logger.info("[AWT] Page state: %s", state)
+                return state
         except Exception:
-            return "normal"
+            pass
+
+        # Source 3: OCR fallback (for pure Canvas rendering)
+        try:
+            ss = await self._engine.screenshot()
+            ocr_state = self._detect_state_from_screenshot(ss)
+            if ocr_state != "normal":
+                logger.info("[AWT] Page state (OCR): %s", ocr_state)
+                return ocr_state
+        except Exception:
+            pass
+
+        return "normal"
+
+    @staticmethod
+    def _detect_state_from_screenshot(screenshot: bytes) -> str:
+        """Detect page state from screenshot via OCR."""
+        try:
+            import pytesseract  # type: ignore[import-untyped]
+
+            img_arr = np.frombuffer(screenshot, dtype=np.uint8)
+            img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return "normal"
+
+            # Quick OCR (no upscale for speed)
+            text: str = pytesseract.image_to_string(
+                img, lang="kor+eng", config="--oem 3 --psm 6",
+            )
+            lower = text.lower()
+
+            error_keywords = [
+                "오류", "error", "실패", "failed", "invalid",
+                "잘못된", "incorrect", "확인해주세요",
+            ]
+            for kw in error_keywords:
+                if kw in lower:
+                    return "error"
+
+            loading_keywords = ["로딩", "loading", "처리 중"]
+            for kw in loading_keywords:
+                if kw in lower:
+                    return "loading"
+        except Exception:
+            pass
+        return "normal"
 
     # -- Step-level learning --------------------------------------------------
 
