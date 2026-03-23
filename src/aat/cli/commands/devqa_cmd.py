@@ -231,28 +231,51 @@ def _generate_scenario(
 
     # --- Form filling: add input steps before button clicks ---
     if intent in ("login", "signup", "search") or inputs:
-        for inp in inputs:
+        for inp_idx, inp in enumerate(inputs):
             value = _infer_input_value(inp, intent, account)
             if not value:
                 continue
 
             target: dict[str, Any] = {}
-            if inp.get("selector") and inp["source"] == "dom":
-                target["selector"] = inp["selector"]
+            input_type = inp.get("input_type", "")
+
+            # Build unique selector using input type
+            if input_type and inp["source"] == "dom":
+                target["selector"] = f'input[type="{input_type}"]'
+            elif inp.get("selector") and inp["source"] == "dom":
+                sel = inp["selector"]
+                # Generic "input" selector → use match_index
+                if sel in ("input", "textarea"):
+                    target["selector"] = sel
+                else:
+                    target["selector"] = sel
+
             label = inp.get("label", "")
             if label:
                 target["text"] = label
+
             if not target:
                 continue
 
-            steps.append({
+            step_dict: dict[str, Any] = {
                 "step": step_num,
                 "action": "find_and_type",
                 "target": target,
                 "value": value,
                 "region": "main",
                 "description": f'Enter {_input_description(inp)}',
-            })
+            }
+
+            # Add match_index for duplicate selectors
+            same_sel = [
+                i for i, e in enumerate(inputs[:inp_idx])
+                if e.get("input_type") == input_type
+                and e.get("selector") == inp.get("selector")
+            ]
+            if same_sel:
+                step_dict["match_index"] = len(same_sel)
+
+            steps.append(step_dict)
             step_num += 1
 
     # --- Button clicks: match keywords to buttons ---
@@ -268,7 +291,7 @@ def _generate_scenario(
             clicked_labels.add(label)
 
             is_submit = _is_submit_button(el, intent)
-            step_dict: dict[str, Any] = {
+            click_step: dict[str, Any] = {
                 "step": step_num,
                 "action": "find_and_click",
                 "target": {"text": label},
@@ -276,11 +299,11 @@ def _generate_scenario(
                 "description": f'Click "{label}"',
             }
             if el.get("selector") and el["source"] == "dom":
-                step_dict["target"]["selector"] = el["selector"]
+                click_step["target"]["selector"] = el["selector"]
             if is_submit:
-                step_dict["critical"] = True
+                click_step["critical"] = True
 
-            steps.append(step_dict)
+            steps.append(click_step)
             step_num += 1
 
             # Assert after click

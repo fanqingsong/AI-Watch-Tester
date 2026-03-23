@@ -273,6 +273,19 @@ class LearnedStore:
         """Save or update learned coordinates by target name."""
         now = datetime.now(UTC).isoformat()
         try:
+            # Duplicate coordinate check: warn if another target has same coords
+            dup_row = self._conn.execute(
+                "SELECT target_name FROM learned_elements "
+                "WHERE correct_x=? AND correct_y=? AND target_name!=? "
+                "LIMIT 1",
+                (x, y, target_name),
+            ).fetchone()
+            if dup_row:
+                logger.warning(
+                    "Duplicate coords (%d,%d): '%s' conflicts with '%s'",
+                    x, y, target_name, dup_row["target_name"],
+                )
+
             existing = self.find_by_name(target_name)
             if existing and existing.id is not None:
                 # Update if coordinates changed
