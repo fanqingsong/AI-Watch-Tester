@@ -21,11 +21,16 @@ def scan_command(
         "--compare",
         help="Previous scan_result.json to diff against.",
     ),
+    session: str | None = typer.Option(
+        None,
+        "--session",
+        help="Load saved session before scanning (for post-login pages).",
+    ),
     config_path: str | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Scan a URL and collect UI elements (selectors, OCR text, coordinates)."""
     try:
-        asyncio.run(_scan(url, compare, config_path))
+        asyncio.run(_scan(url, compare, session, config_path))
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -34,6 +39,7 @@ def scan_command(
 async def _scan(
     url: str,
     compare_path: str | None,
+    session_name: str | None,
     config_path: str | None,
 ) -> None:
     """Execute scan asynchronously."""
@@ -56,10 +62,20 @@ async def _scan(
 
     try:
         await engine.start()
+
+        # Load session if provided (for scanning post-login pages)
+        if session_name:
+            session_path = Path(config.data_dir) / "sessions" / f"{session_name}.json"
+            if session_path.exists():
+                typer.echo(f"[AWT] Loading session: {session_name}")
+                await engine.load_session(str(session_path))
+            else:
+                typer.echo(f"[AWT] Session '{session_name}' not found, scanning without login")
+
         await engine.navigate(url)
 
-        # Wait for page to settle
-        await asyncio.sleep(2.0)
+        # Wait for page to settle (longer for Flutter CanvasKit)
+        await asyncio.sleep(3.0)
 
         page = engine.page
 
@@ -220,11 +236,29 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
 
 
 async def _collect_semantics_elements(page: Any) -> list[dict[str, Any]]:
-    """Collect Flutter Semantics elements with bounding boxes."""
+    """Collect Flutter Semantics elements with bounding boxes (shadow DOM aware)."""
     try:
         elements: list[dict[str, Any]] = await page.evaluate("""() => {
             const results = [];
-            const nodes = document.querySelectorAll('flt-semantics');
+
+            // Collect from all possible locations (direct + shadow DOM)
+            let nodes = document.querySelectorAll('flt-semantics');
+
+            // Flutter 3.x: flutter-view shadow DOM
+            if (nodes.length === 0) {
+                const fv = document.querySelector('flutter-view');
+                if (fv && fv.shadowRoot) {
+                    nodes = fv.shadowRoot.querySelectorAll('flt-semantics');
+                }
+            }
+
+            // Flutter 2.x: flt-glass-pane shadow DOM
+            if (nodes.length === 0) {
+                const gp = document.querySelector('flt-glass-pane');
+                if (gp && gp.shadowRoot) {
+                    nodes = gp.shadowRoot.querySelectorAll('flt-semantics');
+                }
+            }
 
             for (const node of nodes) {
                 const label = node.getAttribute('aria-label');

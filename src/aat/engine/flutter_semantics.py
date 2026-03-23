@@ -165,13 +165,34 @@ async def find_by_semantics(
 
 
 async def get_all_semantics_labels(page: Any) -> list[str]:
-    """Get all aria-labels from flt-semantics nodes (debug helper)."""
+    """Get all aria-labels from flt-semantics nodes (shadow DOM aware)."""
     try:
         labels: list[str] = await page.evaluate("""() => {
-            const nodes = document.querySelectorAll('flt-semantics[aria-label]');
-            return Array.from(nodes)
-                .map(n => n.getAttribute('aria-label'))
-                .filter(Boolean);
+            function collectLabels(root) {
+                const nodes = root.querySelectorAll(
+                    'flt-semantics[aria-label]'
+                );
+                return Array.from(nodes)
+                    .map(n => n.getAttribute('aria-label'))
+                    .filter(Boolean);
+            }
+
+            let labels = collectLabels(document);
+            if (labels.length > 0) return labels;
+
+            const fv = document.querySelector('flutter-view');
+            if (fv && fv.shadowRoot) {
+                labels = collectLabels(fv.shadowRoot);
+                if (labels.length > 0) return labels;
+            }
+
+            const gp = document.querySelector('flt-glass-pane');
+            if (gp && gp.shadowRoot) {
+                labels = collectLabels(gp.shadowRoot);
+                if (labels.length > 0) return labels;
+            }
+
+            return labels;
         }""")
         return labels
     except Exception:
@@ -182,10 +203,31 @@ async def get_all_semantics_labels(page: Any) -> list[str]:
 
 
 async def _count_semantics_nodes(page: Any) -> int:
-    """Count flt-semantics nodes in DOM."""
+    """Count flt-semantics nodes in DOM (including shadow DOM)."""
     try:
         count: int = await page.evaluate("""() => {
-            return document.querySelectorAll('flt-semantics').length;
+            // Direct DOM first
+            let n = document.querySelectorAll('flt-semantics').length;
+            if (n > 0) return n;
+
+            // Flutter 3.x: inside flutter-view shadow DOM
+            const fv = document.querySelector('flutter-view');
+            if (fv && fv.shadowRoot) {
+                n = fv.shadowRoot.querySelectorAll('flt-semantics').length;
+                if (n > 0) return n;
+            }
+
+            // Flutter 2.x: inside flt-glass-pane shadow DOM
+            const gp = document.querySelector('flt-glass-pane');
+            if (gp && gp.shadowRoot) {
+                n = gp.shadowRoot.querySelectorAll('flt-semantics').length;
+                if (n > 0) return n;
+            }
+
+            // Also count ARIA elements (Semantics may use these)
+            return document.querySelectorAll(
+                '[flt-semantics], [aria-label][role]'
+            ).length;
         }""")
         return count
     except Exception:
@@ -255,22 +297,55 @@ async def _try_flt_semantics(
     page: Any,
     text: str,
 ) -> tuple[int, int] | None:
-    """Find via flt-semantics[aria-label] with bounding box."""
+    """Find via flt-semantics[aria-label] (shadow DOM aware)."""
     try:
-        selector = f'flt-semantics[aria-label*="{_escape_css(text)}"]'
-        loc = page.locator(selector).first
-        if await loc.count() > 0:
-            with contextlib.suppress(Exception):
-                await loc.scroll_into_view_if_needed(timeout=2000)
-            box = await loc.bounding_box()
-            if box:
-                x = int(box["x"] + box["width"] / 2)
-                y = int(box["y"] + box["height"] / 2)
-                logger.info(
-                    "[AWT] Semantics: '%s' via flt-semantics at (%d,%d)",
-                    text, x, y,
-                )
-                return x, y
+        # Use JS to search inside shadow DOM where Playwright can't reach
+        result = await page.evaluate("""(searchText) => {
+            function findInRoot(root) {
+                const nodes = root.querySelectorAll('flt-semantics');
+                for (const node of nodes) {
+                    const label = node.getAttribute('aria-label') || '';
+                    if (label.includes(searchText)) {
+                        const rect = node.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            return {
+                                x: Math.round(rect.x + rect.width / 2),
+                                y: Math.round(rect.y + rect.height / 2),
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            // Direct DOM
+            let r = findInRoot(document);
+            if (r) return r;
+
+            // flutter-view shadow DOM
+            const fv = document.querySelector('flutter-view');
+            if (fv && fv.shadowRoot) {
+                r = findInRoot(fv.shadowRoot);
+                if (r) return r;
+            }
+
+            // flt-glass-pane shadow DOM
+            const gp = document.querySelector('flt-glass-pane');
+            if (gp && gp.shadowRoot) {
+                r = findInRoot(gp.shadowRoot);
+                if (r) return r;
+            }
+
+            return null;
+        }""", text)
+
+        if result:
+            x, y = result["x"], result["y"]
+            logger.info(
+                "[AWT] Semantics: '%s' via flt-semantics at (%d,%d)",
+                text, x, y,
+            )
+            return x, y
     except Exception:
         pass
     return None
@@ -280,22 +355,51 @@ async def _try_aria_label(
     page: Any,
     text: str,
 ) -> tuple[int, int] | None:
-    """Find via any [aria-label] element."""
+    """Find via any [aria-label] element (shadow DOM aware)."""
     try:
-        selector = f'[aria-label*="{_escape_css(text)}"]'
-        loc = page.locator(selector).first
-        if await loc.count() > 0:
-            with contextlib.suppress(Exception):
-                await loc.scroll_into_view_if_needed(timeout=2000)
-            box = await loc.bounding_box()
-            if box:
-                x = int(box["x"] + box["width"] / 2)
-                y = int(box["y"] + box["height"] / 2)
-                logger.info(
-                    "[AWT] Semantics: '%s' via aria-label at (%d,%d)",
-                    text, x, y,
-                )
-                return x, y
+        result = await page.evaluate("""(searchText) => {
+            function findInRoot(root) {
+                const nodes = root.querySelectorAll('[aria-label]');
+                for (const node of nodes) {
+                    const label = node.getAttribute('aria-label') || '';
+                    if (label.includes(searchText)) {
+                        const rect = node.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            return {
+                                x: Math.round(rect.x + rect.width / 2),
+                                y: Math.round(rect.y + rect.height / 2),
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            let r = findInRoot(document);
+            if (r) return r;
+
+            const fv = document.querySelector('flutter-view');
+            if (fv && fv.shadowRoot) {
+                r = findInRoot(fv.shadowRoot);
+                if (r) return r;
+            }
+
+            const gp = document.querySelector('flt-glass-pane');
+            if (gp && gp.shadowRoot) {
+                r = findInRoot(gp.shadowRoot);
+                if (r) return r;
+            }
+
+            return null;
+        }""", text)
+
+        if result:
+            x, y = result["x"], result["y"]
+            logger.info(
+                "[AWT] Semantics: '%s' via aria-label at (%d,%d)",
+                text, x, y,
+            )
+            return x, y
     except Exception:
         pass
     return None
