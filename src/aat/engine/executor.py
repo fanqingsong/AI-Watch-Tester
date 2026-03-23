@@ -127,6 +127,7 @@ class StepExecutor:
         waiter: Waiter,
         comparator: Comparator,
         screenshot_dir: Path | None = None,
+        learned_store: Any = None,
     ) -> None:
         self._engine = engine
         self._matcher = matcher
@@ -135,6 +136,7 @@ class StepExecutor:
         self._last_screenshot: bytes | None = None  # for assert_screen_changed
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
+        self._learned_store = learned_store  # for step-level learning
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
@@ -178,7 +180,7 @@ class StepExecutor:
                     await self._comparator.check(exp, self._engine)
 
             elapsed = (time.monotonic() - start) * 1000
-            return StepResult(
+            result = StepResult(
                 step=step.step,
                 action=step.action,
                 status=StepStatus.PASSED,
@@ -188,10 +190,23 @@ class StepExecutor:
                 screenshot_after=screenshots["after"],
                 elapsed_ms=elapsed,
             )
+            self._record_step(step, result)
+            return result
 
         except (StepExecutionError, MatchError) as e:
             elapsed = (time.monotonic() - start) * 1000
             status = StepStatus.SKIPPED if step.optional else StepStatus.FAILED
+
+            # Record failure
+            fail_result = StepResult(
+                step=step.step,
+                action=step.action,
+                status=status,
+                description=step.description,
+                error_message=str(e),
+                elapsed_ms=elapsed,
+            )
+            self._record_step(step, fail_result)
 
             # Critical step or on_fail=stop → raise to abort scenario
             if step.critical or step.on_fail == "stop":
@@ -201,14 +216,7 @@ class StepExecutor:
                     action=step.action.value,
                 ) from e
 
-            return StepResult(
-                step=step.step,
-                action=step.action,
-                status=status,
-                description=step.description,
-                error_message=str(e),
-                elapsed_ms=elapsed,
-            )
+            return fail_result
         except CriticalStepError:
             raise  # Propagate to run_cmd
         except Exception as e:  # noqa: BLE001
@@ -978,6 +986,49 @@ class StepExecutor:
         except Exception:
             logger.debug("Flutter Semantics lookup failed", exc_info=True)
             return None
+
+    # -- Step-level learning --------------------------------------------------
+
+    def _record_step(self, step: StepConfig, result: StepResult) -> None:
+        """Record every step outcome to learned.db for adaptive learning."""
+        if self._learned_store is None:
+            return
+        try:
+            target_name = ""
+            if step.target:
+                target_name = step.target.text or step.target.selector or ""
+            if not target_name:
+                target_name = step.value or step.description
+
+            is_success = result.status == StepStatus.PASSED
+            method = "playwright"
+            confidence = 1.0
+            if result.match_result and result.match_result.found:
+                method = result.match_result.method.value
+                confidence = result.match_result.confidence
+
+            # Record to match_history
+            self._learned_store.record_match(
+                target_name=target_name,
+                method=method,
+                success=is_success,
+                confidence=confidence,
+                elapsed_ms=result.elapsed_ms,
+                tier=0,
+            )
+
+            # Record failure pattern
+            if not is_success and result.error_message:
+                from aat.core.diagnosis import classify_failure
+
+                self._learned_store.record_failure(
+                    error_type=classify_failure(result.error_message),
+                    error_message=result.error_message,
+                    url_pattern="",
+                    action=step.action.value,
+                )
+        except Exception:
+            pass  # Learning is best-effort
 
     # -- Critical step auto-verification ------------------------------------
 

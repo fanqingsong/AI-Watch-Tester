@@ -349,7 +349,10 @@ async def _loop(
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
     comparator = Comparator()
-    executor = StepExecutor(engine, hybrid, humanizer, waiter, comparator)
+    executor = StepExecutor(
+        engine, hybrid, humanizer, waiter, comparator,
+        learned_store=learned_store,
+    )
 
     # Assemble AI adapter
     adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)

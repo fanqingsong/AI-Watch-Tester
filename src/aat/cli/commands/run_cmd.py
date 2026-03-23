@@ -282,7 +282,10 @@ async def _run(
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
     comparator = Comparator()
-    executor = StepExecutor(engine, hybrid, humanizer, waiter, comparator)
+    executor = StepExecutor(
+        engine, hybrid, humanizer, waiter, comparator,
+        learned_store=learned_store,
+    )
 
     # Skill-mode attempt tracking
     skill_attempt = 1
