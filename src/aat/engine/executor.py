@@ -166,7 +166,6 @@ class StepExecutor:
 
             # 2.5. Critical step auto-verification (screen change check)
             if step.critical and self._should_verify_change(step):
-                await asyncio.sleep(1.0)
                 await self._verify_critical_change(step)
 
             # 3. screenshot_after
@@ -1106,28 +1105,66 @@ class StepExecutor:
         return False
 
     async def _verify_critical_change(self, step: StepConfig) -> None:
-        """Verify screen changed after critical step. Raise on no change."""
+        """Verify screen changed after critical step. Raise on no change.
+
+        Polls up to 5 times (1s interval) for Flutter page transitions.
+        """
         if self._last_screenshot is None:
             return
 
-        current = await self._engine.screenshot()
+        # Poll: Flutter CanvasKit transitions can take 2-3 seconds
+        best_ratio = 0.0
+        for _ in range(5):
+            current = await self._engine.screenshot()
+            ratio = self._compute_change_ratio(self._last_screenshot, current)
+            best_ratio = max(best_ratio, ratio)
 
-        # Determine threshold
+            threshold = self._get_critical_threshold(step)
+            if best_ratio >= threshold:
+                logger.info(
+                    "[AWT] critical verify: %.1f%% change "
+                    "(threshold %.1f%%) — OK",
+                    best_ratio * 100,
+                    threshold * 100,
+                )
+                return
+
+            await asyncio.sleep(1.0)
+
+        # Final check with best ratio found
+        threshold = self._get_critical_threshold(step)
+        msg = (
+            step.message
+            or f"Screen change {best_ratio:.1%} below {threshold:.1%} "
+            f"after critical step"
+        )
+        logger.warning(
+            "[AWT] critical verify FAILED: %.1f%% change < %.1f%%",
+            best_ratio * 100,
+            threshold * 100,
+        )
+        raise StepExecutionError(
+            msg, step=step.step, action=step.action.value
+        )
+
+    def _get_critical_threshold(self, step: StepConfig) -> float:
+        """Get the change threshold for a critical step."""
         if step.change_threshold is not None:
-            threshold = step.change_threshold
-        elif step.action == ActionType.PRESS_KEY:
-            threshold = 0.10  # Enter key
-        else:
-            threshold = self._CRITICAL_THRESHOLDS.get(step.action, 0.05)
+            return step.change_threshold
+        if step.action == ActionType.PRESS_KEY:
+            return 0.10
+        return self._CRITICAL_THRESHOLDS.get(step.action, 0.05)
 
-        # Pixel diff
-        prev_arr = np.frombuffer(self._last_screenshot, dtype=np.uint8)
-        curr_arr = np.frombuffer(current, dtype=np.uint8)
+    @staticmethod
+    def _compute_change_ratio(before: bytes, after: bytes) -> float:
+        """Compute pixel change ratio between two screenshots."""
+        prev_arr = np.frombuffer(before, dtype=np.uint8)
+        curr_arr = np.frombuffer(after, dtype=np.uint8)
         prev_img = cv2.imdecode(prev_arr, cv2.IMREAD_GRAYSCALE)
         curr_img = cv2.imdecode(curr_arr, cv2.IMREAD_GRAYSCALE)
 
         if prev_img is None or curr_img is None:
-            return
+            return 0.0
 
         if prev_img.shape != curr_img.shape:
             curr_img = cv2.resize(
@@ -1137,26 +1174,7 @@ class StepExecutor:
         diff = cv2.absdiff(prev_img, curr_img)
         changed = np.count_nonzero(diff > 25)
         total = diff.size
-        ratio = changed / total if total > 0 else 0
-
-        if ratio >= threshold:
-            logger.info(
-                "[AWT] critical verify: %.1f%% change (threshold %.1f%%) — OK",
-                ratio * 100,
-                threshold * 100,
-            )
-        else:
-            msg = (
-                step.message
-                or f"Screen change {ratio:.1%} below {threshold:.1%} "
-                f"after critical step"
-            )
-            logger.warning(
-                "[AWT] critical verify FAILED: %.1f%% change < %.1f%%",
-                ratio * 100,
-                threshold * 100,
-            )
-            raise StepExecutionError(msg, step=step.step, action=step.action.value)
+        return changed / total if total > 0 else 0.0
 
     def _get_viewport_size(self) -> tuple[int, int]:
         """Get viewport width and height from engine config."""

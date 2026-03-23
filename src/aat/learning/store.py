@@ -96,7 +96,7 @@ def _row_to_element(row: sqlite3.Row) -> LearnedElement:
     return LearnedElement(
         id=row["id"],
         scenario_id=row["scenario_id"],
-        step_number=row["step_number"],
+        step_number=max(1, row["step_number"]),
         target_name=row["target_name"],
         screenshot_hash=row["screenshot_hash"],
         correct_x=row["correct_x"],
@@ -282,7 +282,7 @@ class LearnedStore:
                          created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    ("_auto", 0, target_name, "", x, y,
+                    ("_auto", 1, target_name, "", x, y,
                      "", confidence, 1, now, now),
                 )
                 self._conn.commit()
