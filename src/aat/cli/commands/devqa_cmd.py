@@ -87,9 +87,17 @@ async def _devqa(
     typer.echo("[AWT] Step 2/4: Generating scenario...")
     scenario_dir = Path("scenarios")
     scenario_dir.mkdir(exist_ok=True)
-    scenario_path = scenario_dir / "devqa_auto.yaml"
 
     scenario_yaml = _generate_scenario(description, scan_data, app_url)
+    # Extract generated ID for filename
+    sc_id = _next_scenario_id()
+    # Re-read from generated YAML (id already set by _generate_scenario)
+    import re as _re
+
+    m = _re.search(r"id:\s*['\"]?(SC-\d+)", scenario_yaml)
+    if m:
+        sc_id = m.group(1)
+    scenario_path = scenario_dir / f"{sc_id.lower()}_devqa.yaml"
     scenario_path.write_text(scenario_yaml, encoding="utf-8")
     typer.echo(f"[AWT] Scenario: {scenario_path}")
 
@@ -257,7 +265,7 @@ def _generate_scenario(
     })
 
     scenario = {
-        "id": "SC-AUTO",
+        "id": _next_scenario_id(),
         "name": description,
         "description": f"Auto-generated from scan: {description}",
         "steps": steps,
@@ -269,6 +277,20 @@ def _generate_scenario(
         allow_unicode=True,
         sort_keys=False,
     )
+
+
+def _next_scenario_id() -> str:
+    """Generate next SC-NNN id based on existing scenario files."""
+    import glob
+    import re
+
+    existing: list[int] = []
+    for f in glob.glob("scenarios/SC-*.yaml") + glob.glob("scenarios/SC-*.yml"):
+        m = re.search(r"SC-(\d+)", f)
+        if m:
+            existing.append(int(m.group(1)))
+    next_num = max(existing, default=0) + 1
+    return f"SC-{next_num:03d}"
 
 
 def _extract_keywords(description: str) -> list[str]:

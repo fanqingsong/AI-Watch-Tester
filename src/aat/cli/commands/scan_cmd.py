@@ -83,6 +83,23 @@ async def _scan(
             typer.echo("[AWT] Flutter CanvasKit detected — activating Semantics...")
             await activate_semantics(page)
 
+            # Wait for stable Semantics node count (max 10s)
+            from aat.engine.flutter_semantics import _count_semantics_nodes
+
+            prev_count = -1
+            stable_rounds = 0
+            for _ in range(10):
+                await asyncio.sleep(1.0)
+                count = await _count_semantics_nodes(page)
+                if count == prev_count and count > 0:
+                    stable_rounds += 1
+                    if stable_rounds >= 2:
+                        break
+                else:
+                    stable_rounds = 0
+                prev_count = count
+            typer.echo(f"[AWT] Semantics stable: {prev_count} nodes")
+
         # 3. Collect elements
         elements: list[dict[str, Any]] = []
 
