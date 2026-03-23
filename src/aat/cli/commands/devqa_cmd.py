@@ -217,13 +217,15 @@ def _generate_scenario(
     }]
     step_num = 2
 
-    # Classify elements
-    inputs = [e for e in elements if e.get("type") in ("input", "textarea")]
+    # Classify elements — handle both DOM and Flutter Semantics
+    is_flutter = scan_data.get("is_flutter", False)
+    inputs = _classify_inputs(elements, is_flutter)
     buttons = [
         e for e in elements
         if e.get("type") in ("button", "a", "semantics")
         and e.get("source") in ("dom", "semantics")
         and e.get("x", 0) > 100
+        and e.get("role", "") != "textbox"
     ]
 
     # Detect intent from description
@@ -236,24 +238,9 @@ def _generate_scenario(
             if not value:
                 continue
 
-            target: dict[str, Any] = {}
-            input_type = inp.get("input_type", "")
-
-            # Build unique selector using input type
-            if input_type and inp["source"] == "dom":
-                target["selector"] = f'input[type="{input_type}"]'
-            elif inp.get("selector") and inp["source"] == "dom":
-                sel = inp["selector"]
-                # Generic "input" selector → use match_index
-                if sel in ("input", "textarea"):
-                    target["selector"] = sel
-                else:
-                    target["selector"] = sel
-
-            label = inp.get("label", "")
-            if label:
-                target["text"] = label
-
+            target, extra = _build_input_target(
+                inp, inp_idx, inputs, is_flutter,
+            )
             if not target:
                 continue
 
@@ -265,15 +252,7 @@ def _generate_scenario(
                 "region": "main",
                 "description": f'Enter {_input_description(inp)}',
             }
-
-            # Add match_index for duplicate selectors
-            same_sel = [
-                i for i, e in enumerate(inputs[:inp_idx])
-                if e.get("input_type") == input_type
-                and e.get("selector") == inp.get("selector")
-            ]
-            if same_sel:
-                step_dict["match_index"] = len(same_sel)
+            step_dict.update(extra)
 
             steps.append(step_dict)
             step_num += 1
@@ -368,6 +347,92 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _classify_inputs(
+    elements: list[dict[str, Any]],
+    is_flutter: bool,
+) -> list[dict[str, Any]]:
+    """Classify input elements from scan data.
+
+    Handles both DOM inputs and Flutter Semantics textboxes.
+    Sorted by y-coordinate (top to bottom) for form order.
+    """
+    inputs: list[dict[str, Any]] = []
+
+    for el in elements:
+        el_type = el.get("type", "")
+        role = el.get("role", "")
+
+        if (
+            el_type in ("input", "textarea")
+            or role == "textbox"
+        ):
+            inputs.append(el)
+
+    # Sort by y-coordinate (form order: top to bottom)
+    inputs.sort(key=lambda e: (e.get("y", 0), e.get("x", 0)))
+    return inputs
+
+
+def _build_input_target(
+    inp: dict[str, Any],
+    inp_idx: int,
+    all_inputs: list[dict[str, Any]],
+    is_flutter: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build target dict for an input field.
+
+    Returns (target_dict, extra_step_fields).
+    Priority: Semantics label > input type selector > nth-of-type > match_index
+    """
+    target: dict[str, Any] = {}
+    extra: dict[str, Any] = {}
+    source = inp.get("source", "")
+    label = str(inp.get("label", ""))
+
+    # --- Priority 1: Semantics aria-label (Flutter) ---
+    if source == "semantics" and label:
+        target["text"] = label
+        # Use method: semantics to force Semantics lookup
+        if is_flutter:
+            extra["method"] = "semantics"
+        return target, extra
+
+    # --- Priority 2: input[type] selector (DOM) ---
+    input_type = inp.get("input_type", "")
+    if input_type and input_type not in ("text", ""):
+        target["selector"] = f'input[type="{input_type}"]'
+        if label:
+            target["text"] = label
+        return target, extra
+
+    # --- Priority 3: nth-of-type (DOM, multiple generic inputs) ---
+    if source == "dom":
+        # Count how many inputs before this one
+        y_sorted_dom = [
+            e for e in all_inputs
+            if e.get("source") == "dom"
+        ]
+        position = next(
+            (i for i, e in enumerate(y_sorted_dom) if e is inp),
+            inp_idx,
+        )
+        tag = inp.get("type", "input")
+        if tag not in ("input", "textarea"):
+            tag = "input"
+        target["selector"] = f"{tag}:nth-of-type({position + 1})"
+        if label:
+            target["text"] = label
+        return target, extra
+
+    # --- Priority 4: match_index fallback ---
+    if label:
+        target["text"] = label
+    else:
+        target["selector"] = "input"
+    extra["match_index"] = inp_idx
+    return target, extra
+
+
 def _detect_intent(desc_lower: str) -> str:
     """Detect test intent from description."""
     for intent, keywords in _INTENT_KEYWORDS.items():
@@ -460,7 +525,10 @@ def _input_description(inp: dict[str, Any]) -> str:
     label = str(inp.get("label", ""))
     if label and len(label) < 30:
         return label
-    selector = inp.get("selector", "")
+    input_type = str(inp.get("input_type", ""))
+    if input_type and input_type != "text":
+        return input_type
+    selector = str(inp.get("selector", ""))
     if "email" in selector.lower():
         return "email"
     if "password" in selector.lower():
