@@ -373,7 +373,10 @@ def _read_last_failure(data_dir: Path) -> dict[str, Any]:
 
 def _run_aat(args: list[str]) -> int:
     """Run aat CLI command as subprocess."""
-    cmd = [sys.executable, "-m", "aat"] + args
+    import shutil
+
+    aat_bin = shutil.which("aat")
+    cmd = [aat_bin, *args] if aat_bin else [sys.executable, "-m", "aat", *args]
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode
 

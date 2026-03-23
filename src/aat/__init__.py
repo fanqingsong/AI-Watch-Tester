@@ -1,3 +1,3 @@
 """AAT (AI Auto Tester) — AI-powered DevQA Loop Orchestrator."""
 
-__version__ = "1.5.2"
+__version__ = "1.5.3"
