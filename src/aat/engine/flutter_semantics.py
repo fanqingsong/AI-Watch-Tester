@@ -297,53 +297,64 @@ async def _try_flt_semantics(
     page: Any,
     text: str,
 ) -> tuple[int, int] | None:
-    """Find via flt-semantics[aria-label] (shadow DOM aware)."""
+    """Find via flt-semantics[aria-label] (shadow DOM aware).
+
+    Selects the smallest matching node (most specific element)
+    to avoid parent containers returning wrong coordinates.
+    """
     try:
-        # Use JS to search inside shadow DOM where Playwright can't reach
         result = await page.evaluate("""(searchText) => {
-            function findInRoot(root) {
+            function findAllInRoot(root) {
+                const matches = [];
                 const nodes = root.querySelectorAll('flt-semantics');
                 for (const node of nodes) {
                     const label = node.getAttribute('aria-label') || '';
-                    if (label.includes(searchText)) {
-                        const rect = node.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            return {
-                                x: Math.round(rect.x + rect.width / 2),
-                                y: Math.round(rect.y + rect.height / 2),
-                            };
-                        }
-                    }
+                    if (!label.includes(searchText)) continue;
+                    const rect = node.getBoundingClientRect();
+                    if (rect.width < 1 || rect.height < 1) continue;
+                    matches.push({
+                        label: label,
+                        x: Math.round(rect.x + rect.width / 2),
+                        y: Math.round(rect.y + rect.height / 2),
+                        area: rect.width * rect.height,
+                        exactMatch: label === searchText,
+                    });
                 }
-                return null;
+                return matches;
             }
 
-            // Direct DOM
-            let r = findInRoot(document);
-            if (r) return r;
+            let all = findAllInRoot(document);
 
-            // flutter-view shadow DOM
-            const fv = document.querySelector('flutter-view');
-            if (fv && fv.shadowRoot) {
-                r = findInRoot(fv.shadowRoot);
-                if (r) return r;
+            if (all.length === 0) {
+                const fv = document.querySelector('flutter-view');
+                if (fv && fv.shadowRoot) {
+                    all = findAllInRoot(fv.shadowRoot);
+                }
+            }
+            if (all.length === 0) {
+                const gp = document.querySelector('flt-glass-pane');
+                if (gp && gp.shadowRoot) {
+                    all = findAllInRoot(gp.shadowRoot);
+                }
             }
 
-            // flt-glass-pane shadow DOM
-            const gp = document.querySelector('flt-glass-pane');
-            if (gp && gp.shadowRoot) {
-                r = findInRoot(gp.shadowRoot);
-                if (r) return r;
-            }
+            if (all.length === 0) return null;
 
-            return null;
+            // Prefer exact match over substring match
+            const exact = all.filter(m => m.exactMatch);
+            const candidates = exact.length > 0 ? exact : all;
+
+            // Pick smallest area (most specific element)
+            candidates.sort((a, b) => a.area - b.area);
+            return candidates[0];
         }""", text)
 
         if result:
             x, y = result["x"], result["y"]
+            label = result.get("label", text)
             logger.info(
-                "[AWT] Semantics: '%s' via flt-semantics at (%d,%d)",
-                text, x, y,
+                "[AWT] Semantics: '%s' (label='%s') at (%d,%d) area=%.0f",
+                text, label, x, y, result.get("area", 0),
             )
             return x, y
     except Exception:
@@ -355,42 +366,44 @@ async def _try_aria_label(
     page: Any,
     text: str,
 ) -> tuple[int, int] | None:
-    """Find via any [aria-label] element (shadow DOM aware)."""
+    """Find via any [aria-label] element (shadow DOM, smallest area)."""
     try:
         result = await page.evaluate("""(searchText) => {
-            function findInRoot(root) {
+            function findAllInRoot(root) {
+                const matches = [];
                 const nodes = root.querySelectorAll('[aria-label]');
                 for (const node of nodes) {
                     const label = node.getAttribute('aria-label') || '';
-                    if (label.includes(searchText)) {
-                        const rect = node.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            return {
-                                x: Math.round(rect.x + rect.width / 2),
-                                y: Math.round(rect.y + rect.height / 2),
-                            };
-                        }
-                    }
+                    if (!label.includes(searchText)) continue;
+                    const rect = node.getBoundingClientRect();
+                    if (rect.width < 1 || rect.height < 1) continue;
+                    matches.push({
+                        label: label,
+                        x: Math.round(rect.x + rect.width / 2),
+                        y: Math.round(rect.y + rect.height / 2),
+                        area: rect.width * rect.height,
+                        exactMatch: label === searchText,
+                    });
                 }
-                return null;
+                return matches;
             }
 
-            let r = findInRoot(document);
-            if (r) return r;
-
+            let all = findAllInRoot(document);
             const fv = document.querySelector('flutter-view');
             if (fv && fv.shadowRoot) {
-                r = findInRoot(fv.shadowRoot);
-                if (r) return r;
+                all = all.concat(findAllInRoot(fv.shadowRoot));
             }
-
             const gp = document.querySelector('flt-glass-pane');
             if (gp && gp.shadowRoot) {
-                r = findInRoot(gp.shadowRoot);
-                if (r) return r;
+                all = all.concat(findAllInRoot(gp.shadowRoot));
             }
 
-            return null;
+            if (all.length === 0) return null;
+
+            const exact = all.filter(m => m.exactMatch);
+            const candidates = exact.length > 0 ? exact : all;
+            candidates.sort((a, b) => a.area - b.area);
+            return candidates[0];
         }""", text)
 
         if result:

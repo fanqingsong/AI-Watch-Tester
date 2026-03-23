@@ -518,10 +518,13 @@ class StepExecutor:
                 self._learned_store.save_or_update_by_name(
                     t_name, x, y, confidence,
                 )
-                # Also save state-aware coords
-                state = getattr(self, "_current_page_state", "normal")
+                # Re-detect state NOW (after action, not before)
+                fresh_state = "normal"
+                with contextlib.suppress(Exception):
+                    fresh_state = await self._detect_page_state()
+                self._current_page_state = fresh_state
                 self._learned_store.save_state_coords(
-                    t_name, state, x, y, confidence,
+                    t_name, fresh_state, x, y, confidence,
                 )
 
         return result
