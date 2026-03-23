@@ -224,6 +224,71 @@ class LearnedStore:
             msg = f"find_by_target failed: {exc}"
             raise LearningError(msg) from exc
 
+    def find_by_name(self, target_name: str) -> LearnedElement | None:
+        """Find the most recently used element by target name."""
+        try:
+            row = self._conn.execute(
+                """\
+                SELECT * FROM learned_elements
+                WHERE target_name=?
+                ORDER BY use_count DESC, updated_at DESC
+                LIMIT 1
+                """,
+                (target_name,),
+            ).fetchone()
+            if row is None:
+                return None
+            return _row_to_element(row)
+        except sqlite3.Error:
+            return None
+
+    def save_or_update_by_name(
+        self,
+        target_name: str,
+        x: int,
+        y: int,
+        confidence: float = 1.0,
+    ) -> None:
+        """Save or update learned coordinates by target name."""
+        now = datetime.now(UTC).isoformat()
+        try:
+            existing = self.find_by_name(target_name)
+            if existing and existing.id is not None:
+                # Update if coordinates changed
+                if existing.correct_x != x or existing.correct_y != y:
+                    self._conn.execute(
+                        """\
+                        UPDATE learned_elements
+                        SET correct_x=?, correct_y=?, confidence=?,
+                            use_count=use_count+1, updated_at=?
+                        WHERE id=?
+                        """,
+                        (x, y, confidence, now, existing.id),
+                    )
+                else:
+                    self._conn.execute(
+                        "UPDATE learned_elements "
+                        "SET use_count=use_count+1, updated_at=? WHERE id=?",
+                        (now, existing.id),
+                    )
+                self._conn.commit()
+            else:
+                self._conn.execute(
+                    """\
+                    INSERT INTO learned_elements
+                        (scenario_id, step_number, target_name,
+                         screenshot_hash, correct_x, correct_y,
+                         cropped_image, confidence, use_count,
+                         created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("_auto", 0, target_name, "", x, y,
+                     "", confidence, 1, now, now),
+                )
+                self._conn.commit()
+        except sqlite3.Error:
+            pass
+
     def find_by_hash(self, screenshot_hash: str) -> list[LearnedElement]:
         """Find all elements matching a screenshot hash."""
         try:
@@ -634,6 +699,18 @@ class LearnedStore:
         except sqlite3.Error as exc:
             logger.warning("get_match_stats failed: %s", exc)
             return []
+
+    def get_target_failure_count(self, target_name: str) -> int:
+        """Count failures for a specific target."""
+        try:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS cnt FROM match_history "
+                "WHERE target_name=? AND success=0",
+                (target_name,),
+            ).fetchone()
+            return row["cnt"] if row else 0
+        except sqlite3.Error:
+            return 0
 
     def close(self) -> None:
         """Close the database connection."""

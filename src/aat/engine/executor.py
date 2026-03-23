@@ -509,6 +509,17 @@ class StepExecutor:
             await self._do_click(x, y, step.humanize)
             await self._engine.key_combo("Control", "a")
             await self._engine.press_key("Delete")
+
+        # Auto-save successful coordinates for learning
+        if self._learned_store and x > 0 and y > 0:
+            t_name = ""
+            if step.target:
+                t_name = step.target.text or step.target.selector or ""
+            if t_name:
+                self._learned_store.save_or_update_by_name(
+                    t_name, x, y, confidence,
+                )
+
         return result
 
     async def _find_and_act(self, step: StepConfig) -> MatchResult:
@@ -530,6 +541,28 @@ class StepExecutor:
             MatchError: If target not found.
         """
         target: TargetSpec = step.target  # type: ignore[assignment]
+        target_name = target.text or target.selector or ""
+
+        # Priority -1: Learned coordinates (instant, from previous runs)
+        if target_name and self._learned_store and step.method.value == "auto":
+            learned = self._learned_store.find_by_name(target_name)
+            if learned and learned.confidence >= 0.8:
+                logger.info(
+                    "Learned: '%s' at (%d,%d) conf=%.2f, use=%d",
+                    target_name,
+                    learned.correct_x,
+                    learned.correct_y,
+                    learned.confidence,
+                    learned.use_count,
+                )
+                try:
+                    return await self._act_at_pos(
+                        step, learned.correct_x, learned.correct_y,
+                        confidence=learned.confidence,
+                    )
+                except Exception:
+                    # Learned coordinates stale — fall through
+                    logger.info("Learned coords failed, falling through")
 
         # Priority 0: CSS selector (from observation data)
         # When both selector and text are provided, filter by text
@@ -649,6 +682,19 @@ class StepExecutor:
             pos = await self._find_input_field(step)
             if pos is not None:
                 return await self._act_at_pos(step, pos[0], pos[1], confidence=0.9)
+
+        # Priority 0.7: Check if history recommends a specific method
+        # If a target has 3+ failures, log a warning
+        if target_name and self._learned_store:
+            fail_count = self._learned_store.get_target_failure_count(target_name)
+            if fail_count >= 3:
+                best = self._learned_store.get_best_method(target_name)
+                logger.warning(
+                    "Target '%s' has %d failures. Best method: %s",
+                    target_name,
+                    fail_count,
+                    best or "none found",
+                )
 
         # Priority 0.8: Flutter Semantics (CanvasKit apps)
         # Runs before OCR/text search — more reliable for Flutter Canvas
