@@ -518,6 +518,11 @@ class StepExecutor:
                 self._learned_store.save_or_update_by_name(
                     t_name, x, y, confidence,
                 )
+                # Also save state-aware coords
+                state = getattr(self, "_current_page_state", "normal")
+                self._learned_store.save_state_coords(
+                    t_name, state, x, y, confidence,
+                )
 
         return result
 
@@ -542,25 +547,45 @@ class StepExecutor:
         target: TargetSpec = step.target  # type: ignore[assignment]
         target_name = target.text or target.selector or ""
 
-        # Priority -1: Learned coordinates (instant, from previous runs)
+        # Detect page state for state-aware learning
+        self._current_page_state = await self._detect_page_state()
+
+        # Priority -1: State-aware learned coordinates
         if target_name and self._learned_store and step.method.value == "auto":
+            page_state = await self._detect_page_state()
+            coords = self._learned_store.find_state_coords(
+                target_name, page_state,
+            )
+            if coords:
+                lx, ly, lconf = coords
+                logger.info(
+                    "Learned[%s]: '%s' at (%d,%d) conf=%.2f",
+                    page_state, target_name, lx, ly, lconf,
+                )
+                try:
+                    result = await self._act_at_pos(
+                        step, lx, ly, confidence=lconf,
+                    )
+                    # Success — reinforce
+                    self._learned_store.save_state_coords(
+                        target_name, page_state, lx, ly, lconf,
+                    )
+                    return result
+                except Exception:
+                    logger.info(
+                        "Learned[%s] coords stale, re-scanning",
+                        page_state,
+                    )
+
+            # Fallback: try state-agnostic learned coords
             learned = self._learned_store.find_by_name(target_name)
             if learned and learned.confidence >= 0.8:
-                logger.info(
-                    "Learned: '%s' at (%d,%d) conf=%.2f, use=%d",
-                    target_name,
-                    learned.correct_x,
-                    learned.correct_y,
-                    learned.confidence,
-                    learned.use_count,
-                )
                 try:
                     return await self._act_at_pos(
                         step, learned.correct_x, learned.correct_y,
                         confidence=learned.confidence,
                     )
                 except Exception:
-                    # Learned coordinates stale — fall through
                     logger.info("Learned coords failed, falling through")
 
         # Priority 0: CSS selector (from observation data)
@@ -1031,6 +1056,51 @@ class StepExecutor:
         except Exception:
             logger.debug("Flutter Semantics lookup failed", exc_info=True)
             return None
+
+    # -- Page state detection --------------------------------------------------
+
+    async def _detect_page_state(self) -> str:
+        """Detect current page state: normal, error, loading, modal."""
+        if not hasattr(self._engine, "page"):
+            return "normal"
+        try:
+            state: str = await self._engine.page.evaluate("""() => {
+                const body = document.body;
+                if (!body) return 'normal';
+                const text = body.innerText || '';
+                const lower = text.toLowerCase();
+
+                // Error indicators
+                const errorPatterns = [
+                    '오류', 'error', '실패', 'failed', 'invalid',
+                    '잘못된', 'incorrect', '비밀번호가 틀', 'wrong password',
+                    '존재하지 않', 'not found', '확인해주세요',
+                ];
+                for (const p of errorPatterns) {
+                    if (lower.includes(p)) return 'error';
+                }
+
+                // Loading indicators
+                const loadingPatterns = [
+                    '로딩', 'loading', '처리 중', 'processing',
+                    'please wait', '잠시만',
+                ];
+                for (const p of loadingPatterns) {
+                    if (lower.includes(p)) return 'loading';
+                }
+
+                // Modal/dialog detection
+                const modals = document.querySelectorAll(
+                    '[role="dialog"], [role="alertdialog"], '
+                    + '.modal, .dialog, [class*="modal"]'
+                );
+                if (modals.length > 0) return 'modal';
+
+                return 'normal';
+            }""")
+            return state
+        except Exception:
+            return "normal"
 
     # -- Step-level learning --------------------------------------------------
 
