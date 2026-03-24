@@ -400,19 +400,24 @@ class StepExecutor:
             if pos is not None:
                 return pos
 
-        # Search iframes
+        # Search iframes (with offset correction)
         if hasattr(self._engine, "page"):
-            for frame in self._engine.page.frames:
-                if frame == self._engine.page.main_frame:
+            page = self._engine.page
+            for frame in page.frames:
+                if frame == page.main_frame:
                     continue
                 try:
                     loc = frame.get_by_text(text, exact=False).first
                     if await loc.count() > 0:
                         box = await loc.bounding_box()
                         if box:
+                            # Get iframe element offset
+                            offset = await self._get_iframe_offset(
+                                page, frame,
+                            )
                             return (
-                                int(box["x"] + box["width"] / 2),
-                                int(box["y"] + box["height"] / 2),
+                                int(box["x"] + box["width"] / 2 + offset[0]),
+                                int(box["y"] + box["height"] / 2 + offset[1]),
                             )
                 except Exception:
                     continue
@@ -1205,6 +1210,42 @@ class StepExecutor:
                 f"get_text failed: {e}",
                 step=step.step, action="get_text",
             ) from e
+
+    async def _get_iframe_offset(
+        self,
+        page: Any,
+        frame: Any,
+    ) -> tuple[int, int]:
+        """Get iframe element's position offset in the main viewport.
+
+        Playwright bounding_box() on frame locators may return
+        iframe-local coords. This returns the iframe's own (x, y)
+        so we can add it to element coords.
+        """
+        try:
+            # Find the iframe element in main frame by matching frame URL/name
+            frame_name = frame.name or ""
+            frame_url = frame.url or ""
+
+            selectors = []
+            if frame_name:
+                selectors.append(f'iframe[name="{frame_name}"]')
+                selectors.append(f'frame[name="{frame_name}"]')
+            if frame_url:
+                selectors.append(f'iframe[src*="{frame_url[:50]}"]')
+
+            for sel in selectors:
+                try:
+                    iframe_el = page.locator(sel).first
+                    if await iframe_el.count() > 0:
+                        box = await iframe_el.bounding_box()
+                        if box:
+                            return int(box["x"]), int(box["y"])
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return 0, 0
 
     async def _get_all_frames(self) -> list[Any]:
         """Get main page + all iframes for cross-frame search."""
