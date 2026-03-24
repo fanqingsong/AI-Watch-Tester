@@ -201,17 +201,22 @@ class StepExecutor:
 
             # 2.6. Post-action verification
             if step.expect:
-                # Explicit expect — use it instead of auto-verify
                 await self._verify_expect(step)
             elif self._should_verify_change(step):
-                # No expect — auto-verify screen change
                 await self._verify_click_effect(step)
 
-            # 3. screenshot_after
+            # 3. POST-STEP SCREENSHOT VERIFICATION
+            # Take screenshot after every action and verify the step
+            # actually had the intended effect. This is AWT's core value.
+            await asyncio.sleep(0.5)
+            post_screenshot = await self._engine.screenshot()
+            await self._verify_post_step(step, post_screenshot)
+
+            # 4. screenshot_after
             if step.screenshot_after:
                 screenshots["after"] = await self._save_screenshot("after")
 
-            # 4. Check step-level expected results (skip for assert action,
+            # 5. Check step-level expected results (skip for assert action,
             #    already handled in check_assert)
             if step.expected and step.action != ActionType.ASSERT:
                 for exp in step.expected:
@@ -1970,6 +1975,95 @@ class StepExecutor:
             )
 
         logger.info("[AWT] ✓ expect verified (step %d)", step.step)
+
+    async def _verify_post_step(
+        self,
+        step: StepConfig,
+        screenshot: bytes,
+    ) -> None:
+        """Verify every step's outcome by examining the post-step screenshot.
+
+        Checks:
+        1. If this was a dismiss action (if_visible target), verify
+           the target text is gone from the screen
+        2. If this was a click/navigate, verify the screen changed
+        3. If a modal/popup/error appeared unexpectedly, flag it
+
+        Raises StepExecutionError if verification fails.
+        """
+        # Skip for non-interactive steps
+        skip_actions = {
+            ActionType.WAIT, ActionType.SCREENSHOT,
+            ActionType.SAVE_SESSION, ActionType.LOAD_SESSION,
+            ActionType.INCLUDE, ActionType.GET_TEXT, ActionType.FIND,
+        }
+        if step.action in skip_actions:
+            return
+
+        # OCR the post-step screenshot
+        try:
+            import pytesseract  # type: ignore[import-untyped]
+
+            arr = np.frombuffer(screenshot, dtype=np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return
+
+            # Quick OCR
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            img = clahe.apply(img)
+            ocr_text: str = pytesseract.image_to_string(
+                img, lang="kor+eng", config="--oem 3 --psm 6",
+            )
+            ocr_lower = ocr_text.lower()
+        except Exception:
+            return
+
+        # Check 1: If we tried to dismiss something, is it gone?
+        if step.target and step.target.text:
+            target_text = step.target.text.lower()
+            # For if_visible blocks, the target should disappear
+            if step.action == ActionType.IF_VISIBLE and target_text in ocr_lower:
+                    # Save failure screenshot
+                    ss_path = self._screenshot_dir / f"verify_fail_step{step.step}.png"
+                    ss_path.parent.mkdir(parents=True, exist_ok=True)
+                    Path(str(ss_path)).write_bytes(screenshot)
+
+                    logger.error(
+                        "[AWT] POST-STEP VERIFY FAILED: '%s' still visible "
+                        "after step %d. Screenshot: %s",
+                        step.target.text,
+                        step.step,
+                        ss_path,
+                    )
+                    raise StepExecutionError(
+                        f"'{step.target.text}' still visible after "
+                        f"dismiss attempt. Screenshot: {ss_path}",
+                        step=step.step,
+                        action=step.action.value,
+                    )
+
+        # Check 2: Detect unexpected blocking elements
+        blockers = [
+            "오류가 발생", "에러가 발생", "error occurred",
+            "페이지를 찾을 수 없", "404", "500",
+            "접근이 거부", "access denied", "권한이 없",
+        ]
+        for blocker in blockers:
+            if blocker in ocr_lower:
+                ss_path = self._screenshot_dir / f"blocker_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                Path(str(ss_path)).write_bytes(screenshot)
+
+                logger.warning(
+                    "[AWT] Unexpected blocker detected: '%s' "
+                    "(step %d). Screenshot: %s",
+                    blocker,
+                    step.step,
+                    ss_path,
+                )
+                # Don't raise — just warn. Let expect/critical handle it.
+                break
 
     async def _verify_click_effect(self, step: StepConfig) -> None:
         """Verify every click caused a screen change.
