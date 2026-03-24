@@ -196,8 +196,12 @@ class StepExecutor:
                     step.save_as, match_result.x, match_result.y,
                 )
 
-            # 2.6. Auto-verify: every click must cause screen change
-            if self._should_verify_change(step):
+            # 2.6. Post-action verification
+            if step.expect:
+                # Explicit expect — use it instead of auto-verify
+                await self._verify_expect(step)
+            elif self._should_verify_change(step):
+                # No expect — auto-verify screen change
                 await self._verify_click_effect(step)
 
             # 3. screenshot_after
@@ -1631,6 +1635,111 @@ class StepExecutor:
         if step.action == ActionType.PRESS_KEY:
             return (step.value or "").strip().lower() == "enter"
         return False
+
+    async def _verify_expect(self, step: StepConfig) -> None:
+        """Verify post-action expectations defined in step.expect."""
+        expect = step.expect
+        if not expect:
+            return
+
+        # Wait for page to settle after action
+        await asyncio.sleep(0.5)
+
+        failures: list[str] = []
+
+        # url_contains
+        if "url_contains" in expect:
+            expected_url = str(expect["url_contains"])
+            current_url = await self._engine.get_url()
+            # Poll briefly for navigation
+            if expected_url.lower() not in current_url.lower():
+                await asyncio.sleep(1.5)
+                current_url = await self._engine.get_url()
+            if expected_url.lower() not in current_url.lower():
+                failures.append(
+                    f'url_contains "{expected_url}" → '
+                    f"actual: {current_url}"
+                )
+
+        # url_equals
+        if "url_equals" in expect:
+            expected_url = str(expect["url_equals"])
+            current_url = await self._engine.get_url()
+            if current_url != expected_url:
+                failures.append(
+                    f'url_equals "{expected_url}" → '
+                    f"actual: {current_url}"
+                )
+
+        # text_visible
+        if "text_visible" in expect:
+            text = str(expect["text_visible"])
+            try:
+                await self._verify_text_on_screen(
+                    text, step.region, "",
+                )
+            except StepExecutionError:
+                failures.append(f'text_visible "{text}" → not found')
+
+        # text_hidden
+        if "text_hidden" in expect:
+            text = str(expect["text_hidden"])
+            try:
+                await self._verify_text_on_screen(
+                    text, step.region, "",
+                )
+                # If text IS found, that's a failure
+                failures.append(
+                    f'text_hidden "{text}" → still visible'
+                )
+            except StepExecutionError:
+                pass  # Text not found = expected
+
+        # screen_changed
+        if "screen_changed" in expect:
+            should_change = bool(expect["screen_changed"])
+            if self._last_screenshot is not None:
+                current = await self._engine.screenshot()
+                ratio = self._compute_change_ratio(
+                    self._last_screenshot, current,
+                )
+                if should_change and ratio < 0.01:
+                    failures.append(
+                        f"screen_changed: true → no change ({ratio:.1%})"
+                    )
+                elif not should_change and ratio > 0.05:
+                    failures.append(
+                        f"screen_changed: false → changed ({ratio:.1%})"
+                    )
+
+        if failures:
+            # Save screenshot on expect failure
+            ss_path = ""
+            try:
+                ss_dir = Path(self._screenshot_dir)
+                ss_dir.mkdir(parents=True, exist_ok=True)
+                ss_bytes = await self._engine.screenshot()
+                ss_path = str(
+                    ss_dir / f"expect_fail_step{step.step}.png"
+                )
+                Path(ss_path).write_bytes(ss_bytes)
+            except Exception:
+                pass
+
+            msg = " | ".join(failures)
+            logger.error(
+                "[AWT] ❌ expect failed (step %d): %s", step.step, msg
+            )
+            if ss_path:
+                logger.error("[AWT] Screenshot: %s", ss_path)
+
+            raise StepExecutionError(
+                f"expect: {msg}",
+                step=step.step,
+                action=step.action.value,
+            )
+
+        logger.info("[AWT] ✓ expect verified (step %d)", step.step)
 
     async def _verify_click_effect(self, step: StepConfig) -> None:
         """Verify every click caused a screen change.

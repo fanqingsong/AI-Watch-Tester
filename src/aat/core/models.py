@@ -421,6 +421,10 @@ class StepConfig(BaseModel):
         default="",
         description="Save result to runtime variable (for find/get_text)",
     )
+    expect: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Post-action expectations: url_contains, text_visible, etc.",
+    )
     then: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Sub-steps to execute if if_visible target is found",
