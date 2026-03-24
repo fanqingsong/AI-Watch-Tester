@@ -47,6 +47,11 @@ class ActionType(StrEnum):
     LOAD_SESSION = "load_session"
     # File
     UPLOAD_FILE = "upload_file"
+    # Subroutine
+    INCLUDE = "include"
+    # Find / Extract
+    FIND = "find"
+    GET_TEXT = "get_text"
     # Utility
     WAIT = "wait"
     SCREENSHOT = "screenshot"
@@ -410,6 +415,18 @@ class StepConfig(BaseModel):
         default_factory=list,
         description="Multiple file paths for upload_file action",
     )
+    save_as: str = Field(
+        default="",
+        description="Save result to runtime variable (for find/get_text)",
+    )
+    scenario: str = Field(
+        default="",
+        description="Sub-scenario file path for include action",
+    )
+    vars: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variables to pass to included sub-scenario",
+    )
     change_threshold: float | None = Field(
         default=None,
         ge=0.0,
@@ -540,6 +557,12 @@ class StepConfig(BaseModel):
         ) and not (self.name or self.value):
             msg = f"action={self.action.value} requires name or value"
             raise ValueError(msg)
+        if self.action == ActionType.FIND and self.target is None:
+            msg = "action=find requires a target"
+            raise ValueError(msg)
+        if self.action == ActionType.INCLUDE and not (self.scenario or self.value):
+            msg = "action=include requires scenario path"
+            raise ValueError(msg)
         return self
 
 
@@ -577,6 +600,21 @@ class Scenario(BaseModel):
         return []
     expected_result: list[ExpectedResult] = Field(default_factory=list)
     variables: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def merge_vars_alias(cls, data: Any) -> Any:
+        """Support 'vars' as alias for 'variables'."""
+        if isinstance(data, dict) and "vars" in data:
+            v = data.pop("vars")
+            if isinstance(v, dict):
+                existing = data.get("variables", {})
+                if isinstance(existing, dict):
+                    existing.update(v)
+                    data["variables"] = existing
+                else:
+                    data["variables"] = v
+        return data
 
     @field_validator("expected_result", mode="before")
     @classmethod

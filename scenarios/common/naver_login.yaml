@@ -1,0 +1,38 @@
+id: "SC-901"
+name: "Naver Login"
+description: "Login to Naver with credentials from variables"
+variables:
+  naver_id: "{{env.NAVER_ID}}"
+  naver_pw: "{{env.NAVER_PW}}"
+
+steps:
+  - step: 1
+    action: navigate
+    value: "https://nid.naver.com/nidlogin.login"
+    description: "Go to Naver login page"
+
+  - step: 2
+    action: find_and_type
+    target:
+      selector: "#id"
+    value: "{{naver_id}}"
+    description: "Enter Naver ID"
+
+  - step: 3
+    action: find_and_type
+    target:
+      selector: "#pw"
+    value: "{{naver_pw}}"
+    description: "Enter Naver password"
+
+  - step: 4
+    action: find_and_click
+    target:
+      selector: "#log\\.login"
+    critical: true
+    description: "Click login button"
+
+  - step: 5
+    action: wait
+    value: "2000"
+    description: "Wait for login redirect"

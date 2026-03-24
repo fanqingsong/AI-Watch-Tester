@@ -114,6 +114,8 @@ def _validate_scenario_data(
     variables: dict[str, str] | None,
 ) -> Scenario:
     """Validate and substitute variables in a scenario dict."""
+    # Expand include steps before variable substitution
+    data = _expand_includes(data, path.parent)
     data = _substitute_vars(data, variables or {})
     unresolved = find_unresolved_vars(data)
     if unresolved:
@@ -130,6 +132,66 @@ def _validate_scenario_data(
     except Exception as e:
         msg = f"Scenario validation failed ({path.name}): {e}"
         raise ScenarioError(msg) from e
+
+
+def _expand_includes(data: dict[str, Any], base_dir: Path) -> dict[str, Any]:
+    """Expand 'include' steps by inlining sub-scenario steps."""
+    steps = data.get("steps")
+    if not steps or not isinstance(steps, list):
+        return data
+
+    expanded: list[dict[str, Any]] = []
+    for step in steps:
+        if not isinstance(step, dict):
+            expanded.append(step)
+            continue
+
+        if step.get("action") != "include":
+            expanded.append(step)
+            continue
+
+        # Resolve include path
+        scenario_ref = step.get("scenario", step.get("value", ""))
+        if not scenario_ref:
+            expanded.append(step)
+            continue
+
+        include_path = base_dir / scenario_ref
+        if not include_path.exists():
+            # Try scenarios/ directory
+            include_path = Path("scenarios") / scenario_ref
+        if not include_path.exists():
+            raise ScenarioError(f"Include file not found: {scenario_ref}")
+
+        # Load sub-scenario
+        sub_docs = _load_yaml_all(include_path)
+        if not sub_docs:
+            continue
+
+        sub_data = sub_docs[0]
+        sub_steps = sub_data.get("steps", [])
+
+        # Merge include-level vars into sub-scenario variables
+        include_vars = step.get("vars", {})
+        if include_vars and isinstance(include_vars, dict):
+            sub_vars = sub_data.get("variables", {})
+            if isinstance(sub_vars, dict):
+                sub_vars.update(include_vars)
+            sub_data["variables"] = sub_vars
+            # Substitute vars in sub-steps
+            sub_steps = _substitute_vars(sub_steps, sub_vars)
+
+        for sub_step in sub_steps:
+            if isinstance(sub_step, dict):
+                expanded.append(sub_step)
+
+    # Re-number steps
+    for i, s in enumerate(expanded, 1):
+        if isinstance(s, dict):
+            s["step"] = i
+
+    data["steps"] = expanded
+    return data
 
 
 def _load_yaml_all(path: Path) -> list[dict[str, Any]]:

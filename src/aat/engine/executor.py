@@ -137,6 +137,7 @@ class StepExecutor:
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
         self._learned_store = learned_store  # for step-level learning
+        self._runtime_vars: dict[str, str] = {}  # save_as runtime variables
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
@@ -153,6 +154,9 @@ class StepExecutor:
         screenshots: dict[str, str | None] = {"before": None, "after": None}
 
         try:
+            # 0. Resolve runtime variables in step fields
+            step = self._resolve_runtime_vars(step)
+
             # 1. screenshot_before
             if step.screenshot_before:
                 screenshots["before"] = await self._save_screenshot("before")
@@ -182,7 +186,17 @@ class StepExecutor:
             # 2. Execute action
             match_result = await self._dispatch_action(step)
 
-            # 2.5. Critical step auto-verification (screen change check)
+            # 2.5. save_as: store match result as runtime variable
+            if step.save_as and match_result and match_result.found:
+                self._runtime_vars[step.save_as] = (
+                    f"{match_result.x},{match_result.y}"
+                )
+                logger.info(
+                    "save_as: %s = (%d,%d)",
+                    step.save_as, match_result.x, match_result.y,
+                )
+
+            # 2.6. Critical step auto-verification (screen change check)
             if step.critical and self._should_verify_change(step):
                 await self._verify_critical_change(step)
 
@@ -338,6 +352,15 @@ class StepExecutor:
 
         elif step.action == ActionType.UPLOAD_FILE:
             await self._handle_upload_file(step)
+
+        elif step.action == ActionType.FIND:
+            match_result = await self._find_and_act_no_click(step)
+
+        elif step.action == ActionType.GET_TEXT:
+            await self._handle_get_text(step)
+
+        elif step.action == ActionType.INCLUDE:
+            pass  # Expanded by scenario_loader before execution
 
         elif step.action == ActionType.WAIT:
             await asyncio.sleep(int(step.value or "1000") / 1000)
@@ -1049,6 +1072,99 @@ class StepExecutor:
             logger.info("Session loaded: %s (%.1fh old)", session_path, age_hours)
         else:
             logger.warning("Engine does not support load_session")
+
+    def _resolve_runtime_vars(self, step: StepConfig) -> StepConfig:
+        """Substitute {{var}} in step fields from runtime vars."""
+        import re
+
+        if not self._runtime_vars:
+            return step
+
+        pattern = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
+
+        def _sub(text: str) -> str:
+            def replacer(m: re.Match[str]) -> str:
+                key = m.group(1).strip()
+                return self._runtime_vars.get(key, m.group(0))
+            return pattern.sub(replacer, text)
+
+        data = step.model_dump()
+
+        def _walk(obj: Any) -> Any:
+            if isinstance(obj, str):
+                return _sub(obj)
+            if isinstance(obj, dict):
+                return {k: _walk(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_walk(i) for i in obj]
+            return obj
+
+        data = _walk(data)
+        return StepConfig.model_validate(data)
+
+    async def _find_and_act_no_click(self, step: StepConfig) -> MatchResult | None:
+        """Find target without clicking (for save_as)."""
+        from aat.core.models import MatchResult
+
+        target = step.target
+        if not target:
+            return None
+
+        # Try CSS selector
+        if target.selector and hasattr(self._engine, "page"):
+            try:
+                loc = self._engine.page.locator(target.selector).first
+                if await loc.count() > 0:
+                    box = await loc.bounding_box()
+                    if box:
+                        x = int(box["x"] + box["width"] / 2)
+                        y = int(box["y"] + box["height"] / 2)
+                        return MatchResult(
+                            found=True, x=x, y=y, confidence=1.0,
+                        )
+            except Exception:
+                pass
+
+        # Try text search
+        if target.text and hasattr(self._engine, "find_text_position"):
+            pos = await self._engine.find_text_position(target.text)
+            if pos:
+                return MatchResult(
+                    found=True, x=pos[0], y=pos[1], confidence=0.9,
+                )
+
+        return None
+
+    async def _handle_get_text(self, step: StepConfig) -> None:
+        """Get text content from element and save to runtime var."""
+        selector = ""
+        if step.target and step.target.selector:
+            selector = step.target.selector
+        elif step.value:
+            selector = step.value
+
+        if not selector:
+            raise StepExecutionError(
+                "get_text requires selector",
+                step=step.step, action="get_text",
+            )
+
+        if not hasattr(self._engine, "page"):
+            return
+
+        page = self._engine.page  # type: ignore[attr-defined]
+        try:
+            loc = page.locator(selector).first
+            if await loc.count() > 0:
+                text = await loc.inner_text()
+                if step.save_as:
+                    self._runtime_vars[step.save_as] = text.strip()
+                    logger.info("get_text: %s = '%s'", step.save_as, text[:50])
+        except Exception as e:
+            raise StepExecutionError(
+                f"get_text failed: {e}",
+                step=step.step, action="get_text",
+            ) from e
 
     async def _check_target_visible(self, step: StepConfig) -> bool:
         """Quick check if target is visible on screen (for if_visible)."""
