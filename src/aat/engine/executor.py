@@ -635,6 +635,21 @@ class StepExecutor:
         # Detect page state for state-aware learning
         self._current_page_state = await self._detect_page_state()
 
+        # Check learned strategies for this target
+        if target_name and self._learned_store:
+            strategies = self._learned_store.get_strategies("find_failed")
+            if strategies:
+                best = strategies[0]
+                if best["success"] > 0:
+                    logger.info(
+                        "[AWT] Strategy hint for '%s': %s "
+                        "(success=%d, fail=%d)",
+                        target_name,
+                        best["strategy"],
+                        best["success"],
+                        best["fail"],
+                    )
+
         # Priority -1: State-aware learned coordinates
         if target_name and self._learned_store and step.method.value == "auto":
             page_state = await self._detect_page_state()
@@ -1678,6 +1693,14 @@ class StepExecutor:
                     url_pattern="",
                     action=step.action.value,
                 )
+
+            # Record test strategy
+            situation = _classify_situation(step, result)
+            strategy = _classify_strategy(step, result, method)
+            if situation and strategy:
+                self._learned_store.learn_strategy(
+                    situation, strategy, success=is_success,
+                )
         except Exception:
             pass  # Learning is best-effort
 
@@ -2050,3 +2073,71 @@ def _crop_screenshot(
     except Exception:
         logger.debug("Region crop failed", exc_info=True)
         return None, 0, 0
+
+
+# -- Strategy classification -------------------------------------------------
+
+
+def _classify_situation(step: Any, result: Any) -> str:
+    """Classify the test situation for strategy learning."""
+    action = step.action.value if hasattr(step.action, "value") else str(step.action)
+    error = result.error_message or ""
+    err_lower = error.lower()
+
+    if "not found" in err_lower or "not visible" in err_lower:
+        if "iframe" in err_lower or "frame" in err_lower:
+            return "element_in_iframe"
+        return "element_not_found"
+
+    if "no screen change" in err_lower or "no visible effect" in err_lower:
+        return "click_no_effect"
+
+    if "still visible" in err_lower:
+        return "dismiss_failed"
+
+    if "timeout" in err_lower:
+        return "timeout"
+
+    if action in ("find_and_click", "find_and_type"):
+        if result.status.value == "passed":
+            return "find_success"
+        return "find_failed"
+
+    if (action == "assert" or action.startswith("assert_")) and result.status.value != "passed":
+        return "assert_failed"
+
+    return ""
+
+
+def _classify_strategy(step: Any, result: Any, method: str) -> str:
+    """Classify which strategy was used."""
+    action = step.action.value if hasattr(step.action, "value") else str(step.action)
+
+    if method == "semantics":
+        return "use_semantics"
+    if method == "ocr":
+        return "use_ocr"
+    if method == "template":
+        return "use_template"
+    if method == "playwright" and hasattr(step, "target") and step.target:
+        sel = step.target.selector or ""
+        if "iframe" in sel.lower() or "frame" in sel.lower():
+            return "search_iframes"
+
+    if action == "find_and_click":
+        region = step.region.value if hasattr(step.region, "value") else "full"
+        if region == "main":
+            return "use_region_main"
+        if region != "full":
+            return f"use_region_{region}"
+
+    if hasattr(step, "if_visible") and step.if_visible:
+        return "use_if_visible"
+
+    if hasattr(step, "critical") and step.critical:
+        return "use_critical"
+
+    if hasattr(step, "expect") and step.expect:
+        return "use_expect"
+
+    return method or "default"
