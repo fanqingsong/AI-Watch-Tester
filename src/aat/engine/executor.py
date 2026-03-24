@@ -388,14 +388,36 @@ class StepExecutor:
         return match_result
 
     async def _find_text_with_synonyms(self, text: str) -> tuple[int, int] | None:
-        """Try find_text_position with synonym fallback."""
+        """Try find_text_position with synonym + iframe fallback."""
+        # Main frame
         pos = await self._engine.find_text_position(text)
-        if pos is None:
-            for syn in _SYNONYMS.get(text.lower(), []):
-                pos = await self._engine.find_text_position(syn)
-                if pos is not None:
-                    break
-        return pos
+        if pos is not None:
+            return pos
+
+        # Synonyms on main frame
+        for syn in _SYNONYMS.get(text.lower(), []):
+            pos = await self._engine.find_text_position(syn)
+            if pos is not None:
+                return pos
+
+        # Search iframes
+        if hasattr(self._engine, "page"):
+            for frame in self._engine.page.frames:
+                if frame == self._engine.page.main_frame:
+                    continue
+                try:
+                    loc = frame.get_by_text(text, exact=False).first
+                    if await loc.count() > 0:
+                        box = await loc.bounding_box()
+                        if box:
+                            return (
+                                int(box["x"] + box["width"] / 2),
+                                int(box["y"] + box["height"] / 2),
+                            )
+                except Exception:
+                    continue
+
+        return None
 
     async def _find_input_field(self, step: StepConfig) -> tuple[int, int] | None:
         """Enhanced input field finding for find_and_type.
@@ -1184,10 +1206,25 @@ class StepExecutor:
                 step=step.step, action="get_text",
             ) from e
 
+    async def _get_all_frames(self) -> list[Any]:
+        """Get main page + all iframes for cross-frame search."""
+        frames: list[Any] = []
+        if not hasattr(self._engine, "page"):
+            return frames
+        page = self._engine.page  # type: ignore[attr-defined]
+        frames.append(page)
+        try:
+            for frame in page.frames:
+                if frame != page.main_frame:
+                    frames.append(frame)
+        except Exception:
+            pass
+        return frames
+
     async def _check_target_visible(self, step: StepConfig) -> bool:
         """Check if target is visible on screen (for if_visible).
 
-        Uses region-aware search to avoid matching toolbar/nav text.
+        Searches main page + all iframes.
         Uses substring matching to handle punctuation differences.
         """
         target = step.target
@@ -1195,61 +1232,57 @@ class StepExecutor:
             return False
 
         search_text = target.text or ""
-        region = step.region  # Use step's region for filtering
+        region = step.region
+        frames = await self._get_all_frames()
 
-        # CSS selector check
-        if target.selector and hasattr(self._engine, "page"):
-            try:
-                loc = self._engine.page.locator(target.selector).first
-                if await loc.count() > 0:
-                    box = await loc.bounding_box()
-                    if box and box["width"] > 0:
-                        return True
-            except Exception:
-                pass
+        # CSS selector check (all frames)
+        if target.selector:
+            for frame in frames:
+                try:
+                    loc = frame.locator(target.selector).first
+                    if await loc.count() > 0:
+                        box = await loc.bounding_box()
+                        if box and box["width"] > 0:
+                            return True
+                except Exception:
+                    continue
 
-        # DOM text search (substring, region-aware)
-        if search_text and hasattr(self._engine, "page"):
-            try:
-                page = self._engine.page  # type: ignore[attr-defined]
-                # Use get_by_text with exact=False for substring matching
-                loc = page.get_by_text(search_text, exact=False)
-                count = await loc.count()
-                if count > 0:
-                    # Check region if specified
-                    if region != ScreenRegion.FULL:
-                        vw, vh = self._get_viewport_size()
-                        rx, ry, rw, rh = compute_region_bounds(region, vw, vh)
-                        for idx in range(min(count, 5)):
-                            box = await loc.nth(idx).bounding_box()
-                            if box:
-                                cx = box["x"] + box["width"] / 2
-                                cy = box["y"] + box["height"] / 2
-                                if rx <= cx <= rx + rw and ry <= cy <= ry + rh:
-                                    return True
-                    else:
-                        return True
-            except Exception:
-                pass
-
-        # Playwright find_text_position (exact match fallback)
-        if search_text and hasattr(self._engine, "find_text_position"):
-            try:
-                pos = await self._engine.find_text_position(search_text)
-                if pos is not None:
-                    return True
-            except Exception:
-                pass
+        # DOM text search (all frames, substring, region-aware)
+        if search_text:
+            for frame in frames:
+                try:
+                    loc = frame.get_by_text(search_text, exact=False)
+                    count = await loc.count()
+                    if count > 0:
+                        if region != ScreenRegion.FULL:
+                            vw, vh = self._get_viewport_size()
+                            rx, ry, rw, rh = compute_region_bounds(
+                                region, vw, vh,
+                            )
+                            for idx in range(min(count, 5)):
+                                box = await loc.nth(idx).bounding_box()
+                                if box:
+                                    cx = box["x"] + box["width"] / 2
+                                    cy = box["y"] + box["height"] / 2
+                                    if (
+                                        rx <= cx <= rx + rw
+                                        and ry <= cy <= ry + rh
+                                    ):
+                                        return True
+                        else:
+                            return True
+                except Exception:
+                    continue
 
         # Flutter Semantics check
-        if search_text and hasattr(self._engine, "page"):
+        if search_text and frames:
             try:
                 from aat.engine.flutter_semantics import (
                     find_by_semantics,
                     is_flutter_page,
                 )
 
-                page = self._engine.page
+                page = frames[0]
                 if await is_flutter_page(page):
                     pos = await find_by_semantics(page, search_text)
                     if pos is not None:
@@ -1257,14 +1290,14 @@ class StepExecutor:
             except Exception:
                 pass
 
-        # OCR fallback (for Canvas-rendered text)
+        # OCR fallback
         if search_text:
             try:
                 ss = await self._engine.screenshot()
                 import pytesseract  # type: ignore[import-untyped]
 
-                img_arr = np.frombuffer(ss, dtype=np.uint8)
-                img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
+                arr = np.frombuffer(ss, dtype=np.uint8)
+                img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
                 if img is not None:
                     ocr_text: str = pytesseract.image_to_string(
                         img, lang="kor+eng", config="--oem 3",
