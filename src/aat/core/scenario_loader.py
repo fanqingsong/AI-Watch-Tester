@@ -236,7 +236,18 @@ def _substitute_vars(data: Any, variables: dict[str, str]) -> Any:
         # Also support "vars" as alias for "variables"
         if "vars" in data and isinstance(data["vars"], dict):
             merged_vars.update(data["vars"])
-        return {k: _substitute_vars(v, merged_vars) for k, v in data.items()}
+        # Resolve env vars inside variable values themselves
+        # e.g., title: "{{env.POST_TITLE}}" → title: "actual value"
+        resolved_vars: dict[str, str] = {}
+        for k, v in merged_vars.items():
+            if isinstance(v, str) and "{{" in v:
+                resolved_vars[k] = _VAR_PATTERN.sub(
+                    lambda m: _resolve_var(m.group(1).strip(), merged_vars),
+                    v,
+                )
+            else:
+                resolved_vars[k] = v
+        return {k: _substitute_vars(v, resolved_vars) for k, v in data.items()}
     if isinstance(data, list):
         return [_substitute_vars(item, variables) for item in data]
     return data

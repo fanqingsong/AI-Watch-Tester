@@ -1181,10 +1181,17 @@ class StepExecutor:
             ) from e
 
     async def _check_target_visible(self, step: StepConfig) -> bool:
-        """Quick check if target is visible on screen (for if_visible)."""
+        """Check if target is visible on screen (for if_visible).
+
+        Uses region-aware search to avoid matching toolbar/nav text.
+        Uses substring matching to handle punctuation differences.
+        """
         target = step.target
         if not target:
             return False
+
+        search_text = target.text or ""
+        region = step.region  # Use step's region for filtering
 
         # CSS selector check
         if target.selector and hasattr(self._engine, "page"):
@@ -1197,17 +1204,41 @@ class StepExecutor:
             except Exception:
                 pass
 
-        # Text check via Playwright
-        if target.text and hasattr(self._engine, "find_text_position"):
+        # DOM text search (substring, region-aware)
+        if search_text and hasattr(self._engine, "page"):
             try:
-                pos = await self._engine.find_text_position(target.text)
+                page = self._engine.page  # type: ignore[attr-defined]
+                # Use get_by_text with exact=False for substring matching
+                loc = page.get_by_text(search_text, exact=False)
+                count = await loc.count()
+                if count > 0:
+                    # Check region if specified
+                    if region != ScreenRegion.FULL:
+                        vw, vh = self._get_viewport_size()
+                        rx, ry, rw, rh = compute_region_bounds(region, vw, vh)
+                        for idx in range(min(count, 5)):
+                            box = await loc.nth(idx).bounding_box()
+                            if box:
+                                cx = box["x"] + box["width"] / 2
+                                cy = box["y"] + box["height"] / 2
+                                if rx <= cx <= rx + rw and ry <= cy <= ry + rh:
+                                    return True
+                    else:
+                        return True
+            except Exception:
+                pass
+
+        # Playwright find_text_position (exact match fallback)
+        if search_text and hasattr(self._engine, "find_text_position"):
+            try:
+                pos = await self._engine.find_text_position(search_text)
                 if pos is not None:
                     return True
             except Exception:
                 pass
 
         # Flutter Semantics check
-        if target.text and hasattr(self._engine, "page"):
+        if search_text and hasattr(self._engine, "page"):
             try:
                 from aat.engine.flutter_semantics import (
                     find_by_semantics,
@@ -1216,14 +1247,14 @@ class StepExecutor:
 
                 page = self._engine.page
                 if await is_flutter_page(page):
-                    pos = await find_by_semantics(page, target.text)
+                    pos = await find_by_semantics(page, search_text)
                     if pos is not None:
                         return True
             except Exception:
                 pass
 
         # OCR fallback (for Canvas-rendered text)
-        if target.text:
+        if search_text:
             try:
                 ss = await self._engine.screenshot()
                 import pytesseract  # type: ignore[import-untyped]
@@ -1234,7 +1265,7 @@ class StepExecutor:
                     ocr_text: str = pytesseract.image_to_string(
                         img, lang="kor+eng", config="--oem 3",
                     )
-                    if target.text.lower() in ocr_text.lower():
+                    if search_text.lower() in ocr_text.lower():
                         return True
             except Exception:
                 pass
