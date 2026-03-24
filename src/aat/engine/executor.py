@@ -138,6 +138,8 @@ class StepExecutor:
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
         self._learned_store = learned_store  # for step-level learning
         self._runtime_vars: dict[str, str] = {}  # save_as runtime variables
+        self._iframe_locator: Any = None  # for iframe direct click
+        self._iframe_frame: Any = None
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
@@ -400,7 +402,7 @@ class StepExecutor:
             if pos is not None:
                 return pos
 
-        # Search iframes (with offset correction)
+        # Search iframes — store frame reference for direct click
         if hasattr(self._engine, "page"):
             page = self._engine.page
             for frame in page.frames:
@@ -409,16 +411,11 @@ class StepExecutor:
                 try:
                     loc = frame.get_by_text(text, exact=False).first
                     if await loc.count() > 0:
-                        box = await loc.bounding_box()
-                        if box:
-                            # Get iframe element offset
-                            offset = await self._get_iframe_offset(
-                                page, frame,
-                            )
-                            return (
-                                int(box["x"] + box["width"] / 2 + offset[0]),
-                                int(box["y"] + box["height"] / 2 + offset[1]),
-                            )
+                        # Store frame locator for direct click
+                        self._iframe_locator = loc
+                        self._iframe_frame = frame
+                        # Return dummy coords — actual click via frame
+                        return -1, -1
                 except Exception:
                     continue
 
@@ -522,6 +519,41 @@ class StepExecutor:
     ) -> MatchResult:
         """Execute find_and_* action at given position, return MatchResult."""
         from aat.core.models import MatchMethod, MatchResult
+
+        # Handle iframe direct click (x=-1 sentinel from _find_text_with_synonyms)
+        iframe_loc = getattr(self, "_iframe_locator", None)
+        if x == -1 and y == -1 and iframe_loc is not None:
+            try:
+                with contextlib.suppress(Exception):
+                    await iframe_loc.scroll_into_view_if_needed(timeout=2000)
+
+                if step.action == ActionType.FIND_AND_TYPE:
+                    await iframe_loc.click(timeout=5000)
+                    await iframe_loc.fill(step.value or "")
+                elif step.action == ActionType.FIND_AND_CLEAR:
+                    await iframe_loc.click(timeout=5000)
+                    await iframe_loc.fill("")
+                elif step.action == ActionType.FIND_AND_DOUBLE_CLICK:
+                    await iframe_loc.dblclick(timeout=5000)
+                else:
+                    await iframe_loc.click(timeout=5000)
+
+                logger.info(
+                    "[AWT] Action via iframe — '%s'",
+                    step.target.text if step.target else "?",
+                )
+                box = await iframe_loc.bounding_box()
+                bx = int(box["x"] + box["width"] / 2) if box else 0
+                by = int(box["y"] + box["height"] / 2) if box else 0
+                self._iframe_locator = None
+                return MatchResult(
+                    found=True, x=bx, y=by,
+                    confidence=confidence, method=MatchMethod.OCR,
+                )
+            except Exception as e:
+                logger.warning("[AWT] iframe action failed: %s", e)
+            finally:
+                self._iframe_locator = None
 
         # Warn if element is outside viewport (Flutter hidden input issue)
         try:
