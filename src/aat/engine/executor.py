@@ -161,6 +161,24 @@ class StepExecutor:
             with contextlib.suppress(Exception):
                 self._last_screenshot = await self._engine.screenshot()
 
+            # 1.5. if_visible check — skip if target not on screen
+            if step.if_visible and step.target:
+                visible = await self._check_target_visible(step)
+                if not visible:
+                    elapsed = (time.monotonic() - start) * 1000
+                    logger.info(
+                        "if_visible: '%s' not found — skipping step %d",
+                        step.target.text or step.target.selector or "",
+                        step.step,
+                    )
+                    return StepResult(
+                        step=step.step,
+                        action=step.action,
+                        status=StepStatus.SKIPPED,
+                        description=step.description,
+                        elapsed_ms=elapsed,
+                    )
+
             # 2. Execute action
             match_result = await self._dispatch_action(step)
 
@@ -1031,6 +1049,50 @@ class StepExecutor:
             logger.info("Session loaded: %s (%.1fh old)", session_path, age_hours)
         else:
             logger.warning("Engine does not support load_session")
+
+    async def _check_target_visible(self, step: StepConfig) -> bool:
+        """Quick check if target is visible on screen (for if_visible)."""
+        target = step.target
+        if not target:
+            return False
+
+        # CSS selector check
+        if target.selector and hasattr(self._engine, "page"):
+            try:
+                loc = self._engine.page.locator(target.selector).first
+                if await loc.count() > 0:
+                    box = await loc.bounding_box()
+                    if box and box["width"] > 0:
+                        return True
+            except Exception:
+                pass
+
+        # Text check via Playwright
+        if target.text and hasattr(self._engine, "find_text_position"):
+            try:
+                pos = await self._engine.find_text_position(target.text)
+                if pos is not None:
+                    return True
+            except Exception:
+                pass
+
+        # Flutter Semantics check
+        if target.text and hasattr(self._engine, "page"):
+            try:
+                from aat.engine.flutter_semantics import (
+                    find_by_semantics,
+                    is_flutter_page,
+                )
+
+                page = self._engine.page
+                if await is_flutter_page(page):
+                    pos = await find_by_semantics(page, target.text)
+                    if pos is not None:
+                        return True
+            except Exception:
+                pass
+
+        return False
 
     async def _handle_upload_file(self, step: StepConfig) -> None:
         """Upload file(s) via input[type=file]."""

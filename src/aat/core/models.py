@@ -390,6 +390,10 @@ class StepConfig(BaseModel):
         default="",
         description="Session name for save_session/load_session",
     )
+    if_visible: bool = Field(
+        default=False,
+        description="Only execute if target is visible on screen. Skip silently if not.",
+    )
     critical: bool = Field(
         default=False,
         description="If True, test stops immediately on failure",
