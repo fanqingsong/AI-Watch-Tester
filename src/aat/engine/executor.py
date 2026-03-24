@@ -140,6 +140,7 @@ class StepExecutor:
         self._runtime_vars: dict[str, str] = {}  # save_as runtime variables
         self._iframe_locator: Any = None  # for iframe direct click
         self._iframe_frame: Any = None
+        self._found_frame: Any = None  # frame where if_visible found target
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
@@ -1356,8 +1357,10 @@ class StepExecutor:
                                         rx <= cx <= rx + rw
                                         and ry <= cy <= ry + rh
                                     ):
+                                        self._found_frame = frame
                                         return True
                         else:
+                            self._found_frame = frame
                             return True
                 except Exception:
                     continue
@@ -1400,12 +1403,14 @@ class StepExecutor:
     async def _handle_if_visible_block(self, step: StepConfig) -> None:
         """Execute then block if target is visible.
 
-        After executing the block, verifies the target disappeared.
-        If still visible, retries the block (max 3 attempts).
+        When target is found in an iframe, executes then-block
+        actions directly inside that iframe's frame context.
         """
         target_desc = step.target.text if step.target else "?"
+        self._found_frame = None
 
         for attempt in range(1, 4):
+            self._found_frame = None
             visible = await self._check_target_visible(step)
             if not visible:
                 if attempt == 1:
@@ -1420,31 +1425,51 @@ class StepExecutor:
                     )
                 return
 
-            logger.info(
-                "if_visible: '%s' found — executing then (%d steps, attempt %d/3)",
-                target_desc, len(step.then), attempt,
+            found_frame = self._found_frame
+            is_iframe = (
+                found_frame is not None
+                and hasattr(self._engine, "page")
+                and found_frame != self._engine.page.main_frame
             )
-            from aat.core.models import StepConfig
+            logger.info(
+                "if_visible: '%s' found%s — then (%d steps, attempt %d/3)",
+                target_desc,
+                " (in iframe)" if is_iframe else "",
+                len(step.then),
+                attempt,
+            )
 
+            # Execute then steps
             for i, sub in enumerate(step.then):
                 sub_copy = dict(sub)
-                sub_copy["step"] = step.step * 100 + i + 1
-                if "description" not in sub_copy:
-                    sub_copy["description"] = f"then[{i}]"
-                sub_step = StepConfig.model_validate(sub_copy)
-                sub_result = await self.execute_step(sub_step)
-                if sub_result.status not in (
-                    StepStatus.PASSED,
-                    StepStatus.SKIPPED,
-                ):
-                    raise StepExecutionError(
-                        sub_result.error_message or "then step failed",
-                        step=step.step,
-                        action="if_visible",
-                    )
 
-            # Verify target disappeared after then block
+                if is_iframe and found_frame is not None:
+                    # Execute directly in the iframe frame
+                    await self._exec_in_frame(
+                        found_frame, sub_copy, step.step, i,
+                    )
+                else:
+                    # Normal execution (main frame)
+                    from aat.core.models import StepConfig
+
+                    sub_copy["step"] = step.step * 100 + i + 1
+                    if "description" not in sub_copy:
+                        sub_copy["description"] = f"then[{i}]"
+                    sub_step = StepConfig.model_validate(sub_copy)
+                    sub_result = await self.execute_step(sub_step)
+                    if sub_result.status not in (
+                        StepStatus.PASSED,
+                        StepStatus.SKIPPED,
+                    ):
+                        raise StepExecutionError(
+                            sub_result.error_message or "then step failed",
+                            step=step.step,
+                            action="if_visible",
+                        )
+
+            # Verify target disappeared
             await asyncio.sleep(1.0)
+            self._found_frame = None
             still_visible = await self._check_target_visible(step)
             if not still_visible:
                 logger.info(
@@ -1468,6 +1493,82 @@ class StepExecutor:
             step=step.step,
             action="if_visible",
         )
+
+    async def _exec_in_frame(
+        self,
+        frame: Any,
+        sub: dict[str, Any],
+        parent_step: int,
+        idx: int,
+    ) -> None:
+        """Execute a then-block action directly inside an iframe frame."""
+        action = sub.get("action", "")
+        desc = sub.get("description", f"then[{idx}]")
+
+        try:
+            if action == "find_and_click":
+                target = sub.get("target", {})
+                text = target.get("text", "")
+                selector = target.get("selector", "")
+                if text:
+                    loc = frame.get_by_text(text, exact=False).first
+                elif selector:
+                    loc = frame.locator(selector).first
+                else:
+                    raise StepExecutionError(
+                        "No target for find_and_click in iframe",
+                        step=parent_step, action="if_visible",
+                    )
+                if await loc.count() > 0:
+                    await loc.click(timeout=5000)
+                    logger.info("[AWT] iframe click: '%s'", desc)
+                else:
+                    raise StepExecutionError(
+                        f"'{text or selector}' not found in iframe",
+                        step=parent_step, action="if_visible",
+                    )
+
+            elif action == "press_key":
+                key = sub.get("value", "Escape")
+                await frame.press("body", key)
+                logger.info("[AWT] iframe press_key: %s", key)
+
+            elif action == "click_at":
+                coords = sub.get("value", "0,0").split(",")
+                x, y = int(coords[0].strip()), int(coords[1].strip())
+                await frame.click("body", position={"x": x, "y": y})
+                logger.info("[AWT] iframe click_at: (%d,%d)", x, y)
+
+            elif action == "wait":
+                ms = int(sub.get("value", "1000"))
+                await asyncio.sleep(ms / 1000)
+
+            elif action == "type_text":
+                text = sub.get("value", "")
+                await frame.type("body", text)
+
+            else:
+                logger.warning(
+                    "[AWT] iframe: unsupported action '%s', "
+                    "falling back to main frame",
+                    action,
+                )
+                from aat.core.models import StepConfig
+
+                sub["step"] = parent_step * 100 + idx + 1
+                if "description" not in sub:
+                    sub["description"] = desc
+                sub_step = StepConfig.model_validate(sub)
+                await self.execute_step(sub_step)
+
+        except StepExecutionError:
+            raise
+        except Exception as e:
+            raise StepExecutionError(
+                f"iframe action failed: {e}",
+                step=parent_step,
+                action="if_visible",
+            ) from e
 
     async def _handle_upload_file(self, step: StepConfig) -> None:
         """Upload file(s) via input[type=file]."""
