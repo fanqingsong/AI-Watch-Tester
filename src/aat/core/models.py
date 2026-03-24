@@ -47,6 +47,8 @@ class ActionType(StrEnum):
     LOAD_SESSION = "load_session"
     # File
     UPLOAD_FILE = "upload_file"
+    # Conditional
+    IF_VISIBLE = "if_visible"
     # Subroutine
     INCLUDE = "include"
     # Find / Extract
@@ -418,6 +420,10 @@ class StepConfig(BaseModel):
     save_as: str = Field(
         default="",
         description="Save result to runtime variable (for find/get_text)",
+    )
+    then: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Sub-steps to execute if if_visible target is found",
     )
     scenario: str = Field(
         default="",

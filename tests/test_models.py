@@ -49,7 +49,7 @@ class TestActionType:
         assert ActionType.SCREENSHOT == "screenshot"
 
     def test_all_members(self) -> None:
-        assert len(ActionType) == 25
+        assert len(ActionType) == 26
 
     def test_from_string(self) -> None:
         assert ActionType("navigate") is ActionType.NAVIGATE

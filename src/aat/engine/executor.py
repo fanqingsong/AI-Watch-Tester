@@ -362,6 +362,9 @@ class StepExecutor:
         elif step.action == ActionType.INCLUDE:
             pass  # Expanded by scenario_loader before execution
 
+        elif step.action == ActionType.IF_VISIBLE:
+            await self._handle_if_visible_block(step)
+
         elif step.action == ActionType.WAIT:
             await asyncio.sleep(int(step.value or "1000") / 1000)
 
@@ -1209,6 +1212,37 @@ class StepExecutor:
                 pass
 
         return False
+
+    async def _handle_if_visible_block(self, step: StepConfig) -> None:
+        """Execute then block if target is visible."""
+        visible = await self._check_target_visible(step)
+        if not visible:
+            logger.info(
+                "if_visible: '%s' not found — skipping then block (%d steps)",
+                step.target.text if step.target else "?",
+                len(step.then),
+            )
+            return
+
+        logger.info(
+            "if_visible: '%s' found — executing then block (%d steps)",
+            step.target.text if step.target else "?",
+            len(step.then),
+        )
+        from aat.core.models import StepConfig
+
+        for i, sub in enumerate(step.then):
+            sub["step"] = step.step * 100 + i + 1
+            if "description" not in sub:
+                sub["description"] = f"then[{i}]"
+            sub_step = StepConfig.model_validate(sub)
+            sub_result = await self.execute_step(sub_step)
+            if sub_result.status not in (StepStatus.PASSED, StepStatus.SKIPPED):
+                raise StepExecutionError(
+                    sub_result.error_message or "then block step failed",
+                    step=step.step,
+                    action="if_visible",
+                )
 
     async def _handle_upload_file(self, step: StepConfig) -> None:
         """Upload file(s) via input[type=file]."""
