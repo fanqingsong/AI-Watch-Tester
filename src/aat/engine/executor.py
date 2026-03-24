@@ -1273,35 +1273,76 @@ class StepExecutor:
         return False
 
     async def _handle_if_visible_block(self, step: StepConfig) -> None:
-        """Execute then block if target is visible."""
-        visible = await self._check_target_visible(step)
-        if not visible:
+        """Execute then block if target is visible.
+
+        After executing the block, verifies the target disappeared.
+        If still visible, retries the block (max 3 attempts).
+        """
+        target_desc = step.target.text if step.target else "?"
+
+        for attempt in range(1, 4):
+            visible = await self._check_target_visible(step)
+            if not visible:
+                if attempt == 1:
+                    logger.info(
+                        "if_visible: '%s' not found — skipping",
+                        target_desc,
+                    )
+                else:
+                    logger.info(
+                        "if_visible: '%s' dismissed (attempt %d)",
+                        target_desc, attempt - 1,
+                    )
+                return
+
             logger.info(
-                "if_visible: '%s' not found — skipping then block (%d steps)",
-                step.target.text if step.target else "?",
-                len(step.then),
+                "if_visible: '%s' found — executing then (%d steps, attempt %d/3)",
+                target_desc, len(step.then), attempt,
             )
-            return
+            from aat.core.models import StepConfig
 
-        logger.info(
-            "if_visible: '%s' found — executing then block (%d steps)",
-            step.target.text if step.target else "?",
-            len(step.then),
-        )
-        from aat.core.models import StepConfig
+            for i, sub in enumerate(step.then):
+                sub_copy = dict(sub)
+                sub_copy["step"] = step.step * 100 + i + 1
+                if "description" not in sub_copy:
+                    sub_copy["description"] = f"then[{i}]"
+                sub_step = StepConfig.model_validate(sub_copy)
+                sub_result = await self.execute_step(sub_step)
+                if sub_result.status not in (
+                    StepStatus.PASSED,
+                    StepStatus.SKIPPED,
+                ):
+                    raise StepExecutionError(
+                        sub_result.error_message or "then step failed",
+                        step=step.step,
+                        action="if_visible",
+                    )
 
-        for i, sub in enumerate(step.then):
-            sub["step"] = step.step * 100 + i + 1
-            if "description" not in sub:
-                sub["description"] = f"then[{i}]"
-            sub_step = StepConfig.model_validate(sub)
-            sub_result = await self.execute_step(sub_step)
-            if sub_result.status not in (StepStatus.PASSED, StepStatus.SKIPPED):
-                raise StepExecutionError(
-                    sub_result.error_message or "then block step failed",
-                    step=step.step,
-                    action="if_visible",
+            # Verify target disappeared after then block
+            await asyncio.sleep(1.0)
+            still_visible = await self._check_target_visible(step)
+            if not still_visible:
+                logger.info(
+                    "if_visible: '%s' dismissed successfully",
+                    target_desc,
                 )
+                return
+
+            logger.warning(
+                "if_visible: '%s' still visible after attempt %d",
+                target_desc, attempt,
+            )
+
+        # 3 attempts failed — target still visible
+        logger.error(
+            "if_visible: '%s' could not be dismissed after 3 attempts",
+            target_desc,
+        )
+        raise StepExecutionError(
+            f"'{target_desc}' still visible after 3 dismiss attempts",
+            step=step.step,
+            action="if_visible",
+        )
 
     async def _handle_upload_file(self, step: StepConfig) -> None:
         """Upload file(s) via input[type=file]."""
