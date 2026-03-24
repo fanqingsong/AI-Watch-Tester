@@ -1515,23 +1515,33 @@ class StepExecutor:
                 target = sub.get("target", {})
                 text = target.get("text", "")
                 selector = target.get("selector", "")
-                if text:
-                    loc = frame.get_by_text(text, exact=False).first
-                elif selector:
+
+                loc = None
+                if selector:
                     loc = frame.locator(selector).first
-                else:
-                    raise StepExecutionError(
-                        "No target for find_and_click in iframe",
-                        step=parent_step, action="if_visible",
-                    )
-                if await loc.count() > 0:
-                    await loc.click(timeout=5000)
-                    logger.info("[AWT] iframe click: '%s'", desc)
-                else:
+                if text:
+                    if loc is None or await loc.count() == 0:
+                        # Find visible buttons/links with exact text
+                        # Try role-based (most precise for popups)
+                        loc = frame.get_by_role("button", name=text).first
+                    if await loc.count() == 0:
+                        loc = frame.get_by_role("link", name=text).first
+                    if await loc.count() == 0:
+                        loc = frame.get_by_text(text, exact=True).first
+                    if await loc.count() == 0:
+                        loc = frame.get_by_text(text, exact=False).first
+
+                if loc is None or await loc.count() == 0:
                     raise StepExecutionError(
                         f"'{text or selector}' not found in iframe",
                         step=parent_step, action="if_visible",
                     )
+
+                try:
+                    await loc.click(timeout=5000)
+                except Exception:
+                    await loc.click(timeout=5000, force=True)
+                logger.info("[AWT] iframe click: '%s'", desc)
 
             elif action == "press_key":
                 key = sub.get("value", "Escape")
