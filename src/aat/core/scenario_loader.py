@@ -233,6 +233,9 @@ def _substitute_vars(data: Any, variables: dict[str, str]) -> Any:
         merged_vars = dict(variables)
         if "variables" in data and isinstance(data["variables"], dict):
             merged_vars.update(data["variables"])
+        # Also support "vars" as alias for "variables"
+        if "vars" in data and isinstance(data["vars"], dict):
+            merged_vars.update(data["vars"])
         return {k: _substitute_vars(v, merged_vars) for k, v in data.items()}
     if isinstance(data, list):
         return [_substitute_vars(item, variables) for item in data]

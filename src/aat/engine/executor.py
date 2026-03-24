@@ -1077,18 +1077,29 @@ class StepExecutor:
             logger.warning("Engine does not support load_session")
 
     def _resolve_runtime_vars(self, step: StepConfig) -> StepConfig:
-        """Substitute {{var}} in step fields from runtime vars."""
+        """Substitute {{var}} in step fields from runtime + env vars."""
+        import os
         import re
 
-        if not self._runtime_vars:
-            return step
-
         pattern = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
+
+        # Check if there are any unresolved vars
+        raw = str(step.model_dump())
+        if "{{" not in raw:
+            return step
 
         def _sub(text: str) -> str:
             def replacer(m: re.Match[str]) -> str:
                 key = m.group(1).strip()
-                return self._runtime_vars.get(key, m.group(0))
+                # Runtime vars (save_as)
+                if key in self._runtime_vars:
+                    return self._runtime_vars[key]
+                # Environment variables
+                if key.startswith("env."):
+                    env_val = os.environ.get(key[4:], "")
+                    if env_val:
+                        return env_val
+                return m.group(0)
             return pattern.sub(replacer, text)
 
         data = step.model_dump()
@@ -1207,6 +1218,23 @@ class StepExecutor:
                 if await is_flutter_page(page):
                     pos = await find_by_semantics(page, target.text)
                     if pos is not None:
+                        return True
+            except Exception:
+                pass
+
+        # OCR fallback (for Canvas-rendered text)
+        if target.text:
+            try:
+                ss = await self._engine.screenshot()
+                import pytesseract  # type: ignore[import-untyped]
+
+                img_arr = np.frombuffer(ss, dtype=np.uint8)
+                img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
+                if img is not None:
+                    ocr_text: str = pytesseract.image_to_string(
+                        img, lang="kor+eng", config="--oem 3",
+                    )
+                    if target.text.lower() in ocr_text.lower():
                         return True
             except Exception:
                 pass
