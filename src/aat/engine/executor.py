@@ -196,9 +196,9 @@ class StepExecutor:
                     step.save_as, match_result.x, match_result.y,
                 )
 
-            # 2.6. Critical step auto-verification (screen change check)
-            if step.critical and self._should_verify_change(step):
-                await self._verify_critical_change(step)
+            # 2.6. Auto-verify: every click must cause screen change
+            if self._should_verify_change(step):
+                await self._verify_click_effect(step)
 
             # 3. screenshot_after
             if step.screenshot_after:
@@ -1632,48 +1632,54 @@ class StepExecutor:
             return (step.value or "").strip().lower() == "enter"
         return False
 
-    async def _verify_critical_change(self, step: StepConfig) -> None:
-        """Verify screen changed after critical step. Raise on no change.
+    async def _verify_click_effect(self, step: StepConfig) -> None:
+        """Verify every click caused a screen change.
 
-        Polls up to 5 times (1s interval) for Flutter page transitions.
+        - critical step: FAILED if no change (raises error)
+        - normal step: WARNING log (still PASSED, but flagged)
+
+        Polls up to 3 times (1s interval) for transitions.
         """
         if self._last_screenshot is None:
             return
 
-        # Poll: Flutter CanvasKit transitions can take 2-3 seconds
         best_ratio = 0.0
-        for _ in range(5):
+        threshold = self._get_critical_threshold(step)
+        polls = 5 if step.critical else 3
+
+        for _ in range(polls):
             current = await self._engine.screenshot()
             ratio = self._compute_change_ratio(self._last_screenshot, current)
             best_ratio = max(best_ratio, ratio)
 
-            threshold = self._get_critical_threshold(step)
             if best_ratio >= threshold:
                 logger.info(
-                    "[AWT] critical verify: %.1f%% change "
-                    "(threshold %.1f%%) — OK",
+                    "[AWT] click verify: %.1f%% change — OK",
                     best_ratio * 100,
-                    threshold * 100,
                 )
                 return
 
             await asyncio.sleep(1.0)
 
-        # Final check with best ratio found
-        threshold = self._get_critical_threshold(step)
-        msg = (
-            step.message
-            or f"Screen change {best_ratio:.1%} below {threshold:.1%} "
-            f"after critical step"
-        )
-        logger.warning(
-            "[AWT] critical verify FAILED: %.1f%% change < %.1f%%",
-            best_ratio * 100,
-            threshold * 100,
-        )
-        raise StepExecutionError(
-            msg, step=step.step, action=step.action.value
-        )
+        # No change detected
+        if step.critical:
+            msg = (
+                step.message
+                or f"No screen change ({best_ratio:.1%}) after "
+                f"critical click (threshold {threshold:.1%})"
+            )
+            logger.error("[AWT] CRITICAL: %s", msg)
+            raise StepExecutionError(
+                msg, step=step.step, action=step.action.value,
+            )
+        else:
+            # Non-critical: WARNING only (step still PASSED)
+            logger.warning(
+                "[AWT] click had no visible effect (%.1f%% change, "
+                "threshold %.1f%%). Step PASSED but may be a false positive.",
+                best_ratio * 100,
+                threshold * 100,
+            )
 
     def _get_critical_threshold(self, step: StepConfig) -> float:
         """Get the change threshold for a critical step."""
