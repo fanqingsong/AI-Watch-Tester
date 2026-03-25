@@ -192,12 +192,12 @@ class StepExecutor:
 
             # 2.5. save_as: store match result as runtime variable
             if step.save_as and match_result and match_result.found:
-                self._runtime_vars[step.save_as] = (
-                    f"{match_result.x},{match_result.y}"
-                )
+                self._runtime_vars[step.save_as] = f"{match_result.x},{match_result.y}"
                 logger.info(
                     "save_as: %s = (%d,%d)",
-                    step.save_as, match_result.x, match_result.y,
+                    step.save_as,
+                    match_result.x,
+                    match_result.y,
                 )
 
             # 2.6. Post-action verification
@@ -274,10 +274,11 @@ class StepExecutor:
                     action=step.action.value,
                 ) from e
 
+            status = StepStatus.SKIPPED if step.optional else StepStatus.FAILED
             return StepResult(
                 step=step.step,
                 action=step.action,
-                status=StepStatus.FAILED,
+                status=status,
                 description=step.description,
                 error_message=error_msg,
                 elapsed_ms=elapsed,
@@ -309,6 +310,8 @@ class StepExecutor:
             await self._engine.navigate(step.value or "")
             # Auto-activate Flutter Semantics after navigation
             await self._maybe_activate_flutter_semantics()
+            # Auto-verify: detect unexpected login redirect
+            await self._check_post_navigate_redirect(step)
 
         elif step.action == ActionType.CLICK_AT:
             x, y = _parse_coordinates(step.value)
@@ -554,8 +557,11 @@ class StepExecutor:
                 by = int(box["y"] + box["height"] / 2) if box else 0
                 self._iframe_locator = None
                 return MatchResult(
-                    found=True, x=bx, y=by,
-                    confidence=confidence, method=MatchMethod.OCR,
+                    found=True,
+                    x=bx,
+                    y=by,
+                    confidence=confidence,
+                    method=MatchMethod.OCR,
                 )
             except Exception as e:
                 logger.warning("[AWT] iframe action failed: %s", e)
@@ -565,12 +571,8 @@ class StepExecutor:
         # Warn if element is outside viewport (Flutter hidden input issue)
         try:
             vw = getattr(self._engine, "_config", None)
-            viewport_w = (
-                int(getattr(vw, "viewport_width", 1280)) if vw else 1280
-            )
-            viewport_h = (
-                int(getattr(vw, "viewport_height", 720)) if vw else 720
-            )
+            viewport_w = int(getattr(vw, "viewport_width", 1280)) if vw else 1280
+            viewport_h = int(getattr(vw, "viewport_height", 720)) if vw else 720
         except (TypeError, ValueError):
             viewport_w, viewport_h = 1280, 720
         if x < 0 or y < 0 or x > viewport_w or y > viewport_h:
@@ -639,13 +641,23 @@ class StepExecutor:
                 self._current_page_state = post_state
                 logger.info(
                     "Learning: '%s' at (%d,%d) state=%s",
-                    t_name, x, y, post_state,
+                    t_name,
+                    x,
+                    y,
+                    post_state,
                 )
                 self._learned_store.save_or_update_by_name(
-                    t_name, x, y, confidence,
+                    t_name,
+                    x,
+                    y,
+                    confidence,
                 )
                 self._learned_store.save_state_coords(
-                    t_name, post_state, x, y, confidence,
+                    t_name,
+                    post_state,
+                    x,
+                    y,
+                    confidence,
                 )
 
         return result
@@ -681,8 +693,7 @@ class StepExecutor:
                 best = strategies[0]
                 if best["success"] > 0:
                     logger.info(
-                        "[AWT] Strategy hint for '%s': %s "
-                        "(success=%d, fail=%d)",
+                        "[AWT] Strategy hint for '%s': %s (success=%d, fail=%d)",
                         target_name,
                         best["strategy"],
                         best["success"],
@@ -693,21 +704,33 @@ class StepExecutor:
         if target_name and self._learned_store and step.method.value == "auto":
             page_state = await self._detect_page_state()
             coords = self._learned_store.find_state_coords(
-                target_name, page_state,
+                target_name,
+                page_state,
             )
             if coords:
                 lx, ly, lconf = coords
                 logger.info(
                     "Learned[%s]: '%s' at (%d,%d) conf=%.2f",
-                    page_state, target_name, lx, ly, lconf,
+                    page_state,
+                    target_name,
+                    lx,
+                    ly,
+                    lconf,
                 )
                 try:
                     result = await self._act_at_pos(
-                        step, lx, ly, confidence=lconf,
+                        step,
+                        lx,
+                        ly,
+                        confidence=lconf,
                     )
                     # Success — reinforce
                     self._learned_store.save_state_coords(
-                        target_name, page_state, lx, ly, lconf,
+                        target_name,
+                        page_state,
+                        lx,
+                        ly,
+                        lconf,
                     )
                     return result
                 except Exception:
@@ -721,7 +744,9 @@ class StepExecutor:
             if learned and learned.confidence >= 0.8:
                 try:
                     return await self._act_at_pos(
-                        step, learned.correct_x, learned.correct_y,
+                        step,
+                        learned.correct_x,
+                        learned.correct_y,
                         confidence=learned.confidence,
                     )
                 except Exception:
@@ -876,9 +901,7 @@ class StepExecutor:
                     pos[0],
                     pos[1],
                 )
-                return await self._act_at_pos(
-                    step, pos[0], pos[1], confidence=0.95
-                )
+                return await self._act_at_pos(step, pos[0], pos[1], confidence=0.95)
 
         # Try Playwright native text search first (no screenshot needed)
         if target.text and hasattr(self._engine, "find_text_position"):
@@ -1119,10 +1142,7 @@ class StepExecutor:
             current_url = await self._engine.get_url()
 
         if expected.lower() not in current_url.lower():
-            err = step.message or (
-                f"URL does not contain '{expected}'. "
-                f"Current: {current_url}"
-            )
+            err = step.message or (f"URL does not contain '{expected}'. Current: {current_url}")
             raise StepExecutionError(err, step=step.step, action="assert_url")
 
         logger.info("assert_url: '%s' found in %s", expected, current_url)
@@ -1189,6 +1209,7 @@ class StepExecutor:
                 if key in self._scenario_vars:
                     return self._scenario_vars[key]
                 return m.group(0)
+
             return pattern.sub(replacer, text)
 
         data = step.model_dump()
@@ -1203,7 +1224,10 @@ class StepExecutor:
             return obj
 
         data = _walk(data)
-        return StepConfig.model_validate(data)
+        # StepConfig is TYPE_CHECKING-only above; import at runtime here
+        from aat.core.models import StepConfig as _StepConfig  # noqa: PLC0415
+
+        return _StepConfig.model_validate(data)
 
     async def _find_and_act_no_click(self, step: StepConfig) -> MatchResult | None:
         """Find target without clicking (for save_as)."""
@@ -1223,7 +1247,10 @@ class StepExecutor:
                         x = int(box["x"] + box["width"] / 2)
                         y = int(box["y"] + box["height"] / 2)
                         return MatchResult(
-                            found=True, x=x, y=y, confidence=1.0,
+                            found=True,
+                            x=x,
+                            y=y,
+                            confidence=1.0,
                         )
             except Exception:
                 pass
@@ -1233,7 +1260,10 @@ class StepExecutor:
             pos = await self._engine.find_text_position(target.text)
             if pos:
                 return MatchResult(
-                    found=True, x=pos[0], y=pos[1], confidence=0.9,
+                    found=True,
+                    x=pos[0],
+                    y=pos[1],
+                    confidence=0.9,
                 )
 
         return None
@@ -1249,7 +1279,8 @@ class StepExecutor:
         if not selector:
             raise StepExecutionError(
                 "get_text requires selector",
-                step=step.step, action="get_text",
+                step=step.step,
+                action="get_text",
             )
 
         if not hasattr(self._engine, "page"):
@@ -1266,7 +1297,8 @@ class StepExecutor:
         except Exception as e:
             raise StepExecutionError(
                 f"get_text failed: {e}",
-                step=step.step, action="get_text",
+                step=step.step,
+                action="get_text",
             ) from e
 
     async def _get_iframe_offset(
@@ -1356,7 +1388,9 @@ class StepExecutor:
                         if region != ScreenRegion.FULL:
                             vw, vh = self._get_viewport_size()
                             rx, ry, rw, rh = compute_region_bounds(
-                                region, vw, vh,
+                                region,
+                                vw,
+                                vh,
                             )
                             for idx in range(min(count, 5)):
                                 el = loc.nth(idx)
@@ -1364,10 +1398,7 @@ class StepExecutor:
                                 if box:
                                     cx = box["x"] + box["width"] / 2
                                     cy = box["y"] + box["height"] / 2
-                                    if (
-                                        rx <= cx <= rx + rw
-                                        and ry <= cy <= ry + rh
-                                    ):
+                                    if rx <= cx <= rx + rw and ry <= cy <= ry + rh:
                                         self._found_frame = frame
                                         return True
                                 else:
@@ -1419,16 +1450,23 @@ class StepExecutor:
                     gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
                     # Otsu threshold — improves contrast for modal/overlay text
                     _, thresh = cv2.threshold(
-                        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+                        gray,
+                        0,
+                        255,
+                        cv2.THRESH_BINARY + cv2.THRESH_OTSU,
                     )
                     ocr_text: str = pytesseract.image_to_string(
-                        thresh, lang="kor+eng", config="--oem 3 --psm 6",
+                        thresh,
+                        lang="kor+eng",
+                        config="--oem 3 --psm 6",
                     )
                     if search_text.lower() in ocr_text.lower():
                         return True
                     # Second pass: raw grayscale with sparse-text PSM for overlays
                     ocr_text2: str = pytesseract.image_to_string(
-                        gray, lang="kor+eng", config="--oem 3 --psm 11",
+                        gray,
+                        lang="kor+eng",
+                        config="--oem 3 --psm 11",
                     )
                     if search_text.lower() in ocr_text2.lower():
                         return True
@@ -1458,7 +1496,8 @@ class StepExecutor:
                 else:
                     logger.info(
                         "if_visible: '%s' dismissed (attempt %d)",
-                        target_desc, attempt - 1,
+                        target_desc,
+                        attempt - 1,
                     )
                 return
 
@@ -1483,7 +1522,10 @@ class StepExecutor:
                 if is_iframe and found_frame is not None:
                     # Execute directly in the iframe frame
                     await self._exec_in_frame(
-                        found_frame, sub_copy, step.step, i,
+                        found_frame,
+                        sub_copy,
+                        step.step,
+                        i,
                     )
                 else:
                     # Normal execution (main frame)
@@ -1517,7 +1559,8 @@ class StepExecutor:
 
             logger.warning(
                 "if_visible: '%s' still visible after attempt %d",
-                target_desc, attempt,
+                target_desc,
+                attempt,
             )
 
         # 3 attempts failed — target still visible
@@ -1566,7 +1609,8 @@ class StepExecutor:
                 if loc is None or await loc.count() == 0:
                     raise StepExecutionError(
                         f"'{text or selector}' not found in iframe",
-                        step=parent_step, action="if_visible",
+                        step=parent_step,
+                        action="if_visible",
                     )
 
                 try:
@@ -1596,8 +1640,7 @@ class StepExecutor:
 
             else:
                 logger.warning(
-                    "[AWT] iframe: unsupported action '%s', "
-                    "falling back to main frame",
+                    "[AWT] iframe: unsupported action '%s', falling back to main frame",
                     action,
                 )
                 from aat.core.models import StepConfig
@@ -1622,7 +1665,8 @@ class StepExecutor:
         if not hasattr(self._engine, "page"):
             raise StepExecutionError(
                 "upload_file requires web engine",
-                step=step.step, action="upload_file",
+                step=step.step,
+                action="upload_file",
             )
 
         selector = ""
@@ -1643,7 +1687,8 @@ class StepExecutor:
         if not paths:
             raise StepExecutionError(
                 "upload_file requires file_path or file_paths",
-                step=step.step, action="upload_file",
+                step=step.step,
+                action="upload_file",
             )
 
         page = self._engine.page  # type: ignore[attr-defined]
@@ -1652,7 +1697,8 @@ class StepExecutor:
         if await loc.count() == 0:
             raise StepExecutionError(
                 f"File input not found: {selector}",
-                step=step.step, action="upload_file",
+                step=step.step,
+                action="upload_file",
             )
 
         if len(paths) == 1:
@@ -1662,8 +1708,56 @@ class StepExecutor:
 
         logger.info(
             "upload_file: %d file(s) via %s",
-            len(paths), selector,
+            len(paths),
+            selector,
         )
+
+    # Login/auth URL patterns — if we land here unexpectedly, session expired
+    _LOGIN_URL_PATTERNS: tuple[str, ...] = (
+        "nidlogin",
+        "/login",
+        "/signin",
+        "account/login",
+        "accounts/login",
+        "/auth",
+    )
+
+    async def _check_post_navigate_redirect(self, step: StepConfig) -> None:
+        """After navigate, detect unexpected login/auth redirects.
+
+        Raises StepExecutionError immediately if the browser landed on a
+        login page when the target URL was not a login page.
+        """
+        if not hasattr(self._engine, "page"):
+            return
+
+        target = (step.value or "").lower()
+        # Skip check if this step intentionally navigates to a login page
+        if any(p in target for p in self._LOGIN_URL_PATTERNS):
+            return
+
+        try:
+            current_url = self._engine.page.url.lower()
+        except Exception:
+            return
+
+        for pattern in self._LOGIN_URL_PATTERNS:
+            if pattern in current_url:
+                ss_path = self._screenshot_dir / f"redirect_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    ss_bytes = await self._engine.screenshot()
+                    Path(str(ss_path)).write_bytes(ss_bytes)
+                except Exception:
+                    pass
+                raise StepExecutionError(
+                    f"Unexpected redirect to login page after navigate: "
+                    f"{current_url!r}. "
+                    "Session expired or authentication required. "
+                    f"Screenshot: {ss_path}",
+                    step=step.step,
+                    action="navigate",
+                )
 
     async def _maybe_activate_flutter_semantics(self) -> None:
         """Auto-activate Flutter Semantics after navigation (if Flutter)."""
@@ -1813,13 +1907,21 @@ class StepExecutor:
 
             # Quick OCR (no upscale for speed)
             text: str = pytesseract.image_to_string(
-                img, lang="kor+eng", config="--oem 3 --psm 6",
+                img,
+                lang="kor+eng",
+                config="--oem 3 --psm 6",
             )
             lower = text.lower()
 
             error_keywords = [
-                "오류", "error", "실패", "failed", "invalid",
-                "잘못된", "incorrect", "확인해주세요",
+                "오류",
+                "error",
+                "실패",
+                "failed",
+                "invalid",
+                "잘못된",
+                "incorrect",
+                "확인해주세요",
             ]
             for kw in error_keywords:
                 if kw in lower:
@@ -1879,7 +1981,9 @@ class StepExecutor:
             strategy = _classify_strategy(step, result, method)
             if situation and strategy:
                 self._learned_store.learn_strategy(
-                    situation, strategy, success=is_success,
+                    situation,
+                    strategy,
+                    success=is_success,
                 )
         except Exception:
             pass  # Learning is best-effort
@@ -1887,13 +1991,15 @@ class StepExecutor:
     # -- Critical step auto-verification ------------------------------------
 
     # Actions that should show screen change when critical
-    _CRITICAL_CHANGE_ACTIONS: frozenset[ActionType] = frozenset({
-        ActionType.NAVIGATE,
-        ActionType.FIND_AND_CLICK,
-        ActionType.FIND_AND_DOUBLE_CLICK,
-        ActionType.FIND_AND_RIGHT_CLICK,
-        ActionType.CLICK_AT,
-    })
+    _CRITICAL_CHANGE_ACTIONS: frozenset[ActionType] = frozenset(
+        {
+            ActionType.NAVIGATE,
+            ActionType.FIND_AND_CLICK,
+            ActionType.FIND_AND_DOUBLE_CLICK,
+            ActionType.FIND_AND_RIGHT_CLICK,
+            ActionType.CLICK_AT,
+        }
+    )
 
     # Default change thresholds per action type
     _CRITICAL_THRESHOLDS: dict[ActionType, float] = {
@@ -1933,27 +2039,23 @@ class StepExecutor:
                 await asyncio.sleep(1.5)
                 current_url = await self._engine.get_url()
             if expected_url.lower() not in current_url.lower():
-                failures.append(
-                    f'url_contains "{expected_url}" → '
-                    f"actual: {current_url}"
-                )
+                failures.append(f'url_contains "{expected_url}" → actual: {current_url}')
 
         # url_equals
         if "url_equals" in expect:
             expected_url = str(expect["url_equals"])
             current_url = await self._engine.get_url()
             if current_url != expected_url:
-                failures.append(
-                    f'url_equals "{expected_url}" → '
-                    f"actual: {current_url}"
-                )
+                failures.append(f'url_equals "{expected_url}" → actual: {current_url}')
 
         # text_visible
         if "text_visible" in expect:
             text = str(expect["text_visible"])
             try:
                 await self._verify_text_on_screen(
-                    text, step.region, "",
+                    text,
+                    step.region,
+                    "",
                 )
             except StepExecutionError:
                 failures.append(f'text_visible "{text}" → not found')
@@ -1963,12 +2065,12 @@ class StepExecutor:
             text = str(expect["text_hidden"])
             try:
                 await self._verify_text_on_screen(
-                    text, step.region, "",
+                    text,
+                    step.region,
+                    "",
                 )
                 # If text IS found, that's a failure
-                failures.append(
-                    f'text_hidden "{text}" → still visible'
-                )
+                failures.append(f'text_hidden "{text}" → still visible')
             except StepExecutionError:
                 pass  # Text not found = expected
 
@@ -1978,16 +2080,13 @@ class StepExecutor:
             if self._last_screenshot is not None:
                 current = await self._engine.screenshot()
                 ratio = self._compute_change_ratio(
-                    self._last_screenshot, current,
+                    self._last_screenshot,
+                    current,
                 )
                 if should_change and ratio < 0.01:
-                    failures.append(
-                        f"screen_changed: true → no change ({ratio:.1%})"
-                    )
+                    failures.append(f"screen_changed: true → no change ({ratio:.1%})")
                 elif not should_change and ratio > 0.05:
-                    failures.append(
-                        f"screen_changed: false → changed ({ratio:.1%})"
-                    )
+                    failures.append(f"screen_changed: false → changed ({ratio:.1%})")
 
         if failures:
             # Save screenshot on expect failure
@@ -1996,17 +2095,13 @@ class StepExecutor:
                 ss_dir = Path(self._screenshot_dir)
                 ss_dir.mkdir(parents=True, exist_ok=True)
                 ss_bytes = await self._engine.screenshot()
-                ss_path = str(
-                    ss_dir / f"expect_fail_step{step.step}.png"
-                )
+                ss_path = str(ss_dir / f"expect_fail_step{step.step}.png")
                 Path(ss_path).write_bytes(ss_bytes)
             except Exception:
                 pass
 
             msg = " | ".join(failures)
-            logger.error(
-                "[AWT] ❌ expect failed (step %d): %s", step.step, msg
-            )
+            logger.error("[AWT] ❌ expect failed (step %d): %s", step.step, msg)
             if ss_path:
                 logger.error("[AWT] Screenshot: %s", ss_path)
 
@@ -2035,9 +2130,13 @@ class StepExecutor:
         """
         # Skip for non-interactive steps
         skip_actions = {
-            ActionType.WAIT, ActionType.SCREENSHOT,
-            ActionType.SAVE_SESSION, ActionType.LOAD_SESSION,
-            ActionType.INCLUDE, ActionType.GET_TEXT, ActionType.FIND,
+            ActionType.WAIT,
+            ActionType.SCREENSHOT,
+            ActionType.SAVE_SESSION,
+            ActionType.LOAD_SESSION,
+            ActionType.INCLUDE,
+            ActionType.GET_TEXT,
+            ActionType.FIND,
         }
         if step.action in skip_actions:
             return
@@ -2055,7 +2154,9 @@ class StepExecutor:
             clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
             img = clahe.apply(img)
             ocr_text: str = pytesseract.image_to_string(
-                img, lang="kor+eng", config="--oem 3 --psm 6",
+                img,
+                lang="kor+eng",
+                config="--oem 3 --psm 6",
             )
             ocr_lower = ocr_text.lower()
         except Exception:
@@ -2066,46 +2167,94 @@ class StepExecutor:
             target_text = step.target.text.lower()
             # For if_visible blocks, the target should disappear
             if step.action == ActionType.IF_VISIBLE and target_text in ocr_lower:
-                    # Save failure screenshot
-                    ss_path = self._screenshot_dir / f"verify_fail_step{step.step}.png"
-                    ss_path.parent.mkdir(parents=True, exist_ok=True)
-                    Path(str(ss_path)).write_bytes(screenshot)
+                # Save failure screenshot
+                ss_path = self._screenshot_dir / f"verify_fail_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                Path(str(ss_path)).write_bytes(screenshot)
 
-                    logger.error(
-                        "[AWT] POST-STEP VERIFY FAILED: '%s' still visible "
-                        "after step %d. Screenshot: %s",
-                        step.target.text,
-                        step.step,
-                        ss_path,
-                    )
-                    raise StepExecutionError(
-                        f"'{step.target.text}' still visible after "
-                        f"dismiss attempt. Screenshot: {ss_path}",
-                        step=step.step,
-                        action=step.action.value,
-                    )
+                logger.error(
+                    "[AWT] POST-STEP VERIFY FAILED: '%s' still visible "
+                    "after step %d. Screenshot: %s",
+                    step.target.text,
+                    step.step,
+                    ss_path,
+                )
+                raise StepExecutionError(
+                    f"'{step.target.text}' still visible after "
+                    f"dismiss attempt. Screenshot: {ss_path}",
+                    step=step.step,
+                    action=step.action.value,
+                )
 
-        # Check 2: Detect unexpected blocking elements
-        blockers = [
-            "오류가 발생", "에러가 발생", "error occurred",
-            "페이지를 찾을 수 없", "404", "500",
-            "접근이 거부", "access denied", "권한이 없",
+        # Check 2: Detect unexpected blocking elements — raise immediately
+        # Login-redirect patterns (session expired / auth required)
+        login_blockers = [
+            "로그인",
+            "sign in",
+            "log in",
+            "아이디",
+            "비밀번호",
+            "id/pw",
         ]
-        for blocker in blockers:
+        hard_blockers = [
+            "오류가 발생",
+            "에러가 발생",
+            "error occurred",
+            "페이지를 찾을 수 없",
+            "404",
+            "500",
+            "접근이 거부",
+            "access denied",
+            "권한이 없",
+        ]
+
+        # Hard-stop for login redirect (skip on steps that are intentionally login-related)
+        is_login_step = step.action in (ActionType.NAVIGATE,) and any(
+            kw in (step.value or "").lower() for kw in ("login", "signin", "nidlogin", "auth")
+        )
+        if not is_login_step:
+            current_url = ""
+            if hasattr(self._engine, "page"):
+                with contextlib.suppress(Exception):
+                    current_url = self._engine.page.url.lower()
+            on_login_page = any(
+                kw in current_url for kw in ("nidlogin", "/login", "/signin", "account/login")
+            )
+            if on_login_page:
+                ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                Path(str(ss_path)).write_bytes(screenshot)
+                raise StepExecutionError(
+                    f"Login redirect detected after step {step.step}. "
+                    "Session expired or authentication required. "
+                    f"Screenshot: {ss_path}",
+                    step=step.step,
+                    action=step.action.value,
+                )
+            # Also check OCR for login keywords (catches non-URL-based login pages)
+            if all(lb not in ocr_lower for lb in ("로그인 후 이용", "로그인하세요")):
+                pass  # no login text in OCR — fine
+            for lb in login_blockers:
+                if lb in ocr_lower and on_login_page:
+                    break  # already handled above
+
+        for blocker in hard_blockers:
             if blocker in ocr_lower:
                 ss_path = self._screenshot_dir / f"blocker_step{step.step}.png"
                 ss_path.parent.mkdir(parents=True, exist_ok=True)
                 Path(str(ss_path)).write_bytes(screenshot)
-
-                logger.warning(
-                    "[AWT] Unexpected blocker detected: '%s' "
-                    "(step %d). Screenshot: %s",
+                logger.error(
+                    "[AWT] Hard blocker detected: '%s' (step %d). Screenshot: %s",
                     blocker,
                     step.step,
                     ss_path,
                 )
-                # Don't raise — just warn. Let expect/critical handle it.
-                break
+                raise StepExecutionError(
+                    f"Unexpected error page detected: '{blocker}' at step {step.step}. "
+                    f"Screenshot: {ss_path}",
+                    step=step.step,
+                    action=step.action.value,
+                )
 
     async def _verify_click_effect(self, step: StepConfig) -> None:
         """Verify every click caused a screen change.
@@ -2145,7 +2294,9 @@ class StepExecutor:
             )
             logger.error("[AWT] CRITICAL: %s", msg)
             raise StepExecutionError(
-                msg, step=step.step, action=step.action.value,
+                msg,
+                step=step.step,
+                action=step.action.value,
             )
         else:
             # Non-critical: WARNING only (step still PASSED)
@@ -2176,9 +2327,7 @@ class StepExecutor:
             return 0.0
 
         if prev_img.shape != curr_img.shape:
-            curr_img = cv2.resize(
-                curr_img, (prev_img.shape[1], prev_img.shape[0])
-            )
+            curr_img = cv2.resize(curr_img, (prev_img.shape[1], prev_img.shape[0]))
 
         diff = cv2.absdiff(prev_img, curr_img)
         changed = np.count_nonzero(diff > 25)
@@ -2208,9 +2357,7 @@ class StepExecutor:
 
         # Crop to region
         if region != ScreenRegion.FULL:
-            cropped, _, _ = _crop_screenshot(
-                screenshot, region, self._get_viewport_size()
-            )
+            cropped, _, _ = _crop_screenshot(screenshot, region, self._get_viewport_size())
             if cropped is not None:
                 screenshot = cropped
 
@@ -2232,10 +2379,7 @@ class StepExecutor:
         ocr_text: str = pytesseract.image_to_string(img, config="--oem 3")
         search = text.strip().lower()
         if search not in ocr_text.lower():
-            err = message or (
-                f"Text '{text}' not found in "
-                f"region={region.value} via OCR"
-            )
+            err = message or (f"Text '{text}' not found in region={region.value} via OCR")
             raise StepExecutionError(err, step=0, action="assert_text")
 
         logger.info(
@@ -2277,9 +2421,7 @@ class StepExecutor:
 
         # Resize to same dimensions if needed
         if prev_img.shape != curr_img.shape:
-            curr_img = cv2.resize(
-                curr_img, (prev_img.shape[1], prev_img.shape[0])
-            )
+            curr_img = cv2.resize(curr_img, (prev_img.shape[1], prev_img.shape[0]))
 
         # Compute pixel difference ratio
         diff = cv2.absdiff(prev_img, curr_img)
@@ -2288,8 +2430,7 @@ class StepExecutor:
         change_ratio = changed_pixels / total_pixels if total_pixels > 0 else 0
 
         logger.info(
-            "assert_screen_changed: %.2f%% pixels changed "
-            "(threshold=%.2f%%, region=%s)",
+            "assert_screen_changed: %.2f%% pixels changed (threshold=%.2f%%, region=%s)",
             change_ratio * 100,
             threshold * 100,
             region.value,
@@ -2300,9 +2441,7 @@ class StepExecutor:
                 f"Screen change {change_ratio:.1%} below threshold "
                 f"{threshold:.1%} in region={region.value}"
             )
-            raise StepExecutionError(
-                err, step=0, action="assert_screen_changed"
-            )
+            raise StepExecutionError(err, step=0, action="assert_screen_changed")
 
 
 # -- Module-level helpers --------------------------------------------------
