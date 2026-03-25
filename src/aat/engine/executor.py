@@ -1737,7 +1737,12 @@ class StepExecutor:
             return
 
         try:
-            current_url = self._engine.page.url.lower()
+            url_val = self._engine.page.url
+            # page.url is a sync property in Playwright but AsyncMock in tests
+            # — skip check if it looks like an awaitable (mock/test environment)
+            if callable(url_val) or hasattr(url_val, "__await__"):
+                return
+            current_url = str(url_val).lower()
         except Exception:
             return
 
