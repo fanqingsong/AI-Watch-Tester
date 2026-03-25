@@ -587,7 +587,21 @@ class Scenario(BaseModel):
         default_factory=list,
         description="Scenario IDs that must pass before this one runs (e.g. ['SC-001'])",
     )
+    vars: dict[str, str] = Field(
+        default_factory=dict,
+        description="Scenario-level variables (supports {{env.VAR}} references)",
+    )
     steps: list[StepConfig] = Field(..., min_length=1)
+
+    @field_validator("vars", mode="before")
+    @classmethod
+    def coerce_vars(cls, v: object) -> dict[str, str]:
+        """Coerce vars values to strings; ignore None."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return {str(k): str(val) for k, val in v.items() if val is not None}
+        return {}
 
     @field_validator("depends_on", mode="before")
     @classmethod

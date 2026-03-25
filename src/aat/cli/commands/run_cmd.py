@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import time
 from pathlib import Path
 
@@ -390,6 +391,21 @@ async def _run(
             scenario_start = time.monotonic()
             scenario_failed = False
             critical_failure = False
+
+            # Resolve scenario-level vars at execution time (handles env refs set after load)
+            if scenario.vars:
+                import re as _re
+                _env_pat = _re.compile(r"\{\{env\.(\w+)\}\}")
+                _resolved: dict[str, str] = {}
+                for _k, _v in scenario.vars.items():
+                    if isinstance(_v, str):
+                        _v = _env_pat.sub(
+                            lambda m: os.environ.get(m.group(1), m.group(0)), _v,
+                        )
+                    _resolved[_k] = str(_v) if _v is not None else ""
+                executor._scenario_vars = _resolved
+            else:
+                executor._scenario_vars = {}
 
             for step in scenario.steps:
                 # Browser overlay: show current step BEFORE execution

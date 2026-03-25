@@ -138,6 +138,7 @@ class StepExecutor:
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
         self._learned_store = learned_store  # for step-level learning
         self._runtime_vars: dict[str, str] = {}  # save_as runtime variables
+        self._scenario_vars: dict[str, str] = {}  # scenario-level vars (resolved at exec time)
         self._iframe_locator: Any = None  # for iframe direct click
         self._iframe_frame: Any = None
         self._found_frame: Any = None  # frame where if_visible found target
@@ -1175,14 +1176,18 @@ class StepExecutor:
         def _sub(text: str) -> str:
             def replacer(m: re.Match[str]) -> str:
                 key = m.group(1).strip()
-                # Runtime vars (save_as)
+                # 1. Runtime vars (save_as)
                 if key in self._runtime_vars:
                     return self._runtime_vars[key]
-                # Environment variables
+                # 2. Direct env var access (env.VAR_NAME)
                 if key.startswith("env."):
                     env_val = os.environ.get(key[4:], "")
                     if env_val:
                         return env_val
+                # 3. Scenario-level vars — resolved at execution time
+                #    Handles {{title}} where vars: {title: "{{env.POST_TITLE}}"}
+                if key in self._scenario_vars:
+                    return self._scenario_vars[key]
                 return m.group(0)
             return pattern.sub(replacer, text)
 
@@ -1354,7 +1359,8 @@ class StepExecutor:
                                 region, vw, vh,
                             )
                             for idx in range(min(count, 5)):
-                                box = await loc.nth(idx).bounding_box()
+                                el = loc.nth(idx)
+                                box = await el.bounding_box()
                                 if box:
                                     cx = box["x"] + box["width"] / 2
                                     cy = box["y"] + box["height"] / 2
@@ -1364,9 +1370,24 @@ class StepExecutor:
                                     ):
                                         self._found_frame = frame
                                         return True
+                                else:
+                                    # bounding_box() returned None (iframe coord mismatch)
+                                    # Fall back to is_visible() check
+                                    try:
+                                        if await el.is_visible():
+                                            self._found_frame = frame
+                                            return True
+                                    except Exception:
+                                        continue
                         else:
-                            self._found_frame = frame
-                            return True
+                            # FULL region: verify the element is actually visible on screen
+                            for idx in range(min(count, 5)):
+                                try:
+                                    if await loc.nth(idx).is_visible():
+                                        self._found_frame = frame
+                                        return True
+                                except Exception:
+                                    continue
                 except Exception:
                     continue
 
@@ -1393,12 +1414,23 @@ class StepExecutor:
                 import pytesseract  # type: ignore[import-untyped]
 
                 arr = np.frombuffer(ss, dtype=np.uint8)
-                img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
-                if img is not None:
+                img_color = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                if img_color is not None:
+                    gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+                    # Otsu threshold — improves contrast for modal/overlay text
+                    _, thresh = cv2.threshold(
+                        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+                    )
                     ocr_text: str = pytesseract.image_to_string(
-                        img, lang="kor+eng", config="--oem 3",
+                        thresh, lang="kor+eng", config="--oem 3 --psm 6",
                     )
                     if search_text.lower() in ocr_text.lower():
+                        return True
+                    # Second pass: raw grayscale with sparse-text PSM for overlays
+                    ocr_text2: str = pytesseract.image_to_string(
+                        gray, lang="kor+eng", config="--oem 3 --psm 11",
+                    )
+                    if search_text.lower() in ocr_text2.lower():
                         return True
             except Exception:
                 pass
