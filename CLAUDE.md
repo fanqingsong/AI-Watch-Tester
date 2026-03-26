@@ -169,6 +169,26 @@ AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트�
   - 선택적 실행: `scenario_ids` 파라미터로 선택된 시나리오만 run/loop
   - UI: 경로 입력+Load, Select All/Clear, 선택 카운트, 동적 버튼 라벨
 
+### Post-MVP: State Teardown (AAT-093~095)
+
+- [x] **AAT-093** 동적 변수 치환 — `{{timestamp}}`, `{{datetime}}`, `{{random}}`, `{{uuid}}`, `{{env.VAR}}` — 완료 2026-03-26
+  - `_resolve_var()` + `_DYNAMIC_VARS` frozenset, `find_unresolved_vars()` 제외 로직
+  - 16개 테스트 통과
+
+- [x] **AAT-094** teardown 섹션 파싱 — TeardownStep 모델 + Scenario 필드 — 완료 2026-03-26
+  - TeardownStep: api_call | db_query | shell 공용 모델
+  - Scenario.teardown: list[TeardownStep] = [] (하위 호환)
+  - 12개 테스트, {{timestamp}} YAML 치환 포함
+
+- [x] **AAT-095** TeardownExecutor 실행 엔진 + 실전 검증 — 완료 2026-03-26
+  - TeardownExecutor: api_call(httpx) / db_query(asyncpg+sqlite3) / shell(subprocess)
+  - run(): 실패 swallow (로그만) — 테스트 결과에 영향 없음
+  - run_cmd.py 통합 + `--skip-teardown` 옵션
+  - SC-CR001_register.yaml: 동적 이메일(`test+{{timestamp}}@ailooplab.com`) + `{{random}}` 학원명
+  - scripts/cleanup_firebase_user.py: Admin SDK + REST API (credentials 없으면 no-op)
+  - tests/test-teardown-loop.sh: N회 연속 실행 스크립트
+  - 실증: 3회 연속 실행 30/30 성공 (이메일 중복 없음)
+
 ---
 
 ## Branch Strategy
@@ -183,8 +203,8 @@ AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트�
 
 ## Current Status
 
-- **현재 단계**: Post-MVP 시나리오 관리 기능 개선 완료
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 (Post-MVP)
+- **현재 단계**: State Teardown 완료 (AAT-093~095)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (private)
