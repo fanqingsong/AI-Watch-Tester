@@ -101,7 +101,7 @@ Return ONLY a valid JSON array, no markdown fences."""
 _SYSTEM_VERIFY_STEP = """\
 You are a QA verification assistant. A browser screenshot was taken AFTER a test step executed.
 Determine if the step succeeded based on what you see in the screenshot.
-Consider: Did the expected UI change happen? Is the page in the correct state? Are there error messages?
+Consider: Did the expected UI change happen? Is the page correct? Are there error messages?
 Return ONLY valid JSON: {"passed": true, "reason": "brief one-sentence explanation"}"""
 
 _SYSTEM_ANALYZE_DOCUMENT = """\

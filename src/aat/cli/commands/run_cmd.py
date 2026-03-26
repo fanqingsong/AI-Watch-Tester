@@ -299,9 +299,9 @@ async def _run(
         try:
             from aat.adapters import ADAPTER_REGISTRY
 
-            AdapterClass = ADAPTER_REGISTRY.get(config.ai.provider)
-            if AdapterClass:
-                ai_adapter = AdapterClass(config.ai)
+            adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)
+            if adapter_cls:
+                ai_adapter = adapter_cls(config.ai)
         except Exception:
             pass
 

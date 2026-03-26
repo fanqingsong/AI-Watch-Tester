@@ -148,7 +148,8 @@ class StepExecutor:
         self._iframe_locator: Any = None  # for iframe direct click
         self._iframe_frame: Any = None
         self._found_frame: Any = None  # frame where if_visible found target
-        self._intentional_login_page: bool = False  # True when we navigated TO a login page on purpose
+        # True when we navigated TO a login page on purpose
+        self._intentional_login_page: bool = False
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
