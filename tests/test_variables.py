@@ -6,10 +6,7 @@ import os
 import re
 import time
 
-import pytest
-
 from aat.core.scenario_loader import _resolve_var, _substitute_vars, find_unresolved_vars
-
 
 # ---------------------------------------------------------------------------
 # timestamp
