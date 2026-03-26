@@ -6,7 +6,12 @@ Loads Scenario YAML files, validates via Pydantic, substitutes variables.
 from __future__ import annotations
 
 import os
+import random
 import re
+import string
+import time
+import uuid
+from datetime import datetime
 from pathlib import Path  # noqa: TC003
 from typing import Any
 
@@ -17,6 +22,9 @@ from aat.core.models import Scenario
 
 _VAR_PATTERN = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
 _UNRESOLVED_PATTERN = re.compile(r"\{\{[\w.]+\}\}")
+
+# Built-in dynamic variables — never flagged as unresolved
+_DYNAMIC_VARS = frozenset({"timestamp", "datetime", "random", "uuid"})
 
 
 def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenario:
@@ -257,7 +265,11 @@ def find_unresolved_vars(data: Any) -> set[str]:
     """Find any remaining {{var}} placeholders in the data structure."""
     found: set[str] = set()
     if isinstance(data, str):
-        found.update(_UNRESOLVED_PATTERN.findall(data))
+        for match in _UNRESOLVED_PATTERN.findall(data):
+            # Strip {{ }} to get the var name, skip built-ins and env refs
+            var_name = match[2:-2].strip()
+            if var_name not in _DYNAMIC_VARS and not var_name.startswith("env."):
+                found.add(match)
     elif isinstance(data, dict):
         for v in data.values():
             found.update(find_unresolved_vars(v))
@@ -273,6 +285,16 @@ def _resolve_var(var_name: str, variables: dict[str, str]) -> str:
     if var_name.startswith("env."):
         env_key = var_name[4:]
         return os.environ.get(env_key, f"{{{{{var_name}}}}}")
+
+    # Built-in dynamic variables
+    if var_name == "timestamp":
+        return str(int(time.time()))
+    if var_name == "datetime":
+        return datetime.now().strftime("%Y%m%dT%H%M%S")
+    if var_name == "random":
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    if var_name == "uuid":
+        return str(uuid.uuid4())
 
     # Regular variable lookup
     if var_name in variables:
