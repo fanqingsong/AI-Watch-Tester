@@ -199,6 +199,11 @@ def run_command(
         "--strict",
         help="Treat skipped steps as failures (exit code 1).",
     ),
+    skip_teardown: bool = typer.Option(
+        False,
+        "--skip-teardown",
+        help="Skip teardown steps (useful for debugging or when cleanup is handled externally).",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
@@ -211,6 +216,7 @@ def run_command(
                 skill_mode,
                 debug,
                 strict,
+                skip_teardown,
             )
         )
     except AATError as e:
@@ -226,6 +232,7 @@ async def _run(
     skill_mode: bool = False,
     debug_mode: bool = False,
     strict_mode: bool = False,
+    skip_teardown: bool = False,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Debug logging
@@ -643,6 +650,27 @@ async def _run(
                             )
                     except Exception:
                         pass  # diagnosis is best-effort
+
+            # --- Teardown ---
+            if scenario.teardown and not skip_teardown:
+                from aat.core.teardown import TeardownExecutor
+
+                td_vars: dict[str, str] = {}
+                if config.url:
+                    td_vars["url"] = config.url.rstrip("/")
+                td_vars.update(scenario.variables or {})
+                td_vars.update(executor._scenario_vars or {})
+
+                if skill_mode:
+                    typer.echo(
+                        f"[AWT] Running {len(scenario.teardown)} teardown step(s)..."
+                    )
+                try:
+                    await TeardownExecutor(td_vars).run(scenario.teardown)
+                    if skill_mode:
+                        typer.echo("[AWT] Teardown complete")
+                except Exception:
+                    pass  # TeardownExecutor never raises, but guard anyway
 
             scenario_elapsed = (time.monotonic() - scenario_start) * 1000
             typer.echo(f"  Scenario completed in {scenario_elapsed:.0f}ms")
