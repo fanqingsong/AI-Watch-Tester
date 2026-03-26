@@ -70,6 +70,30 @@ class AIAdapter(ABC):
         """
         ...
 
+    async def verify_step(
+        self,
+        screenshot: bytes,
+        step_num: int,
+        action: str,
+        description: str,
+    ) -> tuple[bool, str]:
+        """Verify if a step succeeded by visually analyzing its screenshot.
+
+        Args:
+            screenshot: PNG bytes of the screen state after the step.
+            step_num: Step number for context.
+            action: Action type (e.g. "find_and_click").
+            description: Step description from the scenario.
+
+        Returns:
+            (passed, reason) — bool pass/fail, and a one-line reason.
+
+        Note:
+            Default raises NotImplementedError.
+            Adapters that support Vision (Claude, OpenAI) should override this.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support verify_step")
+
     @abstractmethod
     async def analyze_document(
         self,

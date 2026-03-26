@@ -202,10 +202,17 @@ def run_command(
 ) -> None:
     """Run test scenarios."""
     try:
-        asyncio.run(_run(
-            scenarios_path, config_path, slow_mo, learn,
-            skill_mode, debug, strict,
-        ))
+        asyncio.run(
+            _run(
+                scenarios_path,
+                config_path,
+                slow_mo,
+                learn,
+                skill_mode,
+                debug,
+                strict,
+            )
+        )
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -266,11 +273,13 @@ async def _run(
     if not any(m.name == "vision_ai" for m in matchers):
         from aat.matchers.vision_ai import VisionAIMatcher
 
-        matchers.append(VisionAIMatcher(
-            vision_config=config.vision,
-            matching_config=config.matching,
-            ai_config=config.ai,
-        ))
+        matchers.append(
+            VisionAIMatcher(
+                vision_config=config.vision,
+                matching_config=config.matching,
+                ai_config=config.ai,
+            )
+        )
     # Set up LearnedStore for match history tracking
     learned_store = None
     try:
@@ -283,9 +292,29 @@ async def _run(
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
     comparator = Comparator()
+
+    # Initialize AI adapter for step verification (if enabled)
+    ai_adapter = None
+    if config.ai.step_verify and config.ai.api_key:
+        try:
+            from aat.adapters import ADAPTER_REGISTRY
+
+            AdapterClass = ADAPTER_REGISTRY.get(config.ai.provider)
+            if AdapterClass:
+                ai_adapter = AdapterClass(config.ai)
+        except Exception:
+            pass
+
     executor = StepExecutor(
-        engine, hybrid, humanizer, waiter, comparator,
+        engine,
+        hybrid,
+        humanizer,
+        waiter,
+        comparator,
         learned_store=learned_store,
+        ai_adapter=ai_adapter,
+        ai_verify_steps=config.ai.step_verify,
+        ai_verify_critical_only=config.ai.step_verify_critical_only,
     )
 
     # Skill-mode attempt tracking
@@ -347,10 +376,7 @@ async def _run(
         # Skill-mode start banner
         if skill_mode:
             sc_names = [f"{s.id}" for s in scenarios]
-            typer.echo(
-                f"[AWT] Test started: {', '.join(sc_names)} "
-                f"({total_scenario_steps} steps)"
-            )
+            typer.echo(f"[AWT] Test started: {', '.join(sc_names)} ({total_scenario_steps} steps)")
 
         for scenario in scenarios:
             # Check depends_on: skip if any dependency failed or was skipped
@@ -395,12 +421,14 @@ async def _run(
             # Resolve scenario-level vars at execution time (handles env refs set after load)
             if scenario.vars:
                 import re as _re
+
                 _env_pat = _re.compile(r"\{\{env\.(\w+)\}\}")
                 _resolved: dict[str, str] = {}
                 for _k, _v in scenario.vars.items():
                     if isinstance(_v, str):
                         _v = _env_pat.sub(
-                            lambda m: os.environ.get(m.group(1), m.group(0)), _v,
+                            lambda m: os.environ.get(m.group(1), m.group(0)),
+                            _v,
                         )
                     _resolved[_k] = str(_v) if _v is not None else ""
                 executor._scenario_vars = _resolved
@@ -437,10 +465,7 @@ async def _run(
                                 f"[AWT] ❌ {step.step}/{total_scenario_steps} "
                                 f"{step.description} (critical)"
                             )
-                            typer.echo(
-                                f"[AWT] 🛑 Test stopped — "
-                                f"{step.message or str(_crit_err)}"
-                            )
+                            typer.echo(f"[AWT] 🛑 Test stopped — {step.message or str(_crit_err)}")
                         else:
                             typer.echo(
                                 typer.style(
@@ -450,30 +475,32 @@ async def _run(
                                 )
                             )
                             typer.echo(f"    {step.message or str(_crit_err)}")
-                            typer.echo(
-                                f"    Skipping remaining {remaining} step(s)"
-                            )
+                            typer.echo(f"    Skipping remaining {remaining} step(s)")
 
                         # Skill-mode: CRITICAL_FAILURE block
                         if skill_mode:
                             try:
                                 diag = await collect_failure_context(
-                                    engine, StepResult(
+                                    engine,
+                                    StepResult(
                                         step=step.step,
                                         action=step.action,
                                         status=StepStatus.FAILED,
                                         description=step.description,
                                         error_message=str(_crit_err),
                                     ),
-                                    str(path), config.data_dir,
+                                    str(path),
+                                    config.data_dir,
                                 )
                                 diag["critical"] = True
-                                typer.echo(format_skill_diagnosis(
-                                    diag,
-                                    scenario_file=str(path),
-                                    attempt=skill_attempt,
-                                    max_attempts=skill_max_attempts,
-                                ))
+                                typer.echo(
+                                    format_skill_diagnosis(
+                                        diag,
+                                        scenario_file=str(path),
+                                        attempt=skill_attempt,
+                                        max_attempts=skill_max_attempts,
+                                    )
+                                )
                             except Exception:
                                 pass
                         break
@@ -553,8 +580,7 @@ async def _run(
                     # Skill-mode progress format
                     icon = "✅" if result.status == StepStatus.PASSED else "❌"
                     typer.echo(
-                        f"[AWT] {icon} {result.step}/{total_scenario_steps} "
-                        f"{step.description}"
+                        f"[AWT] {icon} {result.step}/{total_scenario_steps} {step.description}"
                     )
                 else:
                     typer.echo(f"  Step {result.step}: {status_str} ({result.elapsed_ms:.0f}ms)")
@@ -607,12 +633,14 @@ async def _run(
                         if skill_mode:
                             if nav_warnings:
                                 diag["nav_warnings"] = nav_warnings
-                            typer.echo(format_skill_diagnosis(
-                                diag,
-                                scenario_file=str(path),
-                                attempt=skill_attempt,
-                                max_attempts=skill_max_attempts,
-                            ))
+                            typer.echo(
+                                format_skill_diagnosis(
+                                    diag,
+                                    scenario_file=str(path),
+                                    attempt=skill_attempt,
+                                    max_attempts=skill_max_attempts,
+                                )
+                            )
                     except Exception:
                         pass  # diagnosis is best-effort
 
@@ -706,8 +734,7 @@ async def _run(
             )
         else:
             verify_lines.append(
-                "ACTION: Read FINAL_SCREENSHOT to confirm the test "
-                "ended on the correct page."
+                "ACTION: Read FINAL_SCREENSHOT to confirm the test ended on the correct page."
             )
         verify_lines.append("========================")
         verify_lines.append("")

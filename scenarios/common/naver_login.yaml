@@ -1,9 +1,6 @@
 id: "SC-901"
 name: "Naver Login"
-description: "Login to Naver with credentials from variables"
-variables:
-  naver_id: "{{env.NAVER_ID}}"
-  naver_pw: "{{env.NAVER_PW}}"
+description: "Login to Naver with credentials from env vars, then save session"
 
 steps:
   - step: 1
@@ -12,27 +9,52 @@ steps:
     description: "Go to Naver login page"
 
   - step: 2
-    action: find_and_type
-    target:
-      selector: "#id"
-    value: "{{naver_id}}"
-    description: "Enter Naver ID"
+    action: wait
+    value: "2000"
+    description: "Wait for login page to load"
 
   - step: 3
     action: find_and_type
     target:
-      selector: "#pw"
-    value: "{{naver_pw}}"
-    description: "Enter Naver password"
+      selector: "#id"
+    value: "{{env.NAVER_ID}}"
+    description: "Enter Naver ID"
+    critical: true
 
   - step: 4
+    action: find_and_type
+    target:
+      selector: "#pw"
+    value: "{{env.NAVER_PW}}"
+    description: "Enter Naver password"
+    critical: true
+
+  - step: 5
     action: find_and_click
     target:
       selector: "#log\\.login"
-    critical: true
     description: "Click login button"
+    critical: true
 
-  - step: 5
+  - step: 6
     action: wait
-    value: "2000"
+    value: "3000"
     description: "Wait for login redirect"
+
+  - step: 7
+    action: screenshot
+    description: "Login result screenshot"
+
+  # 로그인 성공 검증 — 로그인 성공 시 www.naver.com으로 리다이렉트됨 (nid.naver.com 아님)
+  - step: 8
+    action: assert_url
+    value: "www.naver.com"
+    critical: true
+    on_fail: stop
+    message: "Login failed — still on login page. Check NAVER_ID / NAVER_PW env vars."
+    description: "Verify login succeeded (redirected to www.naver.com)"
+
+  - step: 9
+    action: save_session
+    name: "naver_login"
+    description: "Save login session for reuse"

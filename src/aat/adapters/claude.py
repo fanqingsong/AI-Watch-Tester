@@ -98,6 +98,12 @@ CRITICAL RULES:
 
 Return ONLY a valid JSON array, no markdown fences."""
 
+_SYSTEM_VERIFY_STEP = """\
+You are a QA verification assistant. A browser screenshot was taken AFTER a test step executed.
+Determine if the step succeeded based on what you see in the screenshot.
+Consider: Did the expected UI change happen? Is the page in the correct state? Are there error messages?
+Return ONLY valid JSON: {"passed": true, "reason": "brief one-sentence explanation"}"""
+
 _SYSTEM_ANALYZE_DOCUMENT = """\
 You are an expert QA engineer. Analyze the following document and extract:
 - "screens": list of screen/page descriptions
@@ -281,6 +287,31 @@ class ClaudeAdapter(AIAdapter):
 
         return data
 
+    async def verify_step(
+        self,
+        screenshot: bytes,
+        step_num: int,
+        action: str,
+        description: str,
+    ) -> tuple[bool, str]:
+        """Verify step result via Claude Vision API."""
+        user_content: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": f"Step {step_num} ({action}): {description}\n\nDid this step succeed?",
+            },
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": base64.b64encode(screenshot).decode(),
+                },
+            },
+        ]
+        data = await self._call_api(_SYSTEM_VERIFY_STEP, user_content)
+        return bool(data.get("passed", True)), str(data.get("reason", ""))
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -327,10 +358,7 @@ class ClaudeAdapter(AIAdapter):
         raw_text = response.content[0].text  # type: ignore[union-attr]
 
         if response.stop_reason == "max_tokens":
-            msg = (
-                f"Response truncated (max_tokens reached). "
-                f"Raw tail: {raw_text[-200:]}"
-            )
+            msg = f"Response truncated (max_tokens reached). Raw tail: {raw_text[-200:]}"
             raise AdapterError(msg)
 
         try:

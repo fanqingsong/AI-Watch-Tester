@@ -147,6 +147,14 @@ class AIConfig(BaseModel):
     )
     max_tokens: int = Field(default=4000, ge=100, le=32000)
     temperature: float = Field(default=0.3, ge=0.0, le=1.0)
+    step_verify: bool = Field(
+        default=False,
+        description="Verify each step result with Vision AI",
+    )
+    step_verify_critical_only: bool = Field(
+        default=True,
+        description="When step_verify=true, only verify critical steps (saves cost)",
+    )
 
 
 class VisionConfig(BaseModel):
@@ -255,6 +263,7 @@ class Config(BaseSettings):
 # ============================================================
 # Scenario Models
 # ============================================================
+
 
 def compute_region_bounds(
     region: ScreenRegion,
@@ -451,10 +460,15 @@ class StepConfig(BaseModel):
         if v is None:
             return True
         return bool(v)
+
     screenshot_before: bool = Field(default=False)
     screenshot_after: bool = Field(default=False)
     timeout_ms: int = Field(default=10000, ge=0, le=120000)
     optional: bool = Field(default=False)
+    ai_verify: bool | None = Field(
+        default=None,
+        description="Vision AI step verification. None=follow global config, True/False=override",
+    )
     assert_type: AssertType | None = Field(default=None)
     expected: list[ExpectedResult] = Field(default_factory=list)
 
@@ -622,6 +636,7 @@ class Scenario(BaseModel):
         if isinstance(v, list):
             return [str(x) for x in v if x is not None]
         return []
+
     expected_result: list[ExpectedResult] = Field(default_factory=list)
     variables: dict[str, str] = Field(default_factory=dict)
 

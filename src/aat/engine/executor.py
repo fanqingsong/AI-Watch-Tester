@@ -128,6 +128,9 @@ class StepExecutor:
         comparator: Comparator,
         screenshot_dir: Path | None = None,
         learned_store: Any = None,
+        ai_adapter: Any = None,
+        ai_verify_steps: bool = False,
+        ai_verify_critical_only: bool = True,
     ) -> None:
         self._engine = engine
         self._matcher = matcher
@@ -137,11 +140,15 @@ class StepExecutor:
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
         self._learned_store = learned_store  # for step-level learning
+        self._ai_adapter = ai_adapter  # for Vision AI step verification
+        self._ai_verify_steps = ai_verify_steps
+        self._ai_verify_critical_only = ai_verify_critical_only
         self._runtime_vars: dict[str, str] = {}  # save_as runtime variables
         self._scenario_vars: dict[str, str] = {}  # scenario-level vars (resolved at exec time)
         self._iframe_locator: Any = None  # for iframe direct click
         self._iframe_frame: Any = None
         self._found_frame: Any = None  # frame where if_visible found target
+        self._intentional_login_page: bool = False  # True when we navigated TO a login page on purpose
 
     async def execute_step(self, step: StepConfig) -> StepResult:
         """Execute a single test step.
@@ -1732,9 +1739,12 @@ class StepExecutor:
             return
 
         target = (step.value or "").lower()
-        # Skip check if this step intentionally navigates to a login page
+        # If this step intentionally navigates to a login page, mark it and skip redirect check
         if any(p in target for p in self._LOGIN_URL_PATTERNS):
+            self._intentional_login_page = True
             return
+        # Navigating away from login page — reset flag
+        self._intentional_login_page = False
 
         try:
             url_val = self._engine.page.url
@@ -2118,6 +2128,48 @@ class StepExecutor:
 
         logger.info("[AWT] ✓ expect verified (step %d)", step.step)
 
+    async def _ai_verify_step(self, step: StepConfig, screenshot: bytes) -> None:
+        """Call Vision AI to verify the step result. Raises StepExecutionError on failure."""
+        if self._ai_adapter is None:
+            return
+
+        # Decide whether to verify this step
+        per_step_override = step.ai_verify  # True/False/None
+        if per_step_override is False:
+            return  # explicitly disabled for this step
+        if per_step_override is None:
+            # Follow global config
+            if not self._ai_verify_steps:
+                return
+            if self._ai_verify_critical_only and not step.critical:
+                return
+
+        try:
+            passed, reason = await self._ai_adapter.verify_step(
+                screenshot,
+                step.step,
+                step.action.value,
+                step.description,
+            )
+        except NotImplementedError:
+            logger.debug("[AWT] AI verify not supported by adapter — skipping")
+            return
+        except Exception as exc:
+            logger.warning("[AWT] AI verify error (step %d): %s", step.step, exc)
+            return
+
+        if not passed:
+            ss_path = self._screenshot_dir / f"ai_verify_fail_step{step.step}.png"
+            ss_path.parent.mkdir(parents=True, exist_ok=True)
+            ss_path.write_bytes(screenshot)
+            raise StepExecutionError(
+                f"AI verification failed at step {step.step}: {reason} "
+                f"(screenshot: {ss_path})",
+                step=step.step,
+                action=step.action.value,
+            )
+        logger.info("[AWT] ✓ AI verify PASSED (step %d): %s", step.step, reason)
+
     async def _verify_post_step(
         self,
         step: StepConfig,
@@ -2213,11 +2265,8 @@ class StepExecutor:
             "권한이 없",
         ]
 
-        # Hard-stop for login redirect (skip on steps that are intentionally login-related)
-        is_login_step = step.action in (ActionType.NAVIGATE,) and any(
-            kw in (step.value or "").lower() for kw in ("login", "signin", "nidlogin", "auth")
-        )
-        if not is_login_step:
+        # Hard-stop for login redirect — skip if we intentionally navigated to a login page
+        if not self._intentional_login_page:
             current_url = ""
             if hasattr(self._engine, "page"):
                 with contextlib.suppress(Exception):
@@ -2260,6 +2309,9 @@ class StepExecutor:
                     step=step.step,
                     action=step.action.value,
                 )
+
+        # --- Vision AI step verification (last check, after OCR/URL checks) ---
+        await self._ai_verify_step(step, screenshot)
 
     async def _verify_click_effect(self, step: StepConfig) -> None:
         """Verify every click caused a screen change.
