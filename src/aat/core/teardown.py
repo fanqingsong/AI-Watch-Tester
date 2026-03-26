@@ -126,7 +126,7 @@ class TeardownExecutor:
 
     async def _pg_query(self, connection: str, query: str) -> None:
         try:
-            import asyncpg  # type: ignore[import-untyped]
+            import asyncpg  # type: ignore[import-untyped,import-not-found]
         except ImportError as exc:
             raise RuntimeError(
                 "asyncpg is required for postgresql teardown. "
@@ -184,4 +184,5 @@ class TeardownExecutor:
 
     def _resolve(self, text: str) -> str:
         """Substitute {{variables}} in a string using the executor context."""
-        return _substitute_vars(text, self._vars)  # type: ignore[return-value]
+        result = _substitute_vars(text, self._vars)
+        return str(result) if not isinstance(result, str) else result
