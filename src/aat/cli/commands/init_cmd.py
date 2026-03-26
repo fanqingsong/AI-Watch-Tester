@@ -44,9 +44,11 @@ def init_command(
     if not skip_setup:
         typer.echo()
         from aat.cli.commands.setup_cmd import setup_command
+
         setup_command(config=str(config_path))
 
     # Run environment check
     typer.echo()
     from aat.cli.commands.doctor_cmd import doctor_command
+
     doctor_command(config_path=str(config_path), skip_connection=skip_setup)

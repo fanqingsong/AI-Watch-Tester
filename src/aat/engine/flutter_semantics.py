@@ -64,9 +64,7 @@ async def activate_semantics(page: Any) -> bool:
     count = await _count_semantics_nodes(page)
     if count > 0:
         _semantics_state[page_id] = True
-        logger.info(
-            "[AWT] Flutter Semantics already active (%d nodes)", count
-        )
+        logger.info("[AWT] Flutter Semantics already active (%d nodes)", count)
         return True
 
     logger.info("[AWT] Flutter Semantics activating...")
@@ -154,7 +152,10 @@ async def find_by_semantics(
                     y = int(box["y"] + box["height"] / 2)
                     logger.info(
                         "[AWT] Semantics: '%s' via role=%s at (%d,%d)",
-                        search, role, x, y,
+                        search,
+                        role,
+                        x,
+                        y,
                     )
                     return x, y
         except Exception:
@@ -303,7 +304,8 @@ async def _try_flt_semantics(
     to avoid parent containers returning wrong coordinates.
     """
     try:
-        result = await page.evaluate("""(searchText) => {
+        result = await page.evaluate(
+            """(searchText) => {
             function findAllInRoot(root) {
                 const matches = [];
                 const nodes = root.querySelectorAll('flt-semantics');
@@ -347,14 +349,20 @@ async def _try_flt_semantics(
             // Pick smallest area (most specific element)
             candidates.sort((a, b) => a.area - b.area);
             return candidates[0];
-        }""", text)
+        }""",
+            text,
+        )
 
         if result:
             x, y = result["x"], result["y"]
             label = result.get("label", text)
             logger.info(
                 "[AWT] Semantics: '%s' (label='%s') at (%d,%d) area=%.0f",
-                text, label, x, y, result.get("area", 0),
+                text,
+                label,
+                x,
+                y,
+                result.get("area", 0),
             )
             return x, y
     except Exception:
@@ -368,7 +376,8 @@ async def _try_aria_label(
 ) -> tuple[int, int] | None:
     """Find via any [aria-label] element (shadow DOM, smallest area)."""
     try:
-        result = await page.evaluate("""(searchText) => {
+        result = await page.evaluate(
+            """(searchText) => {
             function findAllInRoot(root) {
                 const matches = [];
                 const nodes = root.querySelectorAll('[aria-label]');
@@ -404,13 +413,17 @@ async def _try_aria_label(
             const candidates = exact.length > 0 ? exact : all;
             candidates.sort((a, b) => a.area - b.area);
             return candidates[0];
-        }""", text)
+        }""",
+            text,
+        )
 
         if result:
             x, y = result["x"], result["y"]
             logger.info(
                 "[AWT] Semantics: '%s' via aria-label at (%d,%d)",
-                text, x, y,
+                text,
+                x,
+                y,
             )
             return x, y
     except Exception:

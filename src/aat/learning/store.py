@@ -105,8 +105,7 @@ CREATE TABLE IF NOT EXISTS state_coords (
 """
 
 _CREATE_IDX_STATE_COORDS = (
-    "CREATE INDEX IF NOT EXISTS idx_state_coords "
-    "ON state_coords(target_name, page_state);"
+    "CREATE INDEX IF NOT EXISTS idx_state_coords ON state_coords(target_name, page_state);"
 )
 
 _CREATE_TABLE_STRATEGIES = """\
@@ -122,8 +121,7 @@ CREATE TABLE IF NOT EXISTS test_strategies (
 """
 
 _CREATE_IDX_STRATEGIES = (
-    "CREATE INDEX IF NOT EXISTS idx_strategy_situation "
-    "ON test_strategies(situation);"
+    "CREATE INDEX IF NOT EXISTS idx_strategy_situation ON test_strategies(situation);"
 )
 
 
@@ -302,7 +300,10 @@ class LearnedStore:
             if dup_row:
                 logger.warning(
                     "Duplicate coords (%d,%d): '%s' conflicts with '%s'",
-                    x, y, target_name, dup_row["target_name"],
+                    x,
+                    y,
+                    target_name,
+                    dup_row["target_name"],
                 )
 
             existing = self.find_by_name(target_name)
@@ -335,8 +336,7 @@ class LearnedStore:
                          created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    ("_auto", 1, target_name, "", x, y,
-                     "", confidence, 1, now, now),
+                    ("_auto", 1, target_name, "", x, y, "", confidence, 1, now, now),
                 )
                 self._conn.commit()
         except sqlite3.Error:
@@ -757,8 +757,7 @@ class LearnedStore:
         """Count failures for a specific target."""
         try:
             row = self._conn.execute(
-                "SELECT COUNT(*) AS cnt FROM match_history "
-                "WHERE target_name=? AND success=0",
+                "SELECT COUNT(*) AS cnt FROM match_history WHERE target_name=? AND success=0",
                 (target_name,),
             ).fetchone()
             return row["cnt"] if row else 0
@@ -820,9 +819,7 @@ class LearnedStore:
                     )
                 else:
                     self._conn.execute(
-                        "UPDATE state_coords "
-                        "SET use_count=use_count+1, updated_at=? "
-                        "WHERE id=?",
+                        "UPDATE state_coords SET use_count=use_count+1, updated_at=? WHERE id=?",
                         (now, row["id"]),
                     )
             else:
@@ -879,10 +876,12 @@ class LearnedStore:
                     "created_at, updated_at) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     (
-                        situation, strategy,
+                        situation,
+                        strategy,
                         1 if success else 0,
                         0 if success else 1,
-                        now, now,
+                        now,
+                        now,
                     ),
                 )
             self._conn.commit()

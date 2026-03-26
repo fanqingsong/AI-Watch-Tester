@@ -131,7 +131,8 @@ async def test_vision_connection(
     ai = AIConfig(
         provider=config.provider,
         api_key=config.api_key,
-        model=config.model or {
+        model=config.model
+        or {
             "claude": "claude-sonnet-4-20250514",
             "openai": "gpt-4o",
             "gemini": "gemini-2.0-flash",

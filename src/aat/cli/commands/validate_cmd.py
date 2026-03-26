@@ -36,9 +36,7 @@ def validate_command(
         files = [scenario_path]
     else:
         files = sorted(
-            f
-            for f in scenario_path.rglob("*")
-            if f.suffix in (".yaml", ".yml") and f.is_file()
+            f for f in scenario_path.rglob("*") if f.suffix in (".yaml", ".yml") and f.is_file()
         )
 
     if not files:
@@ -67,10 +65,7 @@ def validate_command(
                 for sc in scenarios:
                     warnings = _strict_check(sc, file.name)
                     for w in warnings:
-                        typer.echo(
-                            f"    {typer.style('⚠', fg=typer.colors.YELLOW)} "
-                            f"{sc.id}: {w}"
-                        )
+                        typer.echo(f"    {typer.style('⚠', fg=typer.colors.YELLOW)} {sc.id}: {w}")
                     total_warnings += len(warnings)
 
         except ScenarioError as e:
@@ -120,30 +115,24 @@ def _strict_check(scenario: object, filename: str) -> list[str]:
             and _URL_PATTERN.match(value)
             and "{{" not in value
         ):
-                warnings.append(
-                    f'Step {step.step}: hardcoded URL "{value[:50]}..." '
-                    "— use {{url}} variable instead"
-                )
+            warnings.append(
+                f'Step {step.step}: hardcoded URL "{value[:50]}..." '
+                "— use {{url}} variable instead"
+            )
 
         # Check for empty description
         if not desc or desc.strip() == "":
-            warnings.append(
-                f"Step {step.step}: empty description"
-            )
+            warnings.append(f"Step {step.step}: empty description")
 
     # No assertions in entire scenario
     if not has_assertion and len(steps) > 1:
-        warnings.append(
-            "No assert steps — add assertions to verify expected results"
-        )
+        warnings.append("No assert steps — add assertions to verify expected results")
 
     # depends_on check for non-first scenario
     if sc_id and sc_id != "SC-001" and not depends_on:
         # Only warn if the ID suggests it should have dependencies
         id_num = sc_id.replace("SC-", "")
         if id_num.isdigit() and int(id_num) > 1:
-            warnings.append(
-                "No depends_on — consider if this scenario depends on earlier ones"
-            )
+            warnings.append("No depends_on — consider if this scenario depends on earlier ones")
 
     return warnings

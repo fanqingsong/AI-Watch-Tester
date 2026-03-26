@@ -44,9 +44,7 @@ class GeminiAdapter(OpenAIAdapter):
         self._config = config
         # Default to gemini-2.0-flash if model is not a Gemini model
         if not config.model or config.model.startswith(("gpt", "claude", "deepseek")):
-            self._config = config.model_copy(
-                update={"model": _GEMINI_DEFAULT_MODEL}
-            )
+            self._config = config.model_copy(update={"model": _GEMINI_DEFAULT_MODEL})
         self._client = AsyncOpenAI(
             api_key=config.api_key,
             base_url=_GEMINI_BASE_URL,

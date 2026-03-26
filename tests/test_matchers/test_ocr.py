@@ -25,9 +25,18 @@ def _make_screenshot(width: int = 640, height: int = 480) -> bytes:
 def _make_ocr_dict(words: list[dict[str, object]]) -> dict[str, list[Any]]:
     """Build a dict that looks like pytesseract.image_to_data(output_type=DICT)."""
     columns = [
-        "level", "page_num", "block_num", "par_num",
-        "line_num", "word_num", "left", "top",
-        "width", "height", "conf", "text",
+        "level",
+        "page_num",
+        "block_num",
+        "par_num",
+        "line_num",
+        "word_num",
+        "left",
+        "top",
+        "width",
+        "height",
+        "conf",
+        "text",
     ]
     result: dict[str, list[Any]] = {col: [] for col in columns}
     for w in words:
@@ -79,9 +88,11 @@ class TestFind:
         screenshot_bytes: bytes,
     ) -> None:
         """Single-word match returns center of bounding box."""
-        data = _make_ocr_dict([
-            {"text": "Login", "left": 100, "top": 50, "width": 80, "height": 20, "conf": 95},
-        ])
+        data = _make_ocr_dict(
+            [
+                {"text": "Login", "left": 100, "top": 50, "width": 80, "height": 20, "conf": 95},
+            ]
+        )
         mock_tess.image_to_data.return_value = data
         mock_tess.Output.DICT = "dict"
 
@@ -109,16 +120,28 @@ class TestFind:
         screenshot_bytes: bytes,
     ) -> None:
         """Multi-word phrase match groups words on the same line."""
-        data = _make_ocr_dict([
-            {
-                "text": "Sign", "left": 100, "top": 50,
-                "width": 40, "height": 20, "conf": 90, "word_num": 1,
-            },
-            {
-                "text": "In", "left": 145, "top": 50,
-                "width": 30, "height": 20, "conf": 92, "word_num": 2,
-            },
-        ])
+        data = _make_ocr_dict(
+            [
+                {
+                    "text": "Sign",
+                    "left": 100,
+                    "top": 50,
+                    "width": 40,
+                    "height": 20,
+                    "conf": 90,
+                    "word_num": 1,
+                },
+                {
+                    "text": "In",
+                    "left": 145,
+                    "top": 50,
+                    "width": 30,
+                    "height": 20,
+                    "conf": 92,
+                    "word_num": 2,
+                },
+            ]
+        )
         mock_tess.image_to_data.return_value = data
         mock_tess.Output.DICT = "dict"
 

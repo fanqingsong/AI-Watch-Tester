@@ -377,6 +377,7 @@ class DevQALoop:
         if ext == ".py":
             try:
                 import ast
+
                 ast.parse(change.modified)
             except SyntaxError as e:
                 return False, f"Python syntax error in fix: {e}"
@@ -390,6 +391,7 @@ class DevQALoop:
         elif ext == ".json":
             try:
                 import json
+
                 json.loads(change.modified)
             except json.JSONDecodeError as e:
                 return False, f"Invalid JSON in fix: {e}"
@@ -452,9 +454,7 @@ class DevQALoop:
 
     def _log_fix_cost(self, fix: FixResult) -> None:
         """Log estimated cost for generate_fix API call."""
-        fix_text = fix.description + "".join(
-            c.modified for c in fix.files_changed
-        )
+        fix_text = fix.description + "".join(c.modified for c in fix.files_changed)
         log_cost(
             self._config.ai.provider,
             self._config.ai.model,

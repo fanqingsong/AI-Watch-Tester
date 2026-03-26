@@ -69,6 +69,7 @@ def test_init_appends_gitignore(tmp_path: object, monkeypatch: object) -> None:
     # Mock setup_command to only run the gitignore update (skip interactive prompts)
     def _fake_setup(config: str = "") -> None:
         from aat.cli.commands.setup_cmd import _ensure_gitignore
+
         _ensure_gitignore(tmp_path)  # type: ignore[arg-type]
 
     with patch("aat.cli.commands.setup_cmd.setup_command", side_effect=_fake_setup):
@@ -99,6 +100,7 @@ def test_init_no_duplicate_gitignore(tmp_path: object, monkeypatch: object) -> N
 
     def _fake_setup(config: str = "") -> None:
         from aat.cli.commands.setup_cmd import _ensure_gitignore
+
         _ensure_gitignore(tmp_path)  # type: ignore[arg-type]
 
     with patch("aat.cli.commands.setup_cmd.setup_command", side_effect=_fake_setup):
@@ -147,8 +149,14 @@ def test_init_custom_options(tmp_path: object, monkeypatch: object) -> None:
     result = runner.invoke(
         app,
         [
-            "init", "--name", "custom", "--source", "/src",
-            "--url", "https://example.com", "--skip-setup",
+            "init",
+            "--name",
+            "custom",
+            "--source",
+            "/src",
+            "--url",
+            "https://example.com",
+            "--skip-setup",
         ],
     )
     assert result.exit_code == 0

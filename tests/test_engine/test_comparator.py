@@ -57,7 +57,9 @@ class TestComparatorTextVisibleCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(page_text="Welcome to the Dashboard")
         expected = ExpectedResult(
-            type=AssertType.TEXT_VISIBLE, value="dashboard", case_insensitive=True,
+            type=AssertType.TEXT_VISIBLE,
+            value="dashboard",
+            case_insensitive=True,
         )
         await comparator.check(expected, engine)  # Should not raise
 
@@ -66,7 +68,9 @@ class TestComparatorTextVisibleCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(page_text="Welcome to the Dashboard")
         expected = ExpectedResult(
-            type=AssertType.TEXT_VISIBLE, value="login", case_insensitive=True,
+            type=AssertType.TEXT_VISIBLE,
+            value="login",
+            case_insensitive=True,
         )
         with pytest.raises(StepExecutionError, match="not visible on page"):
             await comparator.check(expected, engine)
@@ -76,7 +80,9 @@ class TestComparatorTextVisibleCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(page_text="Welcome to the Dashboard")
         expected = ExpectedResult(
-            type=AssertType.TEXT_VISIBLE, value="dashboard", case_insensitive=False,
+            type=AssertType.TEXT_VISIBLE,
+            value="dashboard",
+            case_insensitive=False,
         )
         with pytest.raises(StepExecutionError, match="not visible on page"):
             await comparator.check(expected, engine)
@@ -105,7 +111,9 @@ class TestComparatorTextEqualsCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(page_text="  Hello World  ")
         expected = ExpectedResult(
-            type=AssertType.TEXT_EQUALS, value="hello world", case_insensitive=True,
+            type=AssertType.TEXT_EQUALS,
+            value="hello world",
+            case_insensitive=True,
         )
         await comparator.check(expected, engine)
 
@@ -114,7 +122,9 @@ class TestComparatorTextEqualsCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(page_text="Hello World")
         expected = ExpectedResult(
-            type=AssertType.TEXT_EQUALS, value="goodbye", case_insensitive=True,
+            type=AssertType.TEXT_EQUALS,
+            value="goodbye",
+            case_insensitive=True,
         )
         with pytest.raises(StepExecutionError, match="does not match"):
             await comparator.check(expected, engine)
@@ -143,7 +153,9 @@ class TestComparatorUrlContainsCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(url="https://example.com/Dashboard")
         expected = ExpectedResult(
-            type=AssertType.URL_CONTAINS, value="dashboard", case_insensitive=True,
+            type=AssertType.URL_CONTAINS,
+            value="dashboard",
+            case_insensitive=True,
         )
         await comparator.check(expected, engine)
 
@@ -152,7 +164,9 @@ class TestComparatorUrlContainsCaseInsensitive:
         comparator = Comparator()
         engine = MockEngine(url="https://example.com/login")
         expected = ExpectedResult(
-            type=AssertType.URL_CONTAINS, value="dashboard", case_insensitive=True,
+            type=AssertType.URL_CONTAINS,
+            value="dashboard",
+            case_insensitive=True,
         )
         with pytest.raises(StepExecutionError, match="does not contain"):
             await comparator.check(expected, engine)

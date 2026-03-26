@@ -147,26 +147,28 @@ class VisionAIMatcher(BaseMatcher):
                     max_tokens=200,
                     temperature=0.0,
                     system=_SYSTEM_PROMPT,
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/png",
-                                    "data": b64_image,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/png",
+                                        "data": b64_image,
+                                    },
                                 },
-                            },
-                            {
-                                "type": "text",
-                                "text": (
-                                    f'Find the UI element: "{target.text}"\n'
-                                    f"Return center coordinates as JSON."
-                                ),
-                            },
-                        ],
-                    }],
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        f'Find the UI element: "{target.text}"\n'
+                                        f"Return center coordinates as JSON."
+                                    ),
+                                },
+                            ],
+                        }
+                    ],
                 ),
                 timeout=30.0,
             )
@@ -300,9 +302,7 @@ class VisionAIMatcher(BaseMatcher):
             cleaned = re.sub(r"```\s*$", "", cleaned).strip()
             data = json.loads(cleaned)
         except json.JSONDecodeError:
-            logger.warning(
-                "VisionAIMatcher: parse failed: %s", raw_text[:200]
-            )
+            logger.warning("VisionAIMatcher: parse failed: %s", raw_text[:200])
             return None
 
         x = int(data.get("x", 0))
@@ -315,9 +315,7 @@ class VisionAIMatcher(BaseMatcher):
             return None
 
         if confidence < 0.5:
-            logger.info(
-                "VisionAIMatcher: confidence %.2f below 0.50", confidence
-            )
+            logger.info("VisionAIMatcher: confidence %.2f below 0.50", confidence)
             return None
 
         provider = self._get_provider()

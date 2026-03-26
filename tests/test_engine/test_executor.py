@@ -584,7 +584,9 @@ class TestSynonymFallback:
 
     @pytest.mark.asyncio
     async def test_no_synonym_if_original_found(
-        self, executor: StepExecutor, mock_engine: MagicMock,
+        self,
+        executor: StepExecutor,
+        mock_engine: MagicMock,
     ) -> None:
         """When original text is found, no synonym lookup should happen."""
         mock_engine.find_text_position = AsyncMock(return_value=(100, 200))
@@ -615,9 +617,7 @@ class TestScrollToTopFallback:
         # "login" has 3 synonyms: 로그인, sign in, log in
         # First 4 calls (original + 3 synonyms) all return None → scroll_to_top,
         # then 5th call (after scroll, original text) returns coords
-        engine.find_text_position = AsyncMock(
-            side_effect=[None, None, None, None, (200, 300)]
-        )
+        engine.find_text_position = AsyncMock(side_effect=[None, None, None, None, (200, 300)])
         engine.scroll_to_top = AsyncMock()
         engine.click = AsyncMock()
         engine.screenshot = AsyncMock(return_value=b"png")

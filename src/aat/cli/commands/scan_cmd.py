@@ -309,7 +309,9 @@ async def _collect_ocr_elements(
         img = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
 
         data = pytesseract.image_to_data(
-            img, lang="eng+kor", config="--oem 3",
+            img,
+            lang="eng+kor",
+            config="--oem 3",
             output_type=pytesseract.Output.DICT,
         )
 
@@ -329,18 +331,20 @@ async def _collect_ocr_elements(
             wd = int(data["width"][i]) // 2
             ht = int(data["height"][i]) // 2
 
-            elements.append({
-                "label": text,
-                "type": "text",
-                "role": "",
-                "selector": "",
-                "x": left + wd // 2,
-                "y": top + ht // 2,
-                "width": wd,
-                "height": ht,
-                "source": "ocr",
-                "confidence": round(float(conf) / 100, 2),
-            })
+            elements.append(
+                {
+                    "label": text,
+                    "type": "text",
+                    "role": "",
+                    "selector": "",
+                    "x": left + wd // 2,
+                    "y": top + ht // 2,
+                    "width": wd,
+                    "height": ht,
+                    "source": "ocr",
+                    "confidence": round(float(conf) / 100, 2),
+                }
+            )
 
         return elements
     except Exception:
@@ -354,10 +358,7 @@ def _is_duplicate(
 ) -> bool:
     """Check if OCR element overlaps with an existing element."""
     ox, oy = ocr_el["x"], ocr_el["y"]
-    return any(
-        abs(el["x"] - ox) < distance and abs(el["y"] - oy) < distance
-        for el in existing
-    )
+    return any(abs(el["x"] - ox) < distance and abs(el["y"] - oy) < distance for el in existing)
 
 
 # -- Compare scans -----------------------------------------------------------
@@ -397,10 +398,7 @@ def _compare_scans(current_path: Path, previous_path: Path) -> None:
         el = prev_map[label]
         typer.echo(f'  - REMOVED: "{label}" was at ({el["x"]}, {el["y"]})')
     for label, prev, curr in moved:
-        typer.echo(
-            f'  ~ MOVED: "{label}" '
-            f"({prev['x']},{prev['y']}) → ({curr['x']},{curr['y']})"
-        )
+        typer.echo(f'  ~ MOVED: "{label}" ({prev["x"]},{prev["y"]}) → ({curr["x"]},{curr["y"]})')
     typer.echo(f"  Total: +{len(added)} -{len(removed)} ~{len(moved)}")
     typer.echo("=====================")
     typer.echo("")

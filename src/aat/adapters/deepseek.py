@@ -32,9 +32,7 @@ class DeepSeekAdapter(OpenAIAdapter):
     def __init__(self, config: AIConfig) -> None:
         self._config = config
         if not config.model or config.model.startswith("gpt"):
-            self._config = config.model_copy(
-                update={"model": _DEEPSEEK_DEFAULT_MODEL}
-            )
+            self._config = config.model_copy(update={"model": _DEEPSEEK_DEFAULT_MODEL})
         self._client = AsyncOpenAI(
             api_key=config.api_key,
             base_url=_DEEPSEEK_BASE_URL,

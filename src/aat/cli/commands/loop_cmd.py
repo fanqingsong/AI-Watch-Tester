@@ -206,19 +206,13 @@ def _rich_approval_callback(prompt_text: str) -> bool:
                 for line in diff_part.splitlines():
                     line = line.rstrip()
                     if line.startswith("FILE: "):
-                        typer.echo(
-                            typer.style(f"\n  📄 {line[6:]}", bold=True)
-                        )
+                        typer.echo(typer.style(f"\n  📄 {line[6:]}", bold=True))
                     elif line.startswith("DESC: "):
                         typer.echo(f"    {line[6:]}")
                     elif line.startswith("- "):
-                        typer.echo(
-                            typer.style(f"  {line}", fg=typer.colors.RED)
-                        )
+                        typer.echo(typer.style(f"  {line}", fg=typer.colors.RED))
                     elif line.startswith("+ "):
-                        typer.echo(
-                            typer.style(f"  {line}", fg=typer.colors.GREEN)
-                        )
+                        typer.echo(typer.style(f"  {line}", fg=typer.colors.GREEN))
                     elif line == "---":
                         typer.echo()
             else:
@@ -331,11 +325,13 @@ async def _loop(
     if not any(m.name == "vision_ai" for m in matchers):
         from aat.matchers.vision_ai import VisionAIMatcher
 
-        matchers.append(VisionAIMatcher(
-            vision_config=config.vision,
-            matching_config=config.matching,
-            ai_config=config.ai,
-        ))
+        matchers.append(
+            VisionAIMatcher(
+                vision_config=config.vision,
+                matching_config=config.matching,
+                ai_config=config.ai,
+            )
+        )
     learned_store = None
     try:
         from aat.learning.store import LearnedStore
@@ -350,7 +346,11 @@ async def _loop(
     waiter = Waiter()
     comparator = Comparator()
     executor = StepExecutor(
-        engine, hybrid, humanizer, waiter, comparator,
+        engine,
+        hybrid,
+        humanizer,
+        waiter,
+        comparator,
         learned_store=learned_store,
     )
 

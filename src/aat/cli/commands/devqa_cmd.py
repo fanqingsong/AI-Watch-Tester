@@ -31,7 +31,10 @@ def devqa_command(
         help="Test description (e.g. 'login and dashboard test').",
     ),
     url: str | None = typer.Option(
-        None, "--url", "-u", help="App URL (auto-detected if omitted).",
+        None,
+        "--url",
+        "-u",
+        help="App URL (auto-detected if omitted).",
     ),
     config_path: str | None = typer.Option(None, "--config", "-c"),
     max_attempts: int = typer.Option(_MAX_ATTEMPTS, "--max-attempts", "-m"),
@@ -71,9 +74,7 @@ async def _devqa(
     typer.echo("[AWT] Step 1/4: Scanning...")
     scan_path = data_dir / "scan_result.json"
     compare_arg = str(scan_path) if scan_path.exists() else None
-    _run_aat(["scan", "--url", app_url] + (
-        ["--compare", compare_arg] if compare_arg else []
-    ))
+    _run_aat(["scan", "--url", app_url] + (["--compare", compare_arg] if compare_arg else []))
 
     if not scan_path.exists():
         typer.echo("[AWT] Scan failed — no scan_result.json")
@@ -89,7 +90,10 @@ async def _devqa(
     scenario_dir.mkdir(exist_ok=True)
 
     scenario_yaml = _generate_scenario(
-        description, scan_data, app_url, config.test_accounts,
+        description,
+        scan_data,
+        app_url,
+        config.test_accounts,
     )
     # Extract generated ID for filename
     sc_id = _next_scenario_id()
@@ -123,9 +127,14 @@ async def _devqa(
 
     for attempt in range(1, max_attempts + 1):
         typer.echo(f"\n[AWT] Attempt {attempt}/{max_attempts}")
-        exit_code = _run_aat([
-            "run", "--skill-mode", "--learn", str(scenario_path),
-        ])
+        exit_code = _run_aat(
+            [
+                "run",
+                "--skill-mode",
+                "--learn",
+                str(scenario_path),
+            ]
+        )
 
         if exit_code == 0:
             passed = True
@@ -143,7 +152,10 @@ async def _devqa(
         # Read failure info
         fail_info = _read_last_failure(data_dir)
         scenario_yaml = _fix_scenario(
-            scenario_yaml, scan_data, fail_info, attempt,
+            scenario_yaml,
+            scan_data,
+            fail_info,
+            attempt,
         )
         scenario_path.write_text(scenario_yaml, encoding="utf-8")
 
@@ -152,15 +164,9 @@ async def _devqa(
     typer.echo()
     typer.echo("[AWT] " + "=" * 50)
     if passed:
-        typer.echo(
-            f"[AWT] ✅ DevQA complete: ALL PASSED "
-            f"({attempt} attempt(s), {elapsed:.1f}min)"
-        )
+        typer.echo(f"[AWT] ✅ DevQA complete: ALL PASSED ({attempt} attempt(s), {elapsed:.1f}min)")
     else:
-        typer.echo(
-            f"[AWT] ❌ DevQA failed after {attempt} attempts "
-            f"({elapsed:.1f}min)"
-        )
+        typer.echo(f"[AWT] ❌ DevQA failed after {attempt} attempts ({elapsed:.1f}min)")
         _report_failure(data_dir)
         raise typer.Exit(code=1)
     typer.echo("[AWT] " + "=" * 50)
@@ -209,19 +215,22 @@ def _generate_scenario(
     account = (test_accounts or {}).get("default", {})
     desc_lower = description.lower()
 
-    steps: list[dict[str, Any]] = [{
-        "step": 1,
-        "action": "navigate",
-        "value": app_url,
-        "description": f"Open {app_url}",
-    }]
+    steps: list[dict[str, Any]] = [
+        {
+            "step": 1,
+            "action": "navigate",
+            "value": app_url,
+            "description": f"Open {app_url}",
+        }
+    ]
     step_num = 2
 
     # Classify elements — handle both DOM and Flutter Semantics
     is_flutter = scan_data.get("is_flutter", False)
     inputs = _classify_inputs(elements, is_flutter)
     buttons = [
-        e for e in elements
+        e
+        for e in elements
         if e.get("type") in ("button", "a", "semantics")
         and e.get("source") in ("dom", "semantics")
         and e.get("x", 0) > 100
@@ -239,7 +248,10 @@ def _generate_scenario(
                 continue
 
             target, extra = _build_input_target(
-                inp, inp_idx, inputs, is_flutter,
+                inp,
+                inp_idx,
+                inputs,
+                is_flutter,
             )
             if not target:
                 continue
@@ -250,7 +262,7 @@ def _generate_scenario(
                 "target": target,
                 "value": value,
                 "region": "main",
-                "description": f'Enter {_input_description(inp)}',
+                "description": f"Enter {_input_description(inp)}",
             }
             step_dict.update(extra)
 
@@ -286,36 +298,42 @@ def _generate_scenario(
             step_num += 1
 
             # Assert after click
-            steps.append({
-                "step": step_num,
-                "action": "assert_screen_changed",
-                "threshold": 0.05,
-                "region": "main",
-                "description": f'Verify screen changed after "{label}"',
-            })
+            steps.append(
+                {
+                    "step": step_num,
+                    "action": "assert_screen_changed",
+                    "threshold": 0.05,
+                    "region": "main",
+                    "description": f'Verify screen changed after "{label}"',
+                }
+            )
             step_num += 1
 
     # --- Fallback: if no keywords matched, use prominent buttons ---
     if not clicked_labels:
         for el in buttons[:3]:
-            steps.append({
-                "step": step_num,
-                "action": "find_and_click",
-                "target": {"text": el["label"]},
-                "region": "main",
-                "description": f'Click "{el["label"]}"',
-            })
+            steps.append(
+                {
+                    "step": step_num,
+                    "action": "find_and_click",
+                    "target": {"text": el["label"]},
+                    "region": "main",
+                    "description": f'Click "{el["label"]}"',
+                }
+            )
             step_num += 1
 
     # --- Validate: ensure inputs before submit ---
     steps = _validate_form_flow(steps, inputs, account)
 
     # Final screenshot
-    steps.append({
-        "step": len(steps) + 1,
-        "action": "screenshot",
-        "description": "Capture final state",
-    })
+    steps.append(
+        {
+            "step": len(steps) + 1,
+            "action": "screenshot",
+            "description": "Capture final state",
+        }
+    )
 
     # Re-number steps
     for i, s in enumerate(steps, 1):
@@ -362,10 +380,7 @@ def _classify_inputs(
         el_type = el.get("type", "")
         role = el.get("role", "")
 
-        if (
-            el_type in ("input", "textarea")
-            or role == "textbox"
-        ):
+        if el_type in ("input", "textarea") or role == "textbox":
             inputs.append(el)
 
     # Sort by y-coordinate (form order: top to bottom)
@@ -408,10 +423,7 @@ def _build_input_target(
     # --- Priority 3: nth-of-type (DOM, multiple generic inputs) ---
     if source == "dom":
         # Count how many inputs before this one
-        y_sorted_dom = [
-            e for e in all_inputs
-            if e.get("source") == "dom"
-        ]
+        y_sorted_dom = [e for e in all_inputs if e.get("source") == "dom"]
         position = next(
             (i for i, e in enumerate(y_sorted_dom) if e is inp),
             inp_idx,
@@ -540,9 +552,20 @@ def _is_submit_button(el: dict[str, Any], intent: str) -> bool:
     """Check if element is a form submit button."""
     label = (el.get("label") or "").lower()
     submit_words = [
-        "로그인", "login", "sign in", "submit", "제출",
-        "가입", "register", "확인", "검색", "search",
-        "생성", "create", "만들기", "generate",
+        "로그인",
+        "login",
+        "sign in",
+        "submit",
+        "제출",
+        "가입",
+        "register",
+        "확인",
+        "검색",
+        "search",
+        "생성",
+        "create",
+        "만들기",
+        "generate",
     ]
     return any(w in label for w in submit_words)
 
@@ -577,14 +600,16 @@ def _validate_form_flow(
                 target["text"] = inp["label"]
             if not target:
                 continue
-            insert_steps.append({
-                "step": 0,
-                "action": "find_and_type",
-                "target": target,
-                "value": value,
-                "region": "main",
-                "description": f"Enter {_input_description(inp)}",
-            })
+            insert_steps.append(
+                {
+                    "step": 0,
+                    "action": "find_and_type",
+                    "target": target,
+                    "value": value,
+                    "region": "main",
+                    "description": f"Enter {_input_description(inp)}",
+                }
+            )
 
         for s in reversed(insert_steps):
             steps.insert(first_click_idx, s)
@@ -610,9 +635,26 @@ def _extract_keywords(description: str) -> list[str]:
     """Extract meaningful keywords from test description."""
     # Remove common filler words
     fillers = {
-        "테스트", "test", "testing", "확인", "check", "verify",
-        "the", "a", "an", "and", "or", "을", "를", "이", "가",
-        "에서", "으로", "하기", "해줘", "해주세요",
+        "테스트",
+        "test",
+        "testing",
+        "확인",
+        "check",
+        "verify",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "을",
+        "를",
+        "이",
+        "가",
+        "에서",
+        "으로",
+        "하기",
+        "해줘",
+        "해주세요",
     }
     words = description.replace("-", " ").replace("→", " ").split()
     return [w for w in words if w.lower() not in fillers and len(w) > 1]
@@ -624,10 +666,7 @@ def _find_matching_elements(
 ) -> list[dict[str, Any]]:
     """Find elements whose label contains the keyword."""
     kw = keyword.lower()
-    matches = [
-        el for el in elements
-        if kw in el.get("label", "").lower()
-    ]
+    matches = [el for el in elements if kw in el.get("label", "").lower()]
     # Prefer semantics > dom > ocr
     source_priority = {"semantics": 0, "dom": 1, "ocr": 2}
     matches.sort(key=lambda e: source_priority.get(e.get("source", "ocr"), 9))
@@ -741,8 +780,7 @@ def _report_failure(data_dir: Path) -> None:
     fail = _read_last_failure(data_dir)
     if fail:
         typer.echo(
-            f"[AWT] Last failure: Step {fail.get('step')} — "
-            f"{fail.get('error', 'unknown')[:100]}"
+            f"[AWT] Last failure: Step {fail.get('step')} — {fail.get('error', 'unknown')[:100]}"
         )
     typer.echo("[AWT] Suggestions:")
     typer.echo("  1. Check .aat/screenshots/ for failure screenshots")

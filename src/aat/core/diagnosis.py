@@ -162,9 +162,7 @@ def format_diagnosis(
     lines.append("  " + "=" * 55)
 
     # Basic info
-    lines.append(
-        f"  Step:     {context.get('step')} — {context.get('description', '')}"
-    )
+    lines.append(f"  Step:     {context.get('step')} — {context.get('description', '')}")
     lines.append(f"  Action:   {context.get('action', '')}")
     lines.append(f"  Error:    {context.get('error', '')}")
 
@@ -202,9 +200,7 @@ def format_diagnosis(
             f"    This failure ({learned_hint.get('error_type', '')}) "
             f"was fixed before: {learned_hint.get('fix_description', '')}"
         )
-        lines.append(
-            f"    (seen {learned_hint.get('hit_count', 0)} time(s))"
-        )
+        lines.append(f"    (seen {learned_hint.get('hit_count', 0)} time(s))")
 
     # Re-run guide
     if scenario_file:
@@ -265,13 +261,15 @@ def format_skill_diagnosis(
         for w in nav_warns:
             lines.append(f"  - {w}")
 
-    lines.extend([
-        f"FIX_TARGET: {scenario_file}",
-        f"RETRY_CMD: aat run --skill-mode {scenario_file}",
-        f"ATTEMPTS: {attempt}/{max_attempts}",
-        "=======================",
-        "",
-    ])
+    lines.extend(
+        [
+            f"FIX_TARGET: {scenario_file}",
+            f"RETRY_CMD: aat run --skill-mode {scenario_file}",
+            f"ATTEMPTS: {attempt}/{max_attempts}",
+            "=======================",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
