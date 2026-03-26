@@ -191,6 +191,39 @@ AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트�
 
 ---
 
+## 협업 프로젝트 연동 (ClasRing + DSL)
+
+### 나의 역할
+김대리(ClasRing)와 DSL이 만든 코드를 AWT로 E2E 테스트하는 것이
+협업에서의 주 역할. 테스트 결과를 shared 디렉토리에 전달한다.
+
+### 공유 디렉토리 경로
+- 내가 받는 곳:
+  - `~/Documents/Projects/shared/handoff/dsl-to-lee/`
+    → DSL이 생성한 코드 변형이 여기 들어옴.
+      AWT로 E2E 테스트를 수행해야 함.
+  - `~/Documents/Projects/shared/handoff/kim-to-lee/`
+    → 김대리가 직접 테스트 요청한 코드가 여기 들어옴.
+
+- 내가 보내는 곳:
+  - `~/Documents/Projects/shared/handoff/lee-to-dsl/`
+    → AWT 테스트 결과(last_run.json, 스크린샷)를 여기에 넣음.
+      DSL이 이걸 점수에 반영함.
+  - `~/Documents/Projects/shared/handoff/lee-to-kim/`
+    → 김대리에게 전달할 테스트 결과를 여기에 넣음.
+
+### 테스트 결과 전달 규칙
+- 결과를 넣을 때는 반드시 아래 구조를 따를 것:
+  ```
+  lee-to-dsl/ 또는 lee-to-kim/
+  └── page-name_YYYYMMDD/       (예: admin-dashboard_20260327)
+      ├── last_run.json          (AWT 실행 결과)
+      ├── screenshots/           (스텝별 스크린샷)
+      └── summary.md             (통과/실패 요약, 발견된 문제점)
+  ```
+
+---
+
 ## Branch Strategy
 
 - **main**: 단일 개발+배포 브랜치. 모든 작업은 main에서 직접 진행.
