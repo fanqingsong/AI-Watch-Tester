@@ -1,0 +1,173 @@
+id: "SC-200"
+name: "ClasRing 회원가입"
+description: "ClasRing 개발 사이트 회원가입 (동적 이메일 + teardown 정리)"
+tags: [clasring, register]
+
+steps:
+  # 1. 회원가입 페이지 접근
+  - step: 1
+    action: navigate
+    value: "https://clasring-dev.web.app/app/?register=true"
+    description: "ClasRing 회원가입 페이지 접근"
+
+  - step: 2
+    action: wait
+    value: "3000"
+    description: "Flutter 앱 로딩 대기"
+
+  - step: 3
+    action: screenshot
+    description: "회원가입 폼 초기 상태 확인"
+
+  # 2. 이메일 — OCR로 placeholder 텍스트 "이메일" 찾아 클릭
+  - step: 4
+    action: find_and_click
+    target:
+      text: "이메일"
+    region: center
+    description: "이메일 필드 클릭 (OCR)"
+
+  - step: 5
+    action: type_text
+    value: "test+{{timestamp}}@ailooplab.com"
+    description: "이메일 입력 (동적 — 매 실행마다 고유)"
+    critical: true
+
+  - step: 6
+    action: wait
+    value: "1500"
+    description: "이메일 유효성 검사 대기"
+
+  - step: 7
+    action: screenshot
+    description: "이메일 입력 확인"
+
+  # 3. 비밀번호 — click_at으로 직접 (Learned Store에 Naver #pw 패턴 충돌 방지)
+  #    실제 좌표: scan y=532 + AWT bar 31px = 563
+  - step: 8
+    action: click_at
+    value: "640,563"
+    description: "비밀번호 필드 클릭 (좌표 직접 지정)"
+
+  - step: 9
+    action: type_text
+    value: "Rla3623!@"
+    description: "비밀번호 입력"
+    critical: true
+
+  # 4. 비밀번호 확인 — click_at (scan y=596 + 31px = 627)
+  - step: 10
+    action: click_at
+    value: "640,627"
+    description: "비밀번호 확인 필드 클릭 (좌표 직접 지정)"
+
+  - step: 11
+    action: type_text
+    value: "Rla3623!@"
+    description: "비밀번호 확인 입력"
+
+  # 5. 이름(대표자명) — 50px 스크롤 후 click_at (scan y=660 + 31 - 50scroll = 641)
+  - step: 12
+    action: scroll
+    value: "640,400,50"
+    description: "이름 필드 노출을 위한 스크롤"
+
+  - step: 13
+    action: wait
+    value: "500"
+    description: "스크롤 안정화"
+
+  - step: 14
+    action: click_at
+    value: "640,641"
+    description: "이름(대표자명) 필드 클릭 (scan y=660+31-50=641)"
+
+  - step: 15
+    action: type_text
+    value: "테스트대표"
+    description: "대표자명 입력"
+
+  - step: 16
+    action: screenshot
+    description: "이름 입력 확인"
+
+  # 6. 학원명 — 130px 추가 스크롤 (총 180px) 후 click_at (scan y=712+31-180=563)
+  - step: 17
+    action: scroll
+    value: "640,400,130"
+    description: "학원명 필드 노출을 위한 추가 스크롤"
+
+  - step: 18
+    action: wait
+    value: "500"
+    description: "스크롤 안정화"
+
+  - step: 19
+    action: click_at
+    value: "640,563"
+    description: "학원명(과외명) 필드 클릭 (scan y=712+31-180=563)"
+
+  - step: 20
+    action: type_text
+    value: "테스트학원_{{random}}"
+    description: "학원명 입력 (동적 — 매 실행마다 고유)"
+
+  - step: 21
+    action: screenshot
+    description: "전체 필드 입력 완료 확인"
+
+  # 7. 약관 동의 영역으로 스크롤 (추가 270px → 총 450px)
+  - step: 22
+    action: scroll
+    value: "640,400,270"
+    description: "약관 동의 + 가입하기 버튼 영역으로 스크롤"
+
+  - step: 23
+    action: wait
+    value: "500"
+    description: "스크롤 안정화"
+
+  - step: 24
+    action: screenshot
+    description: "약관 + 가입하기 버튼 위치 확인"
+
+  # 8. 전체 동의 체크박스 클릭 (450px 스크롤 후 viewport 좌표)
+  - step: 25
+    action: click_at
+    value: "493,495"
+    description: "전체 동의 체크박스 클릭"
+
+  - step: 26
+    action: wait
+    value: "500"
+    description: "체크 반응 대기"
+
+  - step: 27
+    action: screenshot
+    description: "약관 동의 상태 확인 (3개 모두 체크)"
+
+  # 9. 가입하기 버튼 클릭 (450px 스크롤 후 viewport 좌표)
+  - step: 28
+    action: click_at
+    value: "640,582"
+    description: "가입하기 버튼 클릭"
+    critical: true
+    change_threshold: 0.03
+
+  - step: 29
+    action: wait
+    value: "4000"
+    description: "회원가입 처리 대기"
+
+  - step: 30
+    action: screenshot
+    description: "회원가입 결과 최종 확인"
+
+# ---------------------------------------------------------------------------
+# Teardown — 테스트 사용자 삭제 (Firebase Auth)
+# TeardownExecutor: 실패해도 로그만 남기고 무시
+# ---------------------------------------------------------------------------
+teardown:
+  - type: shell
+    command: "python scripts/cleanup_firebase_user.py 'test+{{timestamp}}@ailooplab.com'"
+    timeout: 30

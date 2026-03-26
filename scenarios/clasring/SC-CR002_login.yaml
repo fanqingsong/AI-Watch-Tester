@@ -1,0 +1,69 @@
+id: "SC-201"
+name: "ClasRing 로그인"
+description: "ClasRing 개발 사이트 로그인 → 대시보드 확인 (Flutter CanvasKit)"
+tags: [clasring, login]
+
+steps:
+  # 1. 로그인 페이지 접근
+  - step: 1
+    action: navigate
+    value: "https://clasring-dev.web.app/app/"
+    description: "ClasRing 로그인 페이지 접근"
+
+  - step: 2
+    action: wait
+    value: "3000"
+    description: "Flutter 앱 로딩 대기"
+
+  - step: 3
+    action: screenshot
+    description: "로그인 폼 초기 상태 확인"
+
+  # 2. 이메일 — click_at (scan 직접 좌표 사용, x=644, y=327)
+  - step: 4
+    action: click_at
+    value: "644,327"
+    description: "이메일 필드 클릭 (scan x=644, y=327)"
+
+  - step: 5
+    action: type_text
+    value: "ceo@ailooplab.com"
+    description: "이메일 입력"
+    critical: true
+
+  - step: 6
+    action: screenshot
+    description: "이메일 입력 확인 (커서 위치 확인용)"
+
+  # 3. 비밀번호 — click_at (scan x=644, y=391)
+  - step: 7
+    action: click_at
+    value: "644,391"
+    description: "비밀번호 필드 클릭 (scan x=644, y=391)"
+
+  - step: 8
+    action: type_text
+    value: "Rla3623!@"
+    description: "비밀번호 입력"
+    critical: true
+
+  - step: 9
+    action: screenshot
+    description: "이메일/비밀번호 입력 확인"
+
+  # 4. 로그인 버튼 — click_at (scan x=640, y=460)
+  - step: 10
+    action: click_at
+    value: "640,460"
+    description: "로그인 버튼 클릭 (scan x=640, y=460)"
+    critical: true
+    change_threshold: 0.03
+
+  - step: 11
+    action: wait
+    value: "4000"
+    description: "로그인 처리 및 대시보드 로딩 대기"
+
+  - step: 12
+    action: screenshot
+    description: "로그인 결과 및 대시보드 확인"
