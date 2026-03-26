@@ -590,6 +590,39 @@ class StepConfig(BaseModel):
         return self
 
 
+class TeardownStep(BaseModel):
+    """A single cleanup action executed after a scenario completes (pass or fail).
+
+    Supported types:
+        api_call  — HTTP request to a cleanup endpoint
+        db_query  — raw SQL executed against a database URL
+        shell     — shell command (use with caution)
+    """
+
+    type: str = Field(..., description="'api_call' | 'db_query' | 'shell'")
+
+    # api_call fields
+    method: str | None = Field(default=None, description="HTTP method: GET POST PUT DELETE PATCH")
+    url: str | None = Field(default=None, description="Request URL (supports {{variables}})")
+    headers: dict[str, str] | None = Field(default=None)
+    body: dict[str, Any] | None = Field(default=None)
+    expected_status: int | None = Field(
+        default=None,
+        description="Expected HTTP status code; failure logged but does not stop teardown",
+    )
+
+    # db_query fields
+    connection: str | None = Field(
+        default=None,
+        description="DB connection string, e.g. postgresql://host/db",
+    )
+    query: str | None = Field(default=None, description="SQL to execute (supports {{variables}})")
+
+    # shell fields
+    command: str | None = Field(default=None, description="Shell command (supports {{variables}})")
+    timeout: int | None = Field(default=30, description="Shell command timeout in seconds")
+
+
 class Scenario(BaseModel):
     """Test scenario definition."""
 
@@ -606,6 +639,10 @@ class Scenario(BaseModel):
         description="Scenario-level variables (supports {{env.VAR}} references)",
     )
     steps: list[StepConfig] = Field(..., min_length=1)
+    teardown: list[TeardownStep] = Field(
+        default_factory=list,
+        description="Cleanup steps executed after scenario completes (pass or fail)",
+    )
 
     @field_validator("vars", mode="before")
     @classmethod
