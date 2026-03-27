@@ -107,7 +107,11 @@ def _scenario_to_yaml(scenario: Scenario) -> str:
         if step.value is not None:
             s["value"] = step.value
         if step.target:
-            s["target"] = step.target
+            s["target"] = (
+                step.target
+                if isinstance(step.target, dict)
+                else step.target.model_dump(exclude_none=True)
+            )
         if step.critical:
             s["critical"] = True
         if step.on_fail:
