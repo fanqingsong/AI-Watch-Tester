@@ -452,6 +452,14 @@ class StepConfig(BaseModel):
         le=1.0,
         description="For critical steps: required pixel change ratio (auto-detected if None)",
     )
+    wait_for: str | None = Field(
+        default=None,
+        description=(
+            "Wait for page load state after action: "
+            "'networkidle' | 'load' | 'domcontentloaded'. "
+            "networkidle waits until no network requests for 500ms."
+        ),
+    )
 
     @field_validator("humanize", mode="before")
     @classmethod

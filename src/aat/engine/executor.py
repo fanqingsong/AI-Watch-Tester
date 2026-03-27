@@ -405,7 +405,29 @@ class StepExecutor:
         elif step.action == ActionType.REFRESH:
             await self._engine.refresh()
 
+        # wait_for: explicit load state wait after any action
+        if step.wait_for and hasattr(self._engine, "page"):
+            await self._wait_for_load_state(step.wait_for)
+
         return match_result
+
+    async def _wait_for_load_state(self, state: str) -> None:
+        """Wait for Playwright page load state.
+
+        Args:
+            state: 'networkidle', 'load', or 'domcontentloaded'.
+        """
+        valid = {"networkidle", "load", "domcontentloaded"}
+        if state not in valid:
+            logger.warning("wait_for: unknown state %r (valid: %s) — skipping", state, valid)
+            return
+        try:
+            page = self._engine.page  # type: ignore[attr-defined]
+            timeout = 30000 if state == "networkidle" else 10000
+            await page.wait_for_load_state(state, timeout=timeout)
+            logger.debug("wait_for %r: done", state)
+        except Exception:
+            logger.debug("wait_for %r timed out or failed — continuing", state, exc_info=True)
 
     async def _find_text_with_synonyms(self, text: str) -> tuple[int, int] | None:
         """Try find_text_position with synonym + iframe fallback."""

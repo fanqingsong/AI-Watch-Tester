@@ -713,3 +713,209 @@ class TestForceClickFallback:
         assert result.status == StepStatus.PASSED
         engine.force_click_by_text.assert_awaited()
         engine.type_text.assert_awaited_once_with("secret123")
+
+
+# ─── wait_for load state ──────────────────────────────────────
+
+
+class TestWaitForLoadState:
+    """Test wait_for field: explicit Playwright load state wait after action."""
+
+    @pytest.mark.asyncio
+    async def test_wait_for_networkidle_called(
+        self,
+        mock_matcher: MagicMock,
+        mock_humanizer: MagicMock,
+        mock_waiter: MagicMock,
+        mock_comparator: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """wait_for='networkidle' calls page.wait_for_load_state('networkidle')."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.wait_for_load_state = AsyncMock()
+
+        engine = MagicMock()
+        engine.navigate = AsyncMock()
+        engine.screenshot = AsyncMock(return_value=b"png")
+        engine.save_screenshot = AsyncMock()
+        engine.page = page
+
+        executor = StepExecutor(
+            engine=engine,
+            matcher=mock_matcher,
+            humanizer=mock_humanizer,
+            waiter=mock_waiter,
+            comparator=mock_comparator,
+            screenshot_dir=tmp_path,
+        )
+
+        step = StepConfig(
+            step=1,
+            action=ActionType.NAVIGATE,
+            value="https://example.com",
+            description="Navigate",
+            wait_for="networkidle",
+        )
+        result = await executor.execute_step(step)
+        assert result.status == StepStatus.PASSED
+        page.wait_for_load_state.assert_awaited_once_with("networkidle", timeout=30000)
+
+    @pytest.mark.asyncio
+    async def test_wait_for_domcontentloaded(
+        self,
+        mock_matcher: MagicMock,
+        mock_humanizer: MagicMock,
+        mock_waiter: MagicMock,
+        mock_comparator: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """wait_for='domcontentloaded' uses 10s timeout."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.wait_for_load_state = AsyncMock()
+
+        engine = MagicMock()
+        engine.navigate = AsyncMock()
+        engine.screenshot = AsyncMock(return_value=b"png")
+        engine.save_screenshot = AsyncMock()
+        engine.page = page
+
+        executor = StepExecutor(
+            engine=engine,
+            matcher=mock_matcher,
+            humanizer=mock_humanizer,
+            waiter=mock_waiter,
+            comparator=mock_comparator,
+            screenshot_dir=tmp_path,
+        )
+
+        step = StepConfig(
+            step=1,
+            action=ActionType.NAVIGATE,
+            value="https://example.com",
+            description="Navigate",
+            wait_for="domcontentloaded",
+        )
+        await executor.execute_step(step)
+        page.wait_for_load_state.assert_awaited_once_with("domcontentloaded", timeout=10000)
+
+    @pytest.mark.asyncio
+    async def test_wait_for_none_skips(
+        self,
+        mock_matcher: MagicMock,
+        mock_humanizer: MagicMock,
+        mock_waiter: MagicMock,
+        mock_comparator: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """wait_for=None (default) does NOT call wait_for_load_state."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.wait_for_load_state = AsyncMock()
+
+        engine = MagicMock()
+        engine.navigate = AsyncMock()
+        engine.screenshot = AsyncMock(return_value=b"png")
+        engine.save_screenshot = AsyncMock()
+        engine.page = page
+
+        executor = StepExecutor(
+            engine=engine,
+            matcher=mock_matcher,
+            humanizer=mock_humanizer,
+            waiter=mock_waiter,
+            comparator=mock_comparator,
+            screenshot_dir=tmp_path,
+        )
+
+        step = StepConfig(
+            step=1,
+            action=ActionType.NAVIGATE,
+            value="https://example.com",
+            description="Navigate",
+        )
+        await executor.execute_step(step)
+        page.wait_for_load_state.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_wait_for_invalid_state_skips(
+        self,
+        mock_matcher: MagicMock,
+        mock_humanizer: MagicMock,
+        mock_waiter: MagicMock,
+        mock_comparator: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """wait_for with unknown state logs warning and does not raise."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.wait_for_load_state = AsyncMock()
+
+        engine = MagicMock()
+        engine.navigate = AsyncMock()
+        engine.screenshot = AsyncMock(return_value=b"png")
+        engine.save_screenshot = AsyncMock()
+        engine.page = page
+
+        executor = StepExecutor(
+            engine=engine,
+            matcher=mock_matcher,
+            humanizer=mock_humanizer,
+            waiter=mock_waiter,
+            comparator=mock_comparator,
+            screenshot_dir=tmp_path,
+        )
+
+        step = StepConfig(
+            step=1,
+            action=ActionType.NAVIGATE,
+            value="https://example.com",
+            description="Navigate",
+            wait_for="invalid_state",
+        )
+        result = await executor.execute_step(step)
+        assert result.status == StepStatus.PASSED
+        page.wait_for_load_state.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_wait_for_timeout_does_not_fail_step(
+        self,
+        mock_matcher: MagicMock,
+        mock_humanizer: MagicMock,
+        mock_waiter: MagicMock,
+        mock_comparator: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Timeout in wait_for_load_state does not cause step failure."""
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.wait_for_load_state = AsyncMock(side_effect=PlaywrightTimeout("timeout"))
+
+        engine = MagicMock()
+        engine.navigate = AsyncMock()
+        engine.screenshot = AsyncMock(return_value=b"png")
+        engine.save_screenshot = AsyncMock()
+        engine.page = page
+
+        executor = StepExecutor(
+            engine=engine,
+            matcher=mock_matcher,
+            humanizer=mock_humanizer,
+            waiter=mock_waiter,
+            comparator=mock_comparator,
+            screenshot_dir=tmp_path,
+        )
+
+        step = StepConfig(
+            step=1,
+            action=ActionType.NAVIGATE,
+            value="https://example.com",
+            description="Navigate",
+            wait_for="networkidle",
+        )
+        result = await executor.execute_step(step)
+        # Timeout is swallowed — step still passes
+        assert result.status == StepStatus.PASSED
