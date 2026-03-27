@@ -94,6 +94,30 @@ _OVERLAY_REMOVE_JS = """
 """
 
 
+def _scenario_to_yaml(scenario: Scenario) -> str:
+    """Convert a Scenario model back to YAML text for display."""
+    import yaml as _yaml
+
+    steps_list: list[dict[str, object]] = []
+    data: dict[str, object] = {"id": scenario.id, "name": scenario.name, "steps": steps_list}
+    for step in scenario.steps:
+        s: dict[str, object] = {"step": step.step, "action": step.action.value}
+        if step.description:
+            s["description"] = step.description
+        if step.value is not None:
+            s["value"] = step.value
+        if step.target:
+            s["target"] = step.target
+        if step.critical:
+            s["critical"] = True
+        if step.on_fail:
+            s["on_fail"] = step.on_fail
+        if step.change_threshold is not None:
+            s["change_threshold"] = step.change_threshold
+        steps_list.append(s)
+    return _yaml.dump(data, allow_unicode=True, sort_keys=False)
+
+
 def _js_str(s: str) -> str:
     """Escape string for JS injection."""
     return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
@@ -174,6 +198,12 @@ def _topo_sort(scenarios: list[Scenario]) -> list[Scenario]:
 def run_command(
     scenarios_path: str = typer.Argument(help="Scenario file or directory path."),
     config_path: str | None = typer.Option(None, "--config", "-c", help="Config file path."),
+    auto_approve: bool = typer.Option(
+        False,
+        "--auto-approve",
+        "-y",
+        help="Skip human approval prompt. For CI / automated pipelines only.",
+    ),
     slow_mo: int | None = typer.Option(
         None,
         "--slow-mo",
@@ -217,6 +247,7 @@ def run_command(
                 debug,
                 strict,
                 skip_teardown,
+                auto_approve,
             )
         )
     except AATError as e:
@@ -233,6 +264,7 @@ async def _run(
     debug_mode: bool = False,
     strict_mode: bool = False,
     skip_teardown: bool = False,
+    auto_approve: bool = False,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Debug logging
@@ -256,6 +288,31 @@ async def _run(
     path = Path(scenarios_path)
     scenarios = _topo_sort(load_scenarios(path))
     total_scenario_steps = sum(len(s.steps) for s in scenarios)
+
+    # ------------------------------------------------------------------ #
+    # Human approval gate — runs BEFORE the browser opens.                #
+    # No --auto-approve flag = no execution. Period.                       #
+    # AI agents cannot pass this: stdin is the human's terminal.          #
+    # ------------------------------------------------------------------ #
+    if not auto_approve:
+        from aat.core.scenario_reviewer import ScenarioReviewer
+
+        reviewer = ScenarioReviewer()
+        for i, scenario in enumerate(scenarios):
+            scenario_yaml = _scenario_to_yaml(scenario)
+            approved = reviewer.show_and_approve(
+                scenario_yaml,
+                scenario_path=path if path.is_file() else None,
+                attempt=1,
+                auto_approve=False,
+            )
+            if not approved:
+                typer.echo("[AWT] Execution cancelled by user.")
+                raise typer.Exit(code=0)
+            if len(scenarios) > 1 and i < len(scenarios) - 1:
+                typer.echo(
+                    f"  ({i + 1}/{len(scenarios)} approved — next: {scenarios[i + 1].id})"
+                )
 
     # Assemble engine
     engine_cls = ENGINE_REGISTRY.get(config.engine.type)
