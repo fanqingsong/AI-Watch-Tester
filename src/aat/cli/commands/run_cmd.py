@@ -37,13 +37,13 @@ _OVERLAY_INIT_JS = """
   const bar = document.createElement('div');
   bar.id = 'awt-overlay';
   bar.style.cssText = `
-    position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 2147483647;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: #e2e8f0; font-family: -apple-system, 'Segoe UI', sans-serif;
     font-size: 13px; padding: 8px 16px;
     display: flex; align-items: center; justify-content: space-between;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    border-bottom: 2px solid #22d3ee;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+    border-top: 2px solid #22d3ee;
     transition: all 0.3s ease;
     pointer-events: none;
   `;
