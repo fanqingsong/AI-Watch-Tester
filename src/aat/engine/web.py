@@ -64,7 +64,7 @@ class WebEngine(BaseEngine):
                 "headless": self._config.headless,
                 "args": launch_args or [],
             }
-            if self._config.slow_mo > 0:
+            if self._config.slow_mo:
                 launch_kwargs["slow_mo"] = self._config.slow_mo
             self._browser = await browser_type.launch(**launch_kwargs)
             self._context = await self._browser.new_context(

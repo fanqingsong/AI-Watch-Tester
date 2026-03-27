@@ -282,11 +282,15 @@ async def _run(
     config = load_config(config_path=cfg_path)
 
     # Apply slow_mo: CLI override > config > auto (100 for headed, 0 for headless)
+    # None means "not set" — auto-apply 100 for headed mode.
+    # Explicit 0 (CLI or config) is always respected.
     headed = not config.engine.headless
     if slow_mo_override is not None:
         config.engine.slow_mo = slow_mo_override
-    elif config.engine.slow_mo == 0 and headed:
+    elif config.engine.slow_mo is None and headed:
         config.engine.slow_mo = 100
+    elif config.engine.slow_mo is None:
+        config.engine.slow_mo = 0
 
     # Load scenarios and sort by depends_on (topological sort)
     path = Path(scenarios_path)

@@ -191,11 +191,14 @@ class EngineConfig(BaseModel):
     viewport_width: int = Field(default=1280, ge=320, le=3840)
     viewport_height: int = Field(default=720, ge=240, le=2160)
     timeout_ms: int = Field(default=30000, ge=1000, le=120000)
-    slow_mo: int = Field(
-        default=0,
+    slow_mo: int | None = Field(
+        default=None,
         ge=0,
         le=5000,
-        description="Slow down actions by ms (headed mode). 0=off, 100=recommended",
+        description=(
+            "Slow down actions by ms. None=auto (100 in headed, 0 in headless). "
+            "Set 0 to explicitly disable even in headed mode."
+        ),
     )
     window_x: int | None = Field(default=None, description="Browser window X position")
     window_y: int | None = Field(default=None, description="Browser window Y position")
