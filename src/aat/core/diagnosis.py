@@ -78,7 +78,7 @@ def classify_failure(error_message: str) -> str:
         return "navigation_error"
     if "401" in err or "403" in err or "auth" in err:
         return "auth_error"
-    if "500" in err or "502" in err or "503" in err:
+    if "500 internal" in err or "internal server error" in err or "502" in err or "503" in err:
         return "server_error"
     if "selector" in err:
         return "selector_changed"
