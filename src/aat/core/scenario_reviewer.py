@@ -17,7 +17,6 @@ from typing import Any
 import typer
 import yaml
 
-
 # ---------------------------------------------------------------------------
 # Action → (icon, label) mapping
 # ---------------------------------------------------------------------------
@@ -109,10 +108,7 @@ class ScenarioReviewer:
 
         typer.echo()
         typer.echo("━" * _WIDTH)
-        if attempt == 1:
-            label = " Scenario Review"
-        else:
-            label = f" Updated Scenario (attempt {attempt})"
+        label = " Scenario Review" if attempt == 1 else f" Updated Scenario (attempt {attempt})"
         badge = f"{sc_id} · {len(steps)} steps" if sc_id else f"{len(steps)} steps"
         typer.echo(f"{label}  [{badge}]")
         typer.echo(f" {name}")
