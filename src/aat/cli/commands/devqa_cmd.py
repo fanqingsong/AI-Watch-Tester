@@ -38,10 +38,16 @@ def devqa_command(
     ),
     config_path: str | None = typer.Option(None, "--config", "-c"),
     max_attempts: int = typer.Option(_MAX_ATTEMPTS, "--max-attempts", "-m"),
+    auto_approve: bool = typer.Option(
+        False,
+        "--auto-approve",
+        "-y",
+        help="Skip scenario approval prompt (CI / non-interactive mode).",
+    ),
 ) -> None:
     """Run fully automated DevQA loop: scan → generate → test → fix → retry."""
     try:
-        asyncio.run(_devqa(description, url, config_path, max_attempts))
+        asyncio.run(_devqa(description, url, config_path, max_attempts, auto_approve))
     except AATError as e:
         typer.echo(f"[AWT] Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -52,6 +58,7 @@ async def _devqa(
     url_override: str | None,
     config_path: str | None,
     max_attempts: int,
+    auto_approve: bool = False,
 ) -> None:
     start_time = time.monotonic()
     cfg_path = Path(config_path) if config_path else None
@@ -107,17 +114,16 @@ async def _devqa(
     scenario_path.write_text(scenario_yaml, encoding="utf-8")
     typer.echo(f"[AWT] Scenario: {scenario_path}")
 
-    # Show scenario, 10s auto-proceed
-    typer.echo()
-    typer.echo("[AWT] Generated scenario:")
-    typer.echo("─" * 40)
-    for line in scenario_yaml.split("\n"):
-        typer.echo(f"  {line}")
-    typer.echo("─" * 40)
-    typer.echo("[AWT] Starting in 10s... (press 'n' + Enter to cancel)")
+    # Show scenario in human-readable form and wait for approval
+    from aat.core.scenario_reviewer import ScenarioReviewer
 
-    if not _wait_for_approval(10):
-        typer.echo("[AWT] Cancelled by user.")
+    reviewer = ScenarioReviewer()
+    if not reviewer.show_and_approve(
+        scenario_yaml,
+        scenario_path,
+        attempt=1,
+        auto_approve=auto_approve,
+    ):
         raise typer.Exit(code=0)
 
     # -- Step 4-6: Run + fix loop --------------------------------------------
@@ -149,8 +155,8 @@ async def _devqa(
 
         # Reload scan data and regenerate
         scan_data = json.loads(scan_path.read_text("utf-8"))
-        # Read failure info
         fail_info = _read_last_failure(data_dir)
+        previous_yaml = scenario_yaml
         scenario_yaml = _fix_scenario(
             scenario_yaml,
             scan_data,
@@ -158,6 +164,19 @@ async def _devqa(
             attempt,
         )
         scenario_path.write_text(scenario_yaml, encoding="utf-8")
+
+        # Show diff + approval before retry
+        from aat.core.scenario_reviewer import ScenarioReviewer
+
+        if not ScenarioReviewer().show_and_approve(
+            scenario_yaml,
+            scenario_path,
+            attempt=attempt + 1,
+            previous_yaml=previous_yaml,
+            auto_approve=auto_approve,
+        ):
+            typer.echo("[AWT] 재시도 취소됨.")
+            raise typer.Exit(code=1)
 
     # -- Step 7/9: Report -----------------------------------------------------
     elapsed = (time.monotonic() - start_time) / 60
