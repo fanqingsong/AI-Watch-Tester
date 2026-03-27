@@ -17,32 +17,33 @@ from typing import Any
 import typer
 import yaml
 
+
 # ---------------------------------------------------------------------------
-# Action → (icon, 한글 라벨) mapping
+# Action → (icon, label) mapping
 # ---------------------------------------------------------------------------
 
 _ACTION_MAP: dict[str, tuple[str, str]] = {
-    "navigate":                ("🌐", "페이지 이동"),
-    "find_and_click":          ("🖱 ", "클릭"),
-    "find_and_double_click":   ("🖱 ", "더블클릭"),
-    "find_and_right_click":    ("🖱 ", "우클릭"),
-    "click_at":                ("🖱 ", "좌표 클릭"),
-    "find_and_type":           ("⌨ ", "텍스트 입력"),
-    "type_text":               ("⌨ ", "텍스트 입력"),
-    "find_and_clear":          ("⌨ ", "내용 지우기"),
-    "assert_url":              ("✅", "URL 확인"),
-    "assert_text":             ("✅", "텍스트 확인"),
-    "assert":                  ("✅", "조건 확인"),
-    "assert_screen_changed":   ("👁 ", "화면 변화 확인"),
-    "wait":                    ("⏳", "대기"),
-    "scroll":                  ("📜", "스크롤"),
-    "screenshot":              ("📸", "스크린샷"),
-    "go_back":                 ("↩ ", "뒤로가기"),
-    "refresh":                 ("🔄", "새로고침"),
-    "press_key":               ("⌨ ", "키 입력"),
-    "key_combo":               ("⌨ ", "키 조합"),
-    "save_session":            ("💾", "세션 저장"),
-    "load_session":            ("💾", "세션 불러오기"),
+    "navigate":              ("🌐", "Navigate"),
+    "find_and_click":        ("🖱 ", "Click"),
+    "find_and_double_click": ("🖱 ", "Double-click"),
+    "find_and_right_click":  ("🖱 ", "Right-click"),
+    "click_at":              ("🖱 ", "Click at"),
+    "find_and_type":         ("⌨ ", "Type"),
+    "type_text":             ("⌨ ", "Type"),
+    "find_and_clear":        ("⌨ ", "Clear"),
+    "assert_url":            ("✅", "Assert URL"),
+    "assert_text":           ("✅", "Assert text"),
+    "assert":                ("✅", "Assert"),
+    "assert_screen_changed": ("👁 ", "Assert changed"),
+    "wait":                  ("⏳", "Wait"),
+    "scroll":                ("📜", "Scroll"),
+    "screenshot":            ("📸", "Screenshot"),
+    "go_back":               ("↩ ", "Go back"),
+    "refresh":               ("🔄", "Refresh"),
+    "press_key":             ("⌨ ", "Press key"),
+    "key_combo":             ("⌨ ", "Key combo"),
+    "save_session":          ("💾", "Save session"),
+    "load_session":          ("💾", "Load session"),
 }
 
 _PASSWORD_HINTS = frozenset({"password", "비밀번호", "passwd", "pw", "pass"})
@@ -92,7 +93,7 @@ class ScenarioReviewer:
         self._print_footer()
 
         if auto_approve:
-            typer.echo("[AWT] --auto-approve: 자동 진행")
+            typer.echo("[AWT] --auto-approve: proceeding automatically")
             return True
 
         return self._prompt(scenario_yaml, scenario_path)
@@ -102,17 +103,17 @@ class ScenarioReviewer:
     # -----------------------------------------------------------------------
 
     def _print_header(self, scenario: dict[str, Any], attempt: int) -> None:
-        name = scenario.get("name", "시나리오")
+        name = scenario.get("name", "Scenario")
         steps = scenario.get("steps", [])
         sc_id = scenario.get("id", "")
 
         typer.echo()
         typer.echo("━" * _WIDTH)
         if attempt == 1:
-            label = " 테스트 시나리오 검토"
+            label = " Scenario Review"
         else:
-            label = f" 수정된 시나리오 ({attempt}차 재시도)"
-        badge = f"{sc_id} · {len(steps)}단계" if sc_id else f"{len(steps)}단계"
+            label = f" Updated Scenario (attempt {attempt})"
+        badge = f"{sc_id} · {len(steps)} steps" if sc_id else f"{len(steps)} steps"
         typer.echo(f"{label}  [{badge}]")
         typer.echo(f" {name}")
         typer.echo("━" * _WIDTH)
@@ -138,7 +139,7 @@ class ScenarioReviewer:
             if prev_steps:
                 prev_step = prev_steps.get(step_num)
                 changed = prev_step is None or self._step_changed(prev_step, step)
-                marker = "  ← 수정" if changed else ""
+                marker = "  ← changed" if changed else ""
             else:
                 marker = ""
 
@@ -146,7 +147,7 @@ class ScenarioReviewer:
 
     def _print_footer(self) -> None:
         typer.echo("━" * _WIDTH)
-        typer.echo(" [Enter] 실행    [e] YAML 편집    [n] 중단")
+        typer.echo(" [Enter] Run    [e] Edit YAML    [n] Cancel")
         typer.echo("━" * _WIDTH)
 
     # -----------------------------------------------------------------------
@@ -155,11 +156,11 @@ class ScenarioReviewer:
 
     def _format_step(self, step: dict[str, Any]) -> str:
         action = step.get("action", "")
-        icon, kor_label = _ACTION_MAP.get(action, ("▸ ", action))
+        icon, label = _ACTION_MAP.get(action, ("▸ ", action))
         step_num = step.get("step", "?")
         detail = self._format_detail(step, action)
-        critical_tag = "  ⛔중단" if step.get("critical") or step.get("on_fail") == "stop" else ""
-        return f" {str(step_num):>2}. {icon} {kor_label:<10}  {detail}{critical_tag}"
+        critical_tag = "  ⛔stop" if step.get("critical") or step.get("on_fail") == "stop" else ""
+        return f" {str(step_num):>2}. {icon} {label:<14}  {detail}{critical_tag}"
 
     def _format_detail(self, step: dict[str, Any], action: str) -> str:  # noqa: PLR0911
         def _s(key: str, default: str = "") -> str:
@@ -182,7 +183,7 @@ class ScenarioReviewer:
             t = step.get("target") or {}
             field = str(t.get("text") or t.get("selector") or "")
             value = self._mask_if_password(field, _s("value"))
-            return f'"{field}" ← "{value}"'
+            return f'"{field}" → "{value}"'
 
         if action == "type_text":
             value = self._mask_if_password(_s("description"), _s("value"))
@@ -196,12 +197,12 @@ class ScenarioReviewer:
 
         if action == "assert_screen_changed":
             thresh = step.get("threshold") or step.get("change_threshold")
-            return f"임계값 {thresh}" if thresh else ""
+            return f"threshold {thresh}" if thresh else ""
 
         if action == "wait":
             raw = _s("value", "0")
             try:
-                return f"{int(raw) / 1000:.1f}초"
+                return f"{int(raw) / 1000:.1f}s"
             except (ValueError, TypeError):
                 return raw
 
@@ -250,26 +251,26 @@ class ScenarioReviewer:
                 answer = input("▶ ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 typer.echo()
-                typer.echo("[AWT] 중단됨")
+                typer.echo("[AWT] Cancelled")
                 return False
 
             if answer == "" or answer == "y":
                 return True
             if answer == "n":
-                typer.echo("[AWT] 사용자가 취소했습니다.")
+                typer.echo("[AWT] Cancelled by user.")
                 return False
             if answer == "e":
                 changed = self._open_editor(scenario_yaml, scenario_path)
                 if not changed:
-                    typer.echo("[AWT] 변경 없음 — 원래 시나리오로 실행합니다.")
+                    typer.echo("[AWT] No changes — running original scenario.")
                 return True
-            typer.echo("  Enter=실행  e=편집  n=중단")
+            typer.echo("  Enter=Run  e=Edit  n=Cancel")
 
     @staticmethod
     def _prompt_raw() -> bool:
         """Fallback prompt when YAML parse failed."""
         try:
-            answer = input("실행하시겠습니까? [Enter=예 / n=아니오] ").strip().lower()
+            answer = input("Proceed? [Enter=yes / n=no] ").strip().lower()
             return answer != "n"
         except (EOFError, KeyboardInterrupt):
             return False
@@ -299,7 +300,7 @@ class ScenarioReviewer:
 
         if changed and scenario_path:
             scenario_path.write_text(tmp.read_text("utf-8"), encoding="utf-8")
-            typer.echo(f"[AWT] 수정 저장됨 → {scenario_path}")
+            typer.echo(f"[AWT] Saved → {scenario_path}")
 
         tmp.unlink(missing_ok=True)
         return changed

@@ -102,7 +102,7 @@ def test_format_wait_converts_ms() -> None:
     r = ScenarioReviewer()
     step = {"action": "wait", "value": "3000", "step": 2}
     detail = r._format_detail(step, "wait")
-    assert "3.0초" in detail
+    assert "3.0s" in detail
 
 
 def test_format_click_at_shows_coords() -> None:
@@ -188,7 +188,7 @@ def test_show_and_approve_auto_approve(capsys: pytest.CaptureFixture[str]) -> No
     result = r.show_and_approve(_LOGIN_YAML, attempt=1, auto_approve=True)
     assert result is True
     captured = capsys.readouterr()
-    assert "자동 진행" in captured.out
+    assert "proceeding automatically" in captured.out
 
 
 def test_show_and_approve_user_enters(capsys: pytest.CaptureFixture[str]) -> None:
@@ -213,7 +213,7 @@ def test_show_and_approve_shows_header(capsys: pytest.CaptureFixture[str]) -> No
     with patch("builtins.input", return_value=""):
         r.show_and_approve(_LOGIN_YAML, attempt=1)
     captured = capsys.readouterr()
-    assert "시나리오 검토" in captured.out
+    assert "Scenario Review" in captured.out
     assert "SC-001" in captured.out
 
 
@@ -223,7 +223,7 @@ def test_show_and_approve_retry_header(capsys: pytest.CaptureFixture[str]) -> No
     with patch("builtins.input", return_value=""):
         r.show_and_approve(_LOGIN_YAML, attempt=2, previous_yaml=_LOGIN_YAML)
     captured = capsys.readouterr()
-    assert "재시도" in captured.out
+    assert "attempt 2" in captured.out
 
 
 def test_show_and_approve_diff_marker(capsys: pytest.CaptureFixture[str]) -> None:
@@ -240,7 +240,7 @@ def test_show_and_approve_diff_marker(capsys: pytest.CaptureFixture[str]) -> Non
     with patch("builtins.input", return_value=""):
         r.show_and_approve(_LOGIN_YAML, attempt=2, previous_yaml=prev_yaml)
     captured = capsys.readouterr()
-    assert "← 수정" in captured.out
+    assert "← changed" in captured.out
 
 
 def test_show_and_approve_invalid_yaml_fallback() -> None:
