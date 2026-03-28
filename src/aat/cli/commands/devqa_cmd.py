@@ -44,10 +44,15 @@ def devqa_command(
         "-y",
         help="Skip scenario approval prompt (CI / non-interactive mode).",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="Enable fast mode: strictly use DOM matching, skip Vision/OCR fallbacks.",
+    ),
 ) -> None:
     """Run fully automated DevQA loop: scan → generate → test → fix → retry."""
     try:
-        asyncio.run(_devqa(description, url, config_path, max_attempts, auto_approve))
+        asyncio.run(_devqa(description, url, config_path, max_attempts, auto_approve, fast))
     except AATError as e:
         typer.echo(f"[AWT] Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -59,6 +64,7 @@ async def _devqa(
     config_path: str | None,
     max_attempts: int,
     auto_approve: bool = False,
+    fast_mode: bool = False,
 ) -> None:
     start_time = time.monotonic()
     cfg_path = Path(config_path) if config_path else None
@@ -133,14 +139,19 @@ async def _devqa(
 
     for attempt in range(1, max_attempts + 1):
         typer.echo(f"\n[AWT] Attempt {attempt}/{max_attempts}")
-        exit_code = _run_aat(
-            [
-                "run",
-                "--skill-mode",
-                "--learn",
-                str(scenario_path),
-            ]
-        )
+        
+        run_args = [
+            "run",
+            "--skill-mode",
+            "--learn",
+        ]
+        if fast_mode:
+            run_args.append("--fast")
+        if auto_approve:
+            run_args.append("-y")
+        run_args.append(str(scenario_path))
+        
+        exit_code = _run_aat(run_args)
 
         if exit_code == 0:
             passed = True

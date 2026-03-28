@@ -1003,6 +1003,16 @@ class StepExecutor:
                     await self._engine.press_key("Delete")
                 return result
 
+        # --- Fast Mode Override ---
+        # If fast_mode is active, we strictly rely on DOM parsing (CSS/xpath/text).
+        # We abort immediately and skip the heavy Vision/OCR/Screenshot pipeline.
+        if getattr(self._engine._config, "fast_mode", False):
+            target_desc = target.selector or target.text or "unknown"
+            rgn = step.region
+            region_hint = f" (region={rgn.value})" if rgn != ScreenRegion.FULL else ""
+            msg = f"[Fast Mode] Target '{target_desc}' not found in DOM{region_hint}"
+            raise MatchError(msg)
+
         # Fallback: screenshot + 3-tier matcher pipeline
         screenshot = await self._engine.screenshot()
 
@@ -1069,6 +1079,9 @@ class StepExecutor:
             double: Double-click if True.
             right: Right-click if True.
         """
+        # if getattr(self._engine._config, "fast_mode", False):
+        #     humanize = False
+
         if humanize:
             await self._humanizer.move_to(self._engine, x, y)
         if double:
@@ -1107,6 +1120,9 @@ class StepExecutor:
             text: Text to type.
             humanize: Whether to use humanized typing.
         """
+        # if getattr(self._engine._config, "fast_mode", False):
+        #     humanize = False
+
         if humanize:
             await self._humanizer.type_text(self._engine, text)
         else:

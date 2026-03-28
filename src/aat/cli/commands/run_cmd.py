@@ -238,6 +238,11 @@ def run_command(
         "--skip-teardown",
         help="Skip teardown steps (useful for debugging or when cleanup is handled externally).",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="Enable fast mode: strictly use DOM matching, skip Vision/OCR fallbacks.",
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
@@ -252,6 +257,7 @@ def run_command(
                 strict,
                 skip_teardown,
                 auto_approve,
+                fast,
             )
         )
     except AATError as e:
@@ -269,6 +275,7 @@ async def _run(
     strict_mode: bool = False,
     skip_teardown: bool = False,
     auto_approve: bool = False,
+    fast_mode: bool = False,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Debug logging
@@ -280,6 +287,14 @@ async def _run(
     # Load config
     cfg_path = Path(config_path) if config_path else None
     config = load_config(config_path=cfg_path)
+
+    if fast_mode:
+        config.engine.fast_mode = True
+        # Snappy humanizer for fast mode visual feedback
+        config.humanizer.mouse_speed_min = 0.05
+        config.humanizer.mouse_speed_max = 0.1
+        config.humanizer.typing_delay_min = 0.01
+        config.humanizer.typing_delay_max = 0.03
 
     # Apply slow_mo: CLI override > config > auto (100 for headed, 0 for headless)
     # None means "not set" — auto-apply 100 for headed mode.

@@ -202,6 +202,10 @@ class EngineConfig(BaseModel):
     )
     window_x: int | None = Field(default=None, description="Browser window X position")
     window_y: int | None = Field(default=None, description="Browser window Y position")
+    fast_mode: bool = Field(
+        default=False,
+        description="Strictly use DOM matching; skip all Vision/OCR fallbacks and humanization for maximum speed",
+    )
 
 
 class MatchingConfig(BaseModel):
