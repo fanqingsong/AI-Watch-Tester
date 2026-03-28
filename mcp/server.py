@@ -26,8 +26,23 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP(
     "awt",
     instructions=(
-        "AWT (AI Watch Tester) — AI-powered E2E web testing. "
-        "Generate, execute, and self-heal test scenarios with Playwright."
+        "AWT (AI Watch Tester) — AI-powered E2E web testing.\n\n"
+        "⛔ MANDATORY WORKFLOW — Follow these 4 steps IN ORDER. NEVER skip a step.\n\n"
+        "Step 1: Call aat_scan to analyze the target URL.\n"
+        "        → Present the scan summary to the user.\n"
+        "        → Ask: 'Should I create a test scenario?'\n"
+        "        → WAIT for user approval.\n\n"
+        "Step 2: Write a YAML scenario using scan results.\n"
+        "        → Show the scenario to the user.\n"
+        "        → Ask: 'Should I run this test?'\n"
+        "        → WAIT for user approval.\n\n"
+        "Step 3: Call aat_run_skill_mode ONLY after user approves.\n"
+        "        → If a step fails, STOP and report to user.\n"
+        "        → Ask: 'Should I fix the scenario or source code?'\n"
+        "        → WAIT for user instruction. Do NOT auto-fix.\n\n"
+        "Step 4: Report final results to the user.\n\n"
+        "⛔ NEVER use aat_run without showing the scenario to the user first.\n"
+        "⛔ NEVER auto-fix code or scenarios without user permission."
     ),
 )
 
@@ -96,37 +111,76 @@ def _format_result(result: dict[str, str | int]) -> str:
 
 
 @mcp.tool()
-async def aat_run(scenario_file: str) -> str:
-    """Run AWT test scenarios.
+async def aat_scan(url: str) -> str:
+    """STEP 1: Scan a web page to discover all interactive elements.
 
-    Executes the given YAML scenario file with Playwright browser automation.
-    Returns pass/fail status and detailed step-by-step results.
+    This is the FIRST step of the AWT workflow. Call this BEFORE creating
+    any test scenarios. It analyzes the page and saves results to
+    .aat/scan_result.json.
+
+    AFTER calling this tool:
+    1. Read the output to see what elements were found
+    2. Present a summary to the user
+    3. Ask the user: "Should I create a test scenario based on these elements?"
+    4. WAIT for user approval before proceeding
+
+    ⛔ Do NOT proceed to aat_run without user approval.
+
+    Args:
+        url: The URL to scan (e.g. http://localhost:3000)
+    """
+    result = await _run_cmd(["aat", "scan", "--url", url], timeout=60)
+    return _format_result(result)
+
+
+@mcp.tool()
+async def aat_run(scenario_file: str) -> str:
+    """STEP 3: Run AWT test scenarios (requires prior user approval).
+
+    ⚠️ IMPORTANT: Only call this AFTER:
+    1. You have scanned the site with aat_scan (Step 1)
+    2. You have shown the scenario to the user (Step 2)
+    3. The user has explicitly approved the test (e.g. "go ahead", "yes", "run it")
+
+    If a test step fails, STOP and report to the user. Ask what to fix.
+    Do NOT auto-retry or auto-fix without user permission.
+
+    ⛔ NEVER pass --auto-approve or -y flags.
 
     Args:
         scenario_file: Path to a YAML scenario file or directory containing scenarios.
     """
-    result = await _run_cmd(["aat", "run", "--learn", scenario_file], timeout=180)
+    result = await _run_cmd(
+        ["aat", "run", "--skill-mode", "--fast", "--learn", scenario_file],
+        timeout=180,
+    )
     return _format_result(result)
 
 
 @mcp.tool()
 async def aat_run_skill_mode(scenario_file: str) -> str:
-    """Run AWT in skill mode for AI coding assistant DevQA loop.
+    """STEP 3 (alternative): Run AWT in skill mode with structured failure diagnosis.
 
-    Executes scenarios and outputs structured diagnosis on failure:
-    === AWT SKILL DEVQA === block with SCENARIO, FAILED_STEP, ERROR,
-    SCREENSHOT path, POSSIBLE_CAUSE, RETRY_CMD, and ATTEMPTS counter.
+    Same rules as aat_run — requires prior user approval.
 
-    Use this for automated test-fix-retest loops. On failure:
+    ⚠️ IMPORTANT: Only call this AFTER the user has approved the scenario.
+
+    On failure, outputs a structured === AWT SKILL DEVQA === block with:
+    SCENARIO, FAILED_STEP, ERROR, SCREENSHOT path, POSSIBLE_CAUSE.
+
+    On failure:
     1. Read the SCREENSHOT file to see browser state
-    2. Fix one step at a time in the YAML
-    3. Call this tool again (max 5 attempts)
+    2. Report the failure to the user with possible cause
+    3. Ask: "Should I fix the scenario or the source code?"
+    4. WAIT for user instruction — do NOT auto-fix
+
+    ⛔ NEVER pass --auto-approve or -y flags.
 
     Args:
         scenario_file: Path to a YAML scenario file or directory.
     """
     result = await _run_cmd(
-        ["aat", "run", "--skill-mode", "--learn", scenario_file],
+        ["aat", "run", "--skill-mode", "--fast", "--learn", scenario_file],
         timeout=180,
     )
     return _format_result(result)

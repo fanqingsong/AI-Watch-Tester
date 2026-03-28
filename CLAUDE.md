@@ -4,6 +4,34 @@
 
 AI 기반 DevQA Loop 오케스트레이터. 이미지 매칭으로 UI 테스트를 자동화하고, 실패 시 AI가 코드를 수정하고 재테스트하는 루프를 반복한다.
 
+## ⛔ AWT Testing Workflow (필수 준수)
+
+사용자가 AWT로 테스트를 요청하면 반드시 아래 4단계를 **순서대로** 따를 것.
+
+### Step 1: SCAN
+```bash
+aat scan --url <URL>
+```
+→ `.aat/scan_result.json`을 읽고 사용자에게 요약 보고 → **승인 대기**
+
+### Step 2: GENERATE + PRESENT
+시나리오 YAML 작성 → 사용자에게 보여주고 → **승인 대기**
+
+### Step 3: EXECUTE (승인 후에만)
+```bash
+aat run --skill-mode --fast <scenario>
+```
+→ 실패 시 즉시 중단 → 사용자에게 보고 → **지시 대기**
+
+### Step 4: REPORT
+결과 요약 보고
+
+### 금지 사항
+- `aat devqa` 사용 금지 (사용자 체크포인트 없이 전체 파이프라인 실행)
+- `-y` / `--auto-approve` 사용 금지
+- 사용자 승인 없이 테스트 실행 금지
+- 사용자 지시 없이 코드/시나리오 자동 수정 금지
+
 ## Key Documents
 
 - `PM/기획서_v1.md` — 제품 기획서 (전체 비전)

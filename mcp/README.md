@@ -18,12 +18,24 @@ pip install mcp[cli]
 
 | Tool | 설명 |
 |------|------|
-| `aat_run` | 시나리오 파일 실행 (결과 반환) |
-| `aat_run_skill_mode` | 스킬 모드 실행 (구조화된 실패 진단 포함, AI 자동 루프용) |
+| `aat_scan` | **Step 1**: URL 스캔, 인터랙티브 요소 수집 (scan_result.json 생성) |
+| `aat_run` | **Step 3**: 시나리오 파일 실행 (사용자 승인 후에만 호출) |
+| `aat_run_skill_mode` | **Step 3**: 스킬 모드 실행 (구조화된 실패 진단 포함) |
 | `aat_doctor` | 환경 진단 (Python, Playwright, Tesseract, AI 연결) |
 | `aat_list_scenarios` | 현재 디렉토리의 시나리오 파일 목록 |
 | `aat_validate` | YAML 시나리오 스키마 검증 |
 | `aat_cost` | AI API 비용 조회 |
+
+## ⛔ 필수 사용 순서 (AI 에이전트 필독)
+
+AWT 도구를 사용할 때 반드시 아래 순서를 지켜야 합니다:
+
+1. **`aat_scan`** → 결과를 사용자에게 요약 보고 → **승인 대기**
+2. 시나리오 YAML 작성 → 사용자에게 보여주기 → **승인 대기**
+3. **`aat_run` 또는 `aat_run_skill_mode`** → 승인 후에만 실행 → 실패 시 보고 → **지시 대기**
+4. 결과 보고
+
+**금지:** `aat devqa`, `-y`/`--auto-approve`, 사용자 승인 없이 실행, 자동 코드 수정
 
 ## 설치 방법
 
