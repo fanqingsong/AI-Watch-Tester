@@ -338,6 +338,53 @@ Yes. AWT is licensed under the MIT License — free for personal and commercial 
 </details>
 
 <details>
+<summary><strong>How do I control verbosity and screenshots?</strong></summary>
+<br/>
+
+AWT supports two flags that let you trade thoroughness for speed:
+
+**`--verbosity`** controls how many steps are executed:
+
+| Mode | Steps | What's included | Use when |
+|------|-------|-----------------|----------|
+| `detailed` (default) | 60–80 | All steps: wait, screenshot, assert | Audit, regression |
+| `concise` | 12–15 | Core actions only: navigate, click, type | CI/CD, quick check |
+
+**`--screenshots`** controls how many screenshots are saved:
+
+| Mode | Files | Description | Use when |
+|------|-------|-------------|----------|
+| `all` (default) | 1 per step | Every step captured | Full audit trail |
+| `before-after` | 2 per action | Before + after each click/type/navigate | Standard QA (~70% fewer files) |
+| `on-failure` | 1 on error | Failure step only | CI/CD optimization |
+
+**Recommended combinations:**
+
+```bash
+# CI/CD — fastest, minimal output
+aat run --verbosity=concise --screenshots=on-failure scenarios/
+
+# Standard QA — balanced (recommended)
+aat run --verbosity=concise --screenshots=before-after scenarios/
+
+# Full audit — every detail captured
+aat run --verbosity=detailed --screenshots=all scenarios/
+
+# devqa supports the same flags
+aat devqa "login test" --verbosity=concise --screenshots=before-after
+```
+
+**Expected timing (SC-NAV-001, 68-step scenario):**
+
+| Mode | Steps executed | Screenshots | ~Time |
+|------|---------------|-------------|-------|
+| `concise` + `on-failure` | 12 | 0–1 | ~1 min |
+| `concise` + `before-after` | 12 | 24 | ~2 min |
+| `detailed` + `all` | 68 | 68 | ~5 min |
+
+</details>
+
+<details>
 <summary><strong>Can I use it in CI/CD?</strong></summary>
 <br/>
 

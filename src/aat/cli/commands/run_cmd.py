@@ -252,6 +252,24 @@ def run_command(
         "--fast",
         help="Enable fast mode: strictly use DOM matching, skip Vision/OCR fallbacks.",
     ),
+    verbosity: str | None = typer.Option(
+        None,
+        "--verbosity",
+        "-V",
+        help=(
+            "Execution verbosity: 'detailed' (default, run all steps) or "
+            "'concise' (skip wait/screenshot/assert_screen_changed steps for speed)."
+        ),
+    ),
+    screenshots: str | None = typer.Option(
+        None,
+        "--screenshots",
+        help=(
+            "Screenshot strategy: 'all' (every step, default), "
+            "'before-after' (action boundaries only, ~70% fewer files), "
+            "'on-failure' (failure steps only, CI/CD optimized)."
+        ),
+    ),
 ) -> None:
     """Run test scenarios."""
     try:
@@ -268,6 +286,8 @@ def run_command(
                 auto_approve,
                 fast,
                 speed,
+                verbosity,
+                screenshots,
             )
         )
     except AATError as e:
@@ -287,6 +307,8 @@ async def _run(
     auto_approve: bool = False,
     fast_mode: bool = False,
     speed_override: str | None = None,
+    verbosity_override: str | None = None,
+    screenshots_override: str | None = None,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Debug logging
@@ -314,6 +336,26 @@ async def _run(
             typer.echo(f"[AWT] Warning: unknown speed '{speed_override}'. Using 'normal'.")
         else:
             config.engine.speed = speed_override
+
+    # Apply verbosity: CLI override > config file value
+    _valid_verbosities = {"concise", "detailed"}
+    if verbosity_override is not None:
+        if verbosity_override not in _valid_verbosities:
+            typer.echo(
+                f"[AWT] Warning: unknown verbosity '{verbosity_override}'. Using 'detailed'."
+            )
+        else:
+            config.engine.verbosity = verbosity_override
+
+    # Apply screenshot mode: CLI override > config file value
+    _valid_screenshot_modes = {"all", "before-after", "on-failure"}
+    if screenshots_override is not None:
+        if screenshots_override not in _valid_screenshot_modes:
+            typer.echo(
+                f"[AWT] Warning: unknown screenshots mode '{screenshots_override}'. Using 'all'."
+            )
+        else:
+            config.engine.screenshot_mode = screenshots_override
 
     # Apply slow_mo: CLI override > config > auto (100 for headed, 0 for headless)
     # None means "not set" — auto-apply 100 for headed mode.
@@ -352,9 +394,7 @@ async def _run(
                 typer.echo("[AWT] Execution cancelled by user.")
                 raise typer.Exit(code=0)
             if len(scenarios) > 1 and i < len(scenarios) - 1:
-                typer.echo(
-                    f"  ({i + 1}/{len(scenarios)} approved — next: {scenarios[i + 1].id})"
-                )
+                typer.echo(f"  ({i + 1}/{len(scenarios)} approved — next: {scenarios[i + 1].id})")
 
     # Assemble engine
     engine_cls = ENGINE_REGISTRY.get(config.engine.type)
@@ -761,9 +801,7 @@ async def _run(
                 td_vars.update(executor._scenario_vars or {})
 
                 if skill_mode:
-                    typer.echo(
-                        f"[AWT] Running {len(scenario.teardown)} teardown step(s)..."
-                    )
+                    typer.echo(f"[AWT] Running {len(scenario.teardown)} teardown step(s)...")
                 try:
                     await TeardownExecutor(td_vars).run(scenario.teardown)
                     if skill_mode:

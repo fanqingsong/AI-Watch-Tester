@@ -215,6 +215,21 @@ class EngineConfig(BaseModel):
             "'slow' for Flutter CanvasKit or heavy animations."
         ),
     )
+    screenshot_mode: str = Field(
+        default="all",
+        description=(
+            "Screenshot strategy: 'all' (every step, default), "
+            "'before-after' (action boundaries only, ~70% fewer files), "
+            "'on-failure' (failure steps only, CI/CD optimized)"
+        ),
+    )
+    verbosity: str = Field(
+        default="detailed",
+        description=(
+            "Execution verbosity: 'detailed' (all steps, default) "
+            "or 'concise' (skip wait/screenshot/assert_screen_changed)"
+        ),
+    )
 
 
 class MatchingConfig(BaseModel):

@@ -49,10 +49,39 @@ def devqa_command(
         "--fast",
         help="Enable fast mode: strictly use DOM matching, skip Vision/OCR fallbacks.",
     ),
+    verbosity: str = typer.Option(
+        "detailed",
+        "--verbosity",
+        "-V",
+        help=(
+            "Scenario verbosity: 'detailed' (60-80 steps, all verification) or "
+            "'concise' (12-15 steps, core actions only)."
+        ),
+    ),
+    screenshots: str = typer.Option(
+        "all",
+        "--screenshots",
+        help=(
+            "Screenshot strategy: 'all' (every step, default), "
+            "'before-after' (action boundaries, ~70% fewer files), "
+            "'on-failure' (failures only, CI/CD optimized)."
+        ),
+    ),
 ) -> None:
     """Run fully automated DevQA loop: scan → generate → test → fix → retry."""
     try:
-        asyncio.run(_devqa(description, url, config_path, max_attempts, auto_approve, fast))
+        asyncio.run(
+            _devqa(
+                description,
+                url,
+                config_path,
+                max_attempts,
+                auto_approve,
+                fast,
+                verbosity,
+                screenshots,
+            )
+        )
     except AATError as e:
         typer.echo(f"[AWT] Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -65,6 +94,8 @@ async def _devqa(
     max_attempts: int,
     auto_approve: bool = False,
     fast_mode: bool = False,
+    verbosity: str = "detailed",
+    screenshots: str = "all",
 ) -> None:
     start_time = time.monotonic()
     cfg_path = Path(config_path) if config_path else None
@@ -107,6 +138,7 @@ async def _devqa(
         scan_data,
         app_url,
         config.test_accounts,
+        verbosity=verbosity,
     )
     # Extract generated ID for filename
     sc_id = _next_scenario_id()
@@ -139,7 +171,7 @@ async def _devqa(
 
     for attempt in range(1, max_attempts + 1):
         typer.echo(f"\n[AWT] Attempt {attempt}/{max_attempts}")
-        
+
         run_args = [
             "run",
             "--skill-mode",
@@ -149,8 +181,12 @@ async def _devqa(
             run_args.append("--fast")
         if auto_approve:
             run_args.append("-y")
+        if verbosity != "detailed":
+            run_args.extend(["--verbosity", verbosity])
+        if screenshots != "all":
+            run_args.extend(["--screenshots", screenshots])
         run_args.append(str(scenario_path))
-        
+
         exit_code = _run_aat(run_args)
 
         if exit_code == 0:
@@ -230,6 +266,7 @@ def _generate_scenario(
     scan_data: dict[str, Any],
     app_url: str,
     test_accounts: dict[str, dict[str, str]] | None = None,
+    verbosity: str = "detailed",
 ) -> str:
     """Generate YAML scenario from scan_result.json elements.
 
@@ -238,6 +275,10 @@ def _generate_scenario(
     2. Use test_accounts for login/signup flows
     3. Match description keywords to infer intent
     4. Validate: every input has a value, submit follows inputs
+
+    verbosity:
+        'detailed' — include assert_screen_changed after each click (default)
+        'concise'  — omit assert/wait steps; aim for 12-15 core steps
     """
     import yaml
 
@@ -327,17 +368,18 @@ def _generate_scenario(
             steps.append(click_step)
             step_num += 1
 
-            # Assert after click
-            steps.append(
-                {
-                    "step": step_num,
-                    "action": "assert_screen_changed",
-                    "threshold": 0.05,
-                    "region": "main",
-                    "description": f'Verify screen changed after "{label}"',
-                }
-            )
-            step_num += 1
+            # Assert after click — detailed mode only
+            if verbosity == "detailed":
+                steps.append(
+                    {
+                        "step": step_num,
+                        "action": "assert_screen_changed",
+                        "threshold": 0.05,
+                        "region": "main",
+                        "description": f'Verify screen changed after "{label}"',
+                    }
+                )
+                step_num += 1
 
     # --- Fallback: if no keywords matched, use prominent buttons ---
     if not clicked_labels:

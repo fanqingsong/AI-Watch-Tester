@@ -50,9 +50,9 @@ logger = logging.getLogger(__name__)
 #         url_poll    = assert_url retry interval
 # ---------------------------------------------------------------------------
 _SPEED_PRESETS: dict[str, dict[str, float]] = {
-    "fast":   {"post_step": 0.1,  "ui_settle": 0.1,  "animation": 0.05, "url_poll": 0.3},
-    "normal": {"post_step": 0.2,  "ui_settle": 0.2,  "animation": 0.1,  "url_poll": 0.5},
-    "slow":   {"post_step": 0.5,  "ui_settle": 0.5,  "animation": 0.3,  "url_poll": 1.0},
+    "fast": {"post_step": 0.1, "ui_settle": 0.1, "animation": 0.05, "url_poll": 0.3},
+    "normal": {"post_step": 0.2, "ui_settle": 0.2, "animation": 0.1, "url_poll": 0.5},
+    "slow": {"post_step": 0.5, "ui_settle": 0.5, "animation": 0.3, "url_poll": 1.0},
 }
 _DEFAULT_PRESET = _SPEED_PRESETS["normal"]
 
@@ -61,6 +61,42 @@ def _get_preset(engine: object) -> dict[str, float]:
     """Return speed preset dict from engine config."""
     speed = getattr(getattr(engine, "_config", None), "speed", "normal")
     return _SPEED_PRESETS.get(speed or "normal", _DEFAULT_PRESET)
+
+
+def _get_screenshot_mode(engine: object) -> str:
+    """Return screenshot_mode from engine config: all | before-after | on-failure."""
+    return getattr(getattr(engine, "_config", None), "screenshot_mode", "all") or "all"
+
+
+def _get_verbosity(engine: object) -> str:
+    """Return verbosity from engine config: detailed | concise."""
+    return getattr(getattr(engine, "_config", None), "verbosity", "detailed") or "detailed"
+
+
+# Action steps worth capturing before/after screenshots for
+_SCREENSHOT_WORTHY_ACTIONS: frozenset[ActionType] = frozenset(
+    {
+        ActionType.NAVIGATE,
+        ActionType.FIND_AND_CLICK,
+        ActionType.FIND_AND_DOUBLE_CLICK,
+        ActionType.FIND_AND_RIGHT_CLICK,
+        ActionType.FIND_AND_TYPE,
+        ActionType.CLICK_AT,
+        ActionType.TYPE_TEXT,
+        ActionType.PRESS_KEY,
+        ActionType.KEY_COMBO,
+        ActionType.GO_BACK,
+        ActionType.REFRESH,
+    }
+)
+
+# Steps skipped entirely in concise verbosity mode
+_CONCISE_SKIP_ACTIONS: frozenset[ActionType] = frozenset(
+    {
+        ActionType.SCREENSHOT,
+        ActionType.ASSERT_SCREEN_CHANGED,
+    }
+)
 
 
 _SYNONYMS: dict[str, list[str]] = {
@@ -195,6 +231,18 @@ class StepExecutor:
             # 0. Resolve runtime variables in step fields
             step = self._resolve_runtime_vars(step)
 
+            # 0.5. Concise mode: skip decorative steps entirely
+            if _get_verbosity(self._engine) == "concise" and step.action in _CONCISE_SKIP_ACTIONS:
+                elapsed = (time.monotonic() - start) * 1000
+                logger.debug("concise: skipping %s step %d", step.action.value, step.step)
+                return StepResult(
+                    step=step.step,
+                    action=step.action,
+                    status=StepStatus.SKIPPED,
+                    description=step.description,
+                    elapsed_ms=elapsed,
+                )
+
             # 1. screenshot_before
             if step.screenshot_before:
                 screenshots["before"] = await self._save_screenshot("before")
@@ -247,7 +295,10 @@ class StepExecutor:
             post_screenshot = await self._engine.screenshot()
             await self._verify_post_step(step, post_screenshot)
 
-            # 4. screenshot_after
+            # 3.5. Save screenshots per screenshot_mode strategy
+            await self._save_step_screenshots(step, post_screenshot, screenshots)
+
+            # 4. screenshot_after (explicit YAML field — always honoured)
             if step.screenshot_after:
                 screenshots["after"] = await self._save_screenshot("after")
 
@@ -284,6 +335,11 @@ class StepExecutor:
                 error_message=str(e),
                 elapsed_ms=elapsed,
             )
+
+            # Save failure screenshot for on-failure mode (or always for non-all modes)
+            if status == StepStatus.FAILED:
+                await self._save_failure_screenshot(step, fail_result)
+
             self._record_step(step, fail_result)
 
             # Critical step or on_fail=stop → raise to abort scenario
@@ -416,7 +472,11 @@ class StepExecutor:
             await self._handle_if_visible_block(step)
 
         elif step.action == ActionType.WAIT:
-            await asyncio.sleep(int(step.value or "1000") / 1000)
+            wait_ms = int(step.value or "1000")
+            # Concise mode: cap wait at 100ms (keep timing but don't block)
+            if _get_verbosity(self._engine) == "concise":
+                wait_ms = min(wait_ms, 100)
+            await asyncio.sleep(wait_ms / 1000)
 
         elif step.action == ActionType.SCREENSHOT:
             await self._save_screenshot("manual")
@@ -1195,6 +1255,56 @@ class StepExecutor:
         path = self._screenshot_dir / filename
         await self._engine.save_screenshot(path)
         return str(path)
+
+    async def _save_step_screenshots(
+        self,
+        step: StepConfig,
+        post_screenshot: bytes,
+        screenshots: dict[str, str | None],
+    ) -> None:
+        """Save screenshots according to screenshot_mode strategy.
+
+        Modes:
+            all         — save after-screenshot for every step
+            before-after — save before+after only for meaningful action steps
+            on-failure  — skip here; handled by _save_failure_screenshot on error
+        """
+        mode = _get_screenshot_mode(self._engine)
+        if mode == "on-failure":
+            return  # Only save on failure (handled separately)
+
+        is_worthy = step.action in _SCREENSHOT_WORTHY_ACTIONS
+
+        if mode == "all" or (mode == "before-after" and is_worthy):
+            step_prefix = f"step{step.step:03d}"
+            self._screenshot_dir.mkdir(parents=True, exist_ok=True)
+
+            if mode == "before-after" and self._last_screenshot:
+                before_path = self._screenshot_dir / f"{step_prefix}_before.png"
+                before_path.write_bytes(self._last_screenshot)
+                screenshots["before"] = str(before_path)
+
+            after_path = self._screenshot_dir / f"{step_prefix}_after.png"
+            after_path.write_bytes(post_screenshot)
+            screenshots["after"] = str(after_path)
+
+    async def _save_failure_screenshot(
+        self,
+        step: StepConfig,
+        fail_result: StepResult,
+    ) -> None:
+        """Capture and save a screenshot when a step fails.
+
+        Used by all screenshot_mode values so failures are always recorded.
+        """
+        try:
+            ss = await self._engine.screenshot()
+            self._screenshot_dir.mkdir(parents=True, exist_ok=True)
+            fail_path = self._screenshot_dir / f"step{step.step:03d}_failure.png"
+            fail_path.write_bytes(ss)
+            fail_result.screenshot_after = str(fail_path)
+        except Exception:
+            pass
 
     async def _check_assert_url(self, step: StepConfig) -> None:
         """Assert current URL contains expected substring."""
@@ -2228,8 +2338,7 @@ class StepExecutor:
             ss_path.parent.mkdir(parents=True, exist_ok=True)
             ss_path.write_bytes(screenshot)
             raise StepExecutionError(
-                f"AI verification failed at step {step.step}: {reason} "
-                f"(screenshot: {ss_path})",
+                f"AI verification failed at step {step.step}: {reason} (screenshot: {ss_path})",
                 step=step.step,
                 action=step.action.value,
             )
@@ -2293,8 +2402,7 @@ class StepExecutor:
             # Still run URL-based login redirect check (no OCR needed)
             if not self._intentional_login_page:
                 on_login_page = any(
-                    kw in page_url
-                    for kw in ("nidlogin", "/login", "/signin", "account/login")
+                    kw in page_url for kw in ("nidlogin", "/login", "/signin", "account/login")
                 )
                 if on_login_page:
                     ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
