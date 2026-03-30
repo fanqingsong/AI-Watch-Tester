@@ -231,6 +231,8 @@ class TestStepExecutorE2E:
 
     @pytest.fixture()
     def mock_engine(self) -> AsyncMock:
+        from unittest.mock import MagicMock
+
         engine = AsyncMock()
         engine.screenshot = AsyncMock(return_value=b"\x89PNG_fake_screenshot")
         engine.click = AsyncMock()
@@ -244,6 +246,12 @@ class TestStepExecutorE2E:
         engine.mouse_position = (0, 0)
         engine.move_mouse = AsyncMock()
         engine.find_text_position = AsyncMock(return_value=(1, 1))
+        # page.url and page.title() needed by _verify_post_step URL checks
+        page = MagicMock()
+        page.url = "http://example.com/page"
+        page.title = AsyncMock(return_value="Example Page")
+        engine.page = page
+        engine._config = MagicMock(fast_mode=False, speed="normal")
         return engine
 
     @pytest.fixture()
