@@ -206,6 +206,15 @@ class EngineConfig(BaseModel):
         default=False,
         description="Strictly use DOM matching; skip Vision/OCR fallbacks for maximum speed",
     )
+    speed: str = Field(
+        default="normal",
+        description=(
+            "Execution speed preset. "
+            "'fast' for Next.js/React/Vue (regular web), "
+            "'normal' for default/mixed apps, "
+            "'slow' for Flutter CanvasKit or heavy animations."
+        ),
+    )
 
 
 class MatchingConfig(BaseModel):

@@ -37,6 +37,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Speed presets
+# ---------------------------------------------------------------------------
+# fast   → Next.js / React / Vue / standard web apps (real DOM, fast renders)
+# normal → Default; works for most apps including SPAs with animations
+# slow   → Flutter CanvasKit, canvas-based apps, heavy JS animations
+#
+# Values: post_step   = stabilization before post-step screenshot
+#         ui_settle   = wait after find_and_* for error/toast detection
+#         animation   = post-click delay when no navigation detected
+#         url_poll    = assert_url retry interval
+# ---------------------------------------------------------------------------
+_SPEED_PRESETS: dict[str, dict[str, float]] = {
+    "fast":   {"post_step": 0.1,  "ui_settle": 0.1,  "animation": 0.05, "url_poll": 0.3},
+    "normal": {"post_step": 0.2,  "ui_settle": 0.2,  "animation": 0.1,  "url_poll": 0.5},
+    "slow":   {"post_step": 0.5,  "ui_settle": 0.5,  "animation": 0.3,  "url_poll": 1.0},
+}
+_DEFAULT_PRESET = _SPEED_PRESETS["normal"]
+
+
+def _get_preset(engine: object) -> dict[str, float]:
+    """Return speed preset dict from engine config."""
+    speed = getattr(getattr(engine, "_config", None), "speed", "normal")
+    return _SPEED_PRESETS.get(speed or "normal", _DEFAULT_PRESET)
+
+
 _SYNONYMS: dict[str, list[str]] = {
     "email": ["이메일", "e-mail", "이메일 주소"],
     "이메일": ["email", "e-mail"],
@@ -217,7 +243,7 @@ class StepExecutor:
             # 3. POST-STEP SCREENSHOT VERIFICATION
             # Take screenshot after every action and verify the step
             # actually had the intended effect. This is AWT's core value.
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(_get_preset(self._engine)["post_step"])
             post_screenshot = await self._engine.screenshot()
             await self._verify_post_step(step, post_screenshot)
 
@@ -665,7 +691,7 @@ class StepExecutor:
                 t_name = step.target.text or step.target.selector or ""
             if t_name:
                 # Wait for UI to settle after action (error messages, etc.)
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(_get_preset(self._engine)["ui_settle"])
                 # Detect state AFTER action + settle
                 post_state = await self._detect_page_state()
                 self._current_page_state = post_state
@@ -1006,7 +1032,7 @@ class StepExecutor:
         # --- Fast Mode Override ---
         # If fast_mode is active, we strictly rely on DOM parsing (CSS/xpath/text).
         # We abort immediately and skip the heavy Vision/OCR/Screenshot pipeline.
-        if getattr(self._engine._config, "fast_mode", False):
+        if getattr(getattr(self._engine, "_config", None), "fast_mode", False):
             target_desc = target.selector or target.text or "unknown"
             rgn = step.region
             region_hint = f" (region={rgn.value})" if rgn != ScreenRegion.FULL else ""
@@ -1151,7 +1177,7 @@ class StepExecutor:
                     await page.wait_for_load_state("domcontentloaded", timeout=3000)
             else:
                 # No navigation — brief delay for modal/animation
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(_get_preset(self._engine)["animation"])
         except Exception:
             logger.debug("Post-click navigation wait failed", exc_info=True)
             pass
@@ -1184,7 +1210,7 @@ class StepExecutor:
 
         # Poll briefly for navigation to complete
         if expected.lower() not in current_url.lower():
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(_get_preset(self._engine)["url_poll"])
             current_url = await self._engine.get_url()
 
         if expected.lower() not in current_url.lower():

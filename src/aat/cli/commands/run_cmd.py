@@ -213,6 +213,15 @@ def run_command(
         "--slow-mo",
         help="Slow down each action by N ms (default: 100 in headed, 0 in headless).",
     ),
+    speed: str | None = typer.Option(
+        None,
+        "--speed",
+        help=(
+            "Execution speed preset: fast (Next.js/React/Vue), "
+            "normal (default), slow (Flutter/canvas). "
+            "Overrides config file setting."
+        ),
+    ),
     learn: bool = typer.Option(
         False,
         "--learn",
@@ -258,6 +267,7 @@ def run_command(
                 skip_teardown,
                 auto_approve,
                 fast,
+                speed,
             )
         )
     except AATError as e:
@@ -276,6 +286,7 @@ async def _run(
     skip_teardown: bool = False,
     auto_approve: bool = False,
     fast_mode: bool = False,
+    speed_override: str | None = None,
 ) -> None:
     """Execute scenarios asynchronously."""
     # Debug logging
@@ -295,6 +306,14 @@ async def _run(
         config.humanizer.mouse_speed_max = 0.1
         config.humanizer.typing_delay_min = 0.01
         config.humanizer.typing_delay_max = 0.03
+
+    # Apply speed preset: CLI override > config file value
+    _valid_speeds = {"fast", "normal", "slow"}
+    if speed_override is not None:
+        if speed_override not in _valid_speeds:
+            typer.echo(f"[AWT] Warning: unknown speed '{speed_override}'. Using 'normal'.")
+        else:
+            config.engine.speed = speed_override
 
     # Apply slow_mo: CLI override > config > auto (100 for headed, 0 for headless)
     # None means "not set" — auto-apply 100 for headed mode.
