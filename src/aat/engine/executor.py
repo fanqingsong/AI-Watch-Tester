@@ -217,7 +217,7 @@ class StepExecutor:
             # 3. POST-STEP SCREENSHOT VERIFICATION
             # Take screenshot after every action and verify the step
             # actually had the intended effect. This is AWT's core value.
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.2)
             post_screenshot = await self._engine.screenshot()
             await self._verify_post_step(step, post_screenshot)
 
@@ -665,7 +665,7 @@ class StepExecutor:
                 t_name = step.target.text or step.target.selector or ""
             if t_name:
                 # Wait for UI to settle after action (error messages, etc.)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.2)
                 # Detect state AFTER action + settle
                 post_state = await self._detect_page_state()
                 self._current_page_state = post_state
@@ -1151,7 +1151,7 @@ class StepExecutor:
                     await page.wait_for_load_state("domcontentloaded", timeout=3000)
             else:
                 # No navigation — brief delay for modal/animation
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.1)
         except Exception:
             logger.debug("Post-click navigation wait failed", exc_info=True)
             pass
@@ -1184,7 +1184,7 @@ class StepExecutor:
 
         # Poll briefly for navigation to complete
         if expected.lower() not in current_url.lower():
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.5)
             current_url = await self._engine.get_url()
 
         if expected.lower() not in current_url.lower():

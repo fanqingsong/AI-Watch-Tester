@@ -52,6 +52,8 @@ def mock_engine() -> MagicMock:
     del engine.find_on_screen
     del engine.scroll_to_top
     del engine.force_click_by_text
+    # fast_mode must be False so executor doesn't short-circuit with MatchError
+    engine._config = MagicMock(fast_mode=False)
     return engine
 
 
@@ -385,6 +387,7 @@ class TestFindAndClickScreenCoords:
         engine.screenshot = AsyncMock(return_value=b"png")
         engine.save_screenshot = AsyncMock()
         engine.find_text_position = AsyncMock(return_value=None)
+        engine._config = MagicMock(fast_mode=False)
         executor = StepExecutor(
             engine=engine,
             matcher=mock_matcher,
