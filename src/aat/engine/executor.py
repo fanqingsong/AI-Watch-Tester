@@ -2263,7 +2263,54 @@ class StepExecutor:
         if step.action in skip_actions:
             return
 
-        # OCR the post-step screenshot
+        # --- Fast URL/title checks (always run, no OCR) ---
+        # These cover the most common blockers without the OCR overhead.
+        page_url = ""
+        page_title = ""
+        if hasattr(self._engine, "page"):
+            with contextlib.suppress(Exception):
+                page_url = self._engine.page.url.lower()
+            with contextlib.suppress(Exception):
+                page_title = (await self._engine.page.title()).lower()
+
+        _url_blockers = ("404", "not found", "500", "error", "forbidden", "access denied")
+        for ub in _url_blockers:
+            if ub in page_title:
+                ss_path = self._screenshot_dir / f"blocker_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                Path(str(ss_path)).write_bytes(screenshot)
+                raise StepExecutionError(
+                    f"Error page detected (title: '{page_title}') at step {step.step}. "
+                    f"Screenshot: {ss_path}",
+                    step=step.step,
+                    action=step.action.value,
+                )
+
+        # --- OCR checks: only for critical steps or if_visible dismissal ---
+        # OCR costs 0.3-0.5s per call. Skip for ordinary steps to save time.
+        needs_ocr = step.critical or step.action == ActionType.IF_VISIBLE
+        if not needs_ocr:
+            # Still run URL-based login redirect check (no OCR needed)
+            if not self._intentional_login_page:
+                on_login_page = any(
+                    kw in page_url
+                    for kw in ("nidlogin", "/login", "/signin", "account/login")
+                )
+                if on_login_page:
+                    ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
+                    ss_path.parent.mkdir(parents=True, exist_ok=True)
+                    Path(str(ss_path)).write_bytes(screenshot)
+                    raise StepExecutionError(
+                        f"Login redirect detected after step {step.step}. "
+                        "Session expired or authentication required. "
+                        f"Screenshot: {ss_path}",
+                        step=step.step,
+                        action=step.action.value,
+                    )
+            await self._ai_verify_step(step, screenshot)
+            return
+
+        # OCR the post-step screenshot (critical / if_visible only)
         try:
             import pytesseract  # type: ignore[import-untyped]
 
@@ -2394,7 +2441,8 @@ class StepExecutor:
 
         best_ratio = 0.0
         threshold = self._get_critical_threshold(step)
-        polls = 5 if step.critical else 3
+        polls = 5 if step.critical else 2
+        poll_interval = _get_preset(self._engine)["url_poll"]
 
         for _ in range(polls):
             current = await self._engine.screenshot()
@@ -2408,7 +2456,7 @@ class StepExecutor:
                 )
                 return
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(poll_interval)
 
         # No change detected
         if step.critical:
