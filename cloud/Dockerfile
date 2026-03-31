@@ -1,15 +1,15 @@
-FROM python:3.12-slim
+# Use Microsoft's official Playwright Python image — Chromium pre-installed,
+# eliminating the longest build step (playwright install --with-deps chromium).
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
 
-# System dependencies: Playwright, Tesseract OCR, OpenCV
+# Only missing system dep: Tesseract OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget gnupg curl \
     tesseract-ocr \
-    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Python dependencies (cloud backend)
+# Python dependencies (cloud backend) — cached layer when requirements unchanged
 COPY cloud/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -19,16 +19,11 @@ COPY README.md ./README.md
 COPY src/ ./src/
 RUN pip install --no-cache-dir -e .
 
-# Install Playwright Chromium in shared path (accessible by appuser)
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN playwright install --with-deps chromium
-RUN chmod -R 777 /ms-playwright
-
 # Copy cloud application
 COPY cloud/app/ ./app/
 COPY cloud/scripts/ ./scripts/
 
-# Create directories for runtime data
+# Runtime directories
 RUN mkdir -p screenshots uploads
 
 # Non-root user for security
