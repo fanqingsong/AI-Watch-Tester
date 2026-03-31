@@ -705,6 +705,9 @@ async def _run(
                                 "#4ade80",
                             )
                             await asyncio.sleep(1.2)
+                elif result.status == StepStatus.SKIPPED:
+                    total_skipped += 1
+                    status_str = typer.style("SKIPPED", fg=typer.colors.YELLOW)
                 else:
                     total_failed += 1
                     scenario_failed = True
@@ -728,7 +731,12 @@ async def _run(
                 # CLI output (always)
                 if skill_mode:
                     # Skill-mode progress format
-                    icon = "✅" if result.status == StepStatus.PASSED else "❌"
+                    if result.status == StepStatus.PASSED:
+                        icon = "✅"
+                    elif result.status == StepStatus.SKIPPED:
+                        icon = "⏭️"
+                    else:
+                        icon = "❌"
                     typer.echo(
                         f"[AWT] {icon} {result.step}/{total_scenario_steps} {step.description}"
                     )
@@ -762,8 +770,8 @@ async def _run(
                             )
                         )
 
-                # Structured diagnosis on failure
-                if result.status != StepStatus.PASSED:
+                # Structured diagnosis on failure (not for skipped steps)
+                if result.status == StepStatus.FAILED:
                     try:
                         diag = await collect_failure_context(
                             engine, result, str(path), config.data_dir
