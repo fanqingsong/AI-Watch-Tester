@@ -136,9 +136,7 @@ async def test_shell_variable_substitution() -> None:
         tmp_path = f.name
 
     assert os.path.exists(tmp_path)
-    await executor._shell(
-        _step(type="shell", command=f"rm -f {tmp_path}")
-    )
+    await executor._shell(_step(type="shell", command=f"rm -f {tmp_path}"))
     assert not os.path.exists(tmp_path)
 
 
@@ -159,7 +157,7 @@ async def test_run_swallows_failures() -> None:
     """A failing teardown step must not propagate."""
     executor = TeardownExecutor()
     steps = [
-        _step(type="shell", command="exit 1"),   # will fail
+        _step(type="shell", command="exit 1"),  # will fail
         _step(type="shell", command="echo ok"),  # should still run
     ]
     # Must not raise

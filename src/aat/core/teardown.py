@@ -129,8 +129,7 @@ class TeardownExecutor:
             import asyncpg  # type: ignore[import-untyped,import-not-found]
         except ImportError as exc:
             raise RuntimeError(
-                "asyncpg is required for postgresql teardown. "
-                "Install with: pip install asyncpg"
+                "asyncpg is required for postgresql teardown. Install with: pip install asyncpg"
             ) from exc
 
         conn = await asyncpg.connect(connection)

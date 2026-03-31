@@ -7,7 +7,7 @@
   <br/>
   <strong>AWT — AI Watch Tester</strong>
   <br/>
-  <em>Enter a URL. AI generates, executes, and heals E2E tests — automatically.</em>
+  <em>Give it a URL. AWT tests your web app — no test code, no setup, no maintenance.</em>
   <br/><br/>
   <a href="https://github.com/ksgisang/AI-Watch-Tester/actions"><img src="https://img.shields.io/github/actions/workflow/status/ksgisang/AI-Watch-Tester/ci.yml?label=CI&logo=github" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
@@ -19,122 +19,194 @@
 
 ---
 
-## Demo
+## What is AWT?
 
-<p align="center">
-  <img src="docs/assets/demo.gif" alt="AWT Demo" width="800">
-  <br/>
-  <em>Enter a URL → AI scans your site → generates test scenarios → executes with live screenshots → reports results.</em>
-</p>
+**AWT is a browser testing tool that writes and fixes its own tests.**
+
+You give it your web app's URL. AWT opens a real browser, figures out what's on the page (buttons, forms, links), writes test steps, runs them, and tells you what passed and what failed. If something breaks, the **DevQA Loop** kicks in — AI reads the error, updates the test or your code, and tries again.
+
+**No test code to write. No recording sessions. No manual updates when the UI changes.**
 
 ---
 
-## Why AWT?
+## Start in 5 Minutes
 
-Most E2E testing tools still require you to **write code** or **record flows** before you can run a single test. AWT flips that model:
+### Option 1 — Cloud (no install, free)
 
-1. **You provide a URL** (and optionally a spec document).
-2. **AI analyzes** the page structure, forms, navigation, and auth flows.
-3. **AI generates** complete YAML test scenarios with selectors, test data, and assertions.
-4. **Playwright executes** the scenarios in a real browser with humanized input.
-5. **If a test fails**, the DevQA Loop kicks in — AI reads the failure, fixes the scenario or source code, and re-runs.
+```
+1. Visit https://ai-watch-tester.vercel.app
+2. Sign up (email or GitHub — takes 30 seconds)
+3. Paste your app URL
+4. Watch AWT test your site live
+```
 
-No test code. No recording. No manual maintenance.
+### Option 2 — Local CLI (runs on your machine)
+
+```bash
+# Install (requires Python 3.11+)
+pip install aat-devqa
+playwright install chromium
+
+# Run the visual dashboard
+aat dashboard
+# → Opens at http://localhost:9500
+
+# Or test directly from the command line
+aat devqa "test the login flow" --url https://your-app.com
+```
+
+That's it. AWT scans your page, writes a test plan, shows it to you for approval, then runs it in a real Chrome window.
+
+---
+
+## How It Works
+
+```
+You give AWT a URL
+        │
+        ▼
+  🔍 SCAN — AWT opens Chrome and reads every button, input, and link
+        │
+        ▼
+  📝 GENERATE — AI writes a step-by-step test plan (you review & approve)
+        │
+        ▼
+  ▶️  RUN — AWT clicks, types, and navigates like a real user
+        │
+        ├── ✅ All passed → screenshot report saved
+        │
+        └── ❌ Something failed
+                    │
+                    ▼
+            🔄 DEVQA LOOP — AI reads the failure,
+               fixes the test (or your code),
+               and tries again (up to 5 times)
+```
+
+---
+
+## The DevQA Loop — AWT's Core Feature
+
+Most testing tools stop when a test fails and wait for a human. **AWT keeps going.**
+
+When a step fails, AWT:
+1. Takes a screenshot of exactly what the browser shows
+2. Reads the error message and the visible page content
+3. Re-scans the page to check if anything moved or changed
+4. Patches the specific failing step and retries
+
+If the failure is a **bug in your source code** (not just a wrong selector), AWT can trace it — finding the route handler, component, or API endpoint that's misbehaving — and suggest or apply a fix.
+
+```bash
+# Watch the loop run live
+aat devqa "checkout flow test" --url http://localhost:3000
+
+# Or use it with your AI coding tool (Claude Code, Cursor, Copilot...)
+# "Test the registration page" → AWT scans, generates, runs, fixes
+```
 
 ---
 
 ## Four Ways to Use AWT
 
-Pick one — or use all four.
-
 | | **Cloud** | **Local CLI** | **Agent Skill** | **MCP Server** |
 |---|-----------|---------------|-----------------|----------------|
-| **URL** | [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `aat dashboard` → localhost:9500 | Works inside your AI coding tool | Works inside MCP-compatible tools |
-| **Install** | None — just sign up | `pip install aat-devqa` | `npx skills add ksgisang/awt-skill` | `pip install aat-devqa mcp` |
-| **Browser** | Headless Chromium on server | Real Chromium on your machine | Real Chromium on your machine | Real Chromium on your machine |
-| **AI key** | Server-provided or BYOK | Your own key (OpenAI / Anthropic / Ollama) | **None needed** — your AI tool is the brain | **None needed** |
-| **Best for** | PMs, planners, quick tests | Developers, CI/CD, offline use | AI-assisted dev with integrated testing | Claude Desktop, Cursor, Windsurf |
-| **Pricing** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT, unlimited) | Free forever | Free forever |
-| **Data** | Stored on our servers | Never leaves your machine | Never leaves your machine | Never leaves your machine |
+| **How to start** | Sign up at [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) | `pip install aat-devqa` | `npx skills add ksgisang/awt-skill` | `pip install aat-devqa mcp` |
+| **Browser** | Headless (server) | Real Chrome on your machine | Real Chrome on your machine | Real Chrome on your machine |
+| **AI key needed** | No (server-provided or BYOK) | Yes (your OpenAI / Anthropic / Ollama) | **No** — your AI tool is the brain | **No** |
+| **Best for** | Quick tests, PMs, planners | Developers, CI/CD | AI-assisted development | Claude Desktop, Cursor, Windsurf |
+| **Price** | Free (5/mo) · Pro $28.99 · Team $98.99 | Free forever (MIT) | Free forever | Free forever |
 
-### Cloud — Start in 30 seconds
-
-```
-1. Visit https://ai-watch-tester.vercel.app
-2. Sign up (email or GitHub)
-3. Enter your target URL
-4. Watch AI generate and execute tests
-```
-
-### Local CLI — Full control
+### Agent Skill — Let your AI coding tool drive AWT
 
 ```bash
-pip install aat-devqa
-playwright install chromium
-
-# Option 1: Web dashboard
-aat dashboard                    # http://localhost:9500
-
-# Option 2: CLI
-aat start                        # guided mode
-aat generate --url https://example.com --provider openai
-aat run scenarios/
-```
-
-### Agent Skill — Let your AI coding tool drive
-
-AWT is also available as an [Agent Skill](https://github.com/ksgisang/awt-skill) for AI coding tools like Claude Code, Cursor, Codex, and [11+ others](https://github.com/ksgisang/awt-skill#supported-ai-coding-tools). Your AI tool writes YAML scenarios and runs AWT — **no extra AI API key needed**.
-
-```bash
-# Install globally (one-line)
+# One-line install
 npx skills add ksgisang/awt-skill --skill awt -g
 
-# Then just ask your AI coding tool:
-# "Test the login flow on https://mysite.com"
-# → It writes scenarios, runs aat, reads results, and fixes failures automatically.
+# Then ask your AI tool:
+"Test the login flow on http://localhost:3000"
+"Check if the signup form works"
+"Run regression tests after my last commit"
+# → AWT scans, generates test steps, runs them, and reports back
 ```
 
-### MCP Server — Protocol-native integration
-
-AWT is available as an [MCP server](mcp/) for tools that support the [Model Context Protocol](https://modelcontextprotocol.io) — Claude Code, Claude Desktop, Cursor, Windsurf, and more.
+### MCP Server — Protocol-native
 
 ```bash
-# Claude Code (one-line)
+# Add to Claude Code
 claude mcp add awt -- python mcp/server.py
 
-# Claude Desktop / Cursor / Windsurf — see mcp/README.md for config
-```
-
-6 tools exposed: `aat_run`, `aat_run_skill_mode`, `aat_doctor`, `aat_list_scenarios`, `aat_validate`, `aat_cost`
-
-### From Source
-
-```bash
-git clone https://github.com/ksgisang/AI-Watch-Tester.git
-cd AI-Watch-Tester
-python -m venv .venv && source .venv/bin/activate
-make dev          # install deps + playwright + pre-commit
-make test         # verify everything works
-aat dashboard     # launch web UI
+# Tools available: aat_run, aat_doctor, aat_list_scenarios, aat_validate, aat_cost
 ```
 
 ---
 
-## Features
+## What AWT Is Great At
 
 | | Feature | Description |
 |---|---------|-------------|
-| :robot: | **AI Scenario Generation** | Upload a URL or spec doc (PDF/DOCX/MD) — AI creates E2E test scenarios |
-| :globe_with_meridians: | **Real Browser Testing** | Playwright-driven Chromium with Bezier mouse curves and variable-speed typing |
-| :recycle: | **Self-Healing DevQA Loop** | AI analyzes failures, patches code or scenarios, and re-runs automatically |
-| :cloud: | **Cloud + Local** | Cloud mode (no install, browser dashboard) or local mode (real browser, full control) |
-| :bar_chart: | **Live Dashboard** | Real-time screenshot streaming, step-by-step progress, event log |
-| :page_facing_up: | **Document-Based Generation** | Feed PDF/DOCX/Markdown specs — AI generates scenarios from requirements |
-| :key: | **BYOK** | Bring your own AI API key (OpenAI, Anthropic, Ollama) — encrypted at rest |
-| :test_tube: | **CI/CD Ready** | One-line `curl` integration with any pipeline |
-| :jigsaw: | **Plugin Architecture** | Engines, matchers, AI adapters, and reporters are all swappable via registries |
-| :wrench: | **[Agent Skill](https://github.com/ksgisang/awt-skill)** | Use AWT inside Claude Code, Cursor, Codex, and 11+ AI coding tools — no extra AI key needed |
-| :electric_plug: | **[MCP Server](mcp/)** | Protocol-native integration for Claude Desktop, Cursor, Windsurf via Model Context Protocol |
+| 🤖 | **Zero-code test generation** | Point at a URL — AI generates complete test steps with real selectors |
+| 🔄 | **Self-healing DevQA Loop** | Tests fail? AI fixes and retries automatically (up to 5 attempts) |
+| 👁️ | **Visual verification** | Screenshots before/after every action — not just DOM checks |
+| 🌐 | **Real browser** | Chrome with human-like mouse movement and typing speed |
+| 📱 | **Flutter support** | Native CanvasKit + Semantics detection — tests Flutter web apps too |
+| 📄 | **Document-based generation** | Feed a PDF/DOCX spec — AI generates tests from requirements |
+| ⚡ | **Speed modes** | `fast` for React/Next.js · `slow` for Flutter/animations |
+| 📸 | **Smart screenshots** | `all` / `before-after` / `on-failure` — choose your audit level |
+| 🔌 | **Plugin architecture** | Swap engines, matchers, AI providers via simple registries |
+
+---
+
+## AWT vs Other Tools
+
+### vs Playwright / Cypress
+
+Playwright and Cypress are excellent — and AWT is built on top of Playwright. The difference is **who writes the tests**:
+
+| | **AWT** | **Playwright / Cypress** |
+|---|---------|--------------------------|
+| Who writes tests | AI (from your URL) | You (code) |
+| Maintenance when UI changes | AI auto-heals | You update selectors manually |
+| Learning curve | Zero — just paste a URL | Moderate (framework API + JS/TS) |
+| Flexibility | High (YAML scenarios) | Maximum (full code control) |
+
+**Use Playwright/Cypress** when you want full programmatic control. **Use AWT** when you want tests without writing them.
+
+### vs testRigor
+
+| | **AWT** | **testRigor** |
+|---|---------|---------------|
+| Test authoring | AI generates from URL — you write nothing | Plain English (you write commands) |
+| Self-healing | DevQA Loop (AI re-generates automatically) | Built-in auto-maintenance |
+| Pricing | Free (MIT, self-host) | Enterprise (~$800+/mo) |
+| Open source | ✅ MIT License | ❌ |
+
+### vs Applitools
+
+Applitools specializes in **visual regression** (pixel-by-pixel screenshot comparison). AWT specializes in **functional testing** (does the login actually work?). They complement each other — run AWT for functional tests, add Applitools for pixel-perfect visual checks.
+
+---
+
+## Speed & Screenshot Modes
+
+Control the trade-off between thoroughness and speed:
+
+```bash
+# CI/CD — fastest, minimal storage
+aat run --verbosity=concise --screenshots=on-failure scenarios/
+
+# Standard QA — balanced (recommended)
+aat run --verbosity=concise --screenshots=before-after scenarios/
+
+# Full audit — every step recorded
+aat run --verbosity=detailed --screenshots=all scenarios/
+```
+
+| Mode | Steps | Screenshots | ~Time | Use For |
+|------|-------|-------------|-------|---------|
+| `concise` + `on-failure` | 12–15 | 0–1 | ~1 min | CI/CD gates |
+| `concise` + `before-after` | 12–15 | 24 | ~2 min | Daily QA |
+| `detailed` + `all` | 60–80 | 68 | ~5 min | Compliance / audit |
 
 ---
 
@@ -144,80 +216,38 @@ aat dashboard     # launch web UI
 |----------|--------|------|-------|
 | **OpenAI** | gpt-4o, gpt-4o-mini | Pay-per-use | `export OPENAI_API_KEY=sk-...` |
 | **Anthropic** | Claude Sonnet 4 | Pay-per-use | `export ANTHROPIC_API_KEY=sk-ant-...` |
-| **Ollama** | codellama, llama3, mistral | Free (local GPU) | `ollama serve` |
-
-Configure in `aat.yaml` or via environment variables:
+| **Ollama** | codellama, llama3, mistral | Free (local) | `ollama serve` |
 
 ```yaml
+# aat.yaml
 ai:
   provider: openai        # openai | anthropic | ollama
   model: gpt-4o
   api_key: ${OPENAI_API_KEY}
 ```
 
-Cloud users can bring their own API key (BYOK) via **Settings > AI Provider**.
-
----
-
-## How It Compares
-
-### vs testRigor
-
-| | **AWT** | **testRigor** |
-|---|---------|---------------|
-| Test authoring | AI generates from URL/docs — zero input | Plain English commands (you write) |
-| Self-healing | DevQA Loop (AI re-generates) | Built-in auto-maintenance |
-| Pricing | Free (MIT, self-host) | Enterprise pricing (~$800+/mo) |
-| Open source | Yes | No |
-| Setup time | Seconds (enter URL) | Minutes (write English scripts) |
-
-**Choose AWT** if you want fully automated test generation with no scripting at all, or need a self-hostable open-source tool. **Choose testRigor** if you prefer writing plain-English test specs with enterprise support.
-
-### vs Applitools
-
-| | **AWT** | **Applitools** |
-|---|---------|----------------|
-| Primary focus | Functional E2E test generation + execution | Visual regression + cross-browser comparison |
-| AI role | Generates entire test scenarios | Compares screenshots for visual differences |
-| Standalone | Yes (full pipeline) | No (requires Cypress/Playwright/Selenium) |
-| Pricing | Free (MIT) | Free tier + paid plans |
-
-**Choose AWT** for AI-driven functional testing where you need scenarios generated automatically. **Choose Applitools** when pixel-perfect visual consistency across browsers is the priority. They complement each other — AWT generates and runs tests, Applitools can validate visual output.
-
-### vs Playwright / Cypress
-
-These are **excellent** browser automation frameworks that AWT is built on top of. The difference is **who writes the tests**: you (Playwright/Cypress) or AI (AWT). If your team wants full programmatic control, use them directly. If you want AI to handle test creation and maintenance, AWT fills that gap.
-
-See [docs/COMPARISON.md](docs/COMPARISON.md) for a detailed breakdown against Playwright, Cypress, Testim, Katalon, and Mabl.
-
 ---
 
 ## Architecture
 
 ```
-aat start / aat dashboard
-       │
-       ▼
-┌─────────────────────────────────────────────┐
-│                   CLI (Typer)                │
-├─────────────────────────────────────────────┤
-│              Core Orchestrator              │
-│  ┌──────────┐ ┌──────────┐ ┌─────────────┐ │
-│  │ Executor │ │Comparator│ │ DevQA Loop  │ │
-│  └────┬─────┘ └────┬─────┘ └──────┬──────┘ │
-├───────┼─────────────┼──────────────┼────────┤
-│  ┌────▼────┐  ┌─────▼─────┐  ┌────▼─────┐  │
-│  │ Engine  │  │  Matcher  │  │ Adapter  │  │
-│  │Registry │  │ Registry  │  │ Registry │  │
-│  └─────────┘  └───────────┘  └──────────┘  │
-│  web|desktop  template|ocr   openai|claude  │
-│               feature|hybrid ollama         │
-├─────────────────────────────────────────────┤
-│  Models (Pydantic v2)  │  Config (Settings) │
-└─────────────────────────────────────────────┘
+aat devqa / aat run / aat dashboard
+              │
+              ▼
+    ┌─────────────────────────────────────┐
+    │           CLI (Typer)               │
+    ├─────────────────────────────────────┤
+    │         Core Orchestrator           │
+    │  Executor · Comparator · DevQALoop  │
+    ├────────────┬──────────┬─────────────┤
+    │   Engine   │ Matcher  │  AI Adapter │
+    │ web/desktop│ocr/cv/ai │ openai/etc. │
+    ├────────────┴──────────┴─────────────┤
+    │  Pydantic v2 Models · SQLite Learn  │
+    └─────────────────────────────────────┘
 ```
 
-All modules follow **ABC + plugin registry** pattern — extend the base class, register in `__init__.py`, done.
+All modules follow a **plugin registry** pattern — add a new engine, matcher, or AI provider by implementing one base class and registering it in `__init__.py`.
 
 ---
 
@@ -226,75 +256,73 @@ All modules follow **ABC + plugin registry** pattern — extend the base class, 
 ### Prerequisites
 
 - Python 3.11+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) — `brew install tesseract` / `apt install tesseract-ocr`
-- Git
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract): `brew install tesseract` / `apt install tesseract-ocr`
 
-### Make Commands
+### Commands
 
-| Command | Description |
+| Command | What it does |
 |---------|-------------|
-| `make dev` | Install all deps + Playwright + pre-commit |
-| `make lint` | ruff check |
-| `make format` | ruff format + auto-fix |
-| `make typecheck` | mypy strict |
-| `make test` | pytest |
-| `make test-cov` | pytest + coverage report |
-| `make clean` | Remove caches and build artifacts |
+| `make dev` | Install all dependencies + Playwright + pre-commit |
+| `make lint` | Check code style (ruff) |
+| `make format` | Auto-fix formatting |
+| `make typecheck` | Strict type checking (mypy) |
+| `make test` | Run all tests (pytest) |
+| `make test-cov` | Tests + coverage report |
+
+```bash
+git clone https://github.com/ksgisang/AI-Watch-Tester.git
+cd AI-Watch-Tester
+python -m venv .venv && source .venv/bin/activate
+make dev
+make test        # verify everything works
+aat dashboard    # launch at http://localhost:9500
+```
 
 ---
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-
-- Development environment setup
-- Code style (ruff + mypy strict)
-- Test writing guidelines
-- Pull request process
-- Plugin development (adding new engines, matchers, or AI adapters)
+See [CONTRIBUTING.md](CONTRIBUTING.md) — contributions, bug reports, and new plugins are welcome.
 
 ```bash
 git checkout -b feat/my-feature
-# make changes
 make format && make lint && make typecheck && make test
 git commit -m "feat(scope): description"
-# open PR
 ```
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Quick Start Guide](docs/QUICK_START.md) | Install, configure, run your first test |
-| [API Reference](docs/API_REFERENCE.md) | REST API + WebSocket documentation |
-| [Comparison](docs/COMPARISON.md) | AWT vs Playwright, Cypress, Testim, Katalon, Mabl |
-| [FAQ](docs/FAQ.md) | Common questions |
-| [CI/CD Guide](cloud/docs/CI_CD_GUIDE.md) | Pipeline integration (GitHub Actions, GitLab CI) |
-| [Cloud Backend](cloud/README.md) | Self-hosting the cloud backend |
 
 ---
 
 ## FAQ
 
 <details>
-<summary><strong>What is AWT?</strong></summary>
+<summary><strong>Do I need to know how to code?</strong></summary>
 <br/>
-AWT (AI Watch Tester) is an open-source, AI-powered E2E testing tool. You give it a URL, and it automatically generates test scenarios, executes them in a real browser (Playwright), and reports results — no test code required.
+
+No. The Cloud version at <a href="https://ai-watch-tester.vercel.app">ai-watch-tester.vercel.app</a> needs nothing — just a browser. The local CLI needs one terminal command to install.
+
+The only thing AWT needs from you is a URL and (optionally) a description of what to test.
+</details>
+
+<details>
+<summary><strong>What does "self-healing" mean?</strong></summary>
+<br/>
+
+When a web app changes — a button moves, a label changes, a new form field appears — traditional tests break and stay broken until someone manually updates them.
+
+AWT's DevQA Loop re-scans the page after a failure, finds the updated element, and patches the test step automatically. You don't have to touch the test files.
 </details>
 
 <details>
 <summary><strong>How do I install it?</strong></summary>
 <br/>
 
-**Cloud (no install):** Visit [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app) and enter a URL.
+**Cloud (no install):** [ai-watch-tester.vercel.app](https://ai-watch-tester.vercel.app)
 
 **Local:**
 ```bash
 pip install aat-devqa
 playwright install chromium
-aat dashboard
+aat dashboard     # opens at http://localhost:9500
 ```
 
 **From source:**
@@ -302,6 +330,42 @@ aat dashboard
 git clone https://github.com/ksgisang/AI-Watch-Tester.git
 cd AI-Watch-Tester
 make dev && aat dashboard
+```
+</details>
+
+<details>
+<summary><strong>What's the difference between aat devqa and aat loop?</strong></summary>
+<br/>
+
+| | `aat devqa` | `aat loop` |
+|--|-------------|------------|
+| Starting point | Just a description + URL | Existing scenario file |
+| Test generation | Automatic (scans and writes) | Uses your file |
+| Failure fixing | Patches the test YAML | AI patches your **source code** |
+| Best for | First run, quick testing | Iterative dev with code fixes |
+
+Use `aat devqa` when starting from scratch. Use `aat loop` when you want AWT to also fix your application code.
+</details>
+
+<details>
+<summary><strong>How do I control speed and screenshot output?</strong></summary>
+<br/>
+
+**`--verbosity`** — how many steps run:
+- `detailed` (default): all steps including wait/assert/screenshot
+- `concise`: core actions only (navigate, click, type) — faster
+
+**`--screenshots`** — how many images are saved:
+- `all` (default): after every step
+- `before-after`: before + after each click/type/navigate (~70% fewer files)
+- `on-failure`: only when a step fails (great for CI/CD)
+
+```bash
+# Recommended for daily QA
+aat run --verbosity=concise --screenshots=before-after scenarios/
+
+# For CI/CD pipelines
+aat run --verbosity=concise --screenshots=on-failure scenarios/
 ```
 </details>
 
@@ -315,80 +379,27 @@ make dev && aat dashboard
 | **Anthropic** | Claude Sonnet 4 | Pay-per-use |
 | **Ollama** | codellama, llama3, mistral | Free (local GPU) |
 
-Cloud users can bring their own API key (BYOK) via the Settings page. Keys are Fernet-encrypted at rest.
+Cloud BYOK keys are encrypted at rest (Fernet/AES-128-CBC).
 </details>
 
 <details>
-<summary><strong>How much does it cost?</strong></summary>
+<summary><strong>How much does the Cloud version cost?</strong></summary>
 <br/>
 
-| Plan | Price | Tests/month | Concurrent |
-|------|-------|-------------|------------|
-| **Free** | $0 | 5 | 1 |
-| **Pro** | $28.99/mo | 100 | 3 |
-| **Team** | $98.99/mo | 500 | 10 |
+| Plan | Price | Tests/month |
+|------|-------|-------------|
+| **Free** | $0 | 5 |
+| **Pro** | $28.99/mo | 100 |
+| **Team** | $98.99/mo | 500 |
 
-The open-source local mode is completely free with no limits — you just need your own AI API key.
-</details>
-
-<details>
-<summary><strong>Is it open source?</strong></summary>
-<br/>
-Yes. AWT is licensed under the MIT License — free for personal and commercial use. You can self-host, modify, and distribute it. Contributions are welcome!
-</details>
-
-<details>
-<summary><strong>How do I control verbosity and screenshots?</strong></summary>
-<br/>
-
-AWT supports two flags that let you trade thoroughness for speed:
-
-**`--verbosity`** controls how many steps are executed:
-
-| Mode | Steps | What's included | Use when |
-|------|-------|-----------------|----------|
-| `detailed` (default) | 60–80 | All steps: wait, screenshot, assert | Audit, regression |
-| `concise` | 12–15 | Core actions only: navigate, click, type | CI/CD, quick check |
-
-**`--screenshots`** controls how many screenshots are saved:
-
-| Mode | Files | Description | Use when |
-|------|-------|-------------|----------|
-| `all` (default) | 1 per step | Every step captured | Full audit trail |
-| `before-after` | 2 per action | Before + after each click/type/navigate | Standard QA (~70% fewer files) |
-| `on-failure` | 1 on error | Failure step only | CI/CD optimization |
-
-**Recommended combinations:**
-
-```bash
-# CI/CD — fastest, minimal output
-aat run --verbosity=concise --screenshots=on-failure scenarios/
-
-# Standard QA — balanced (recommended)
-aat run --verbosity=concise --screenshots=before-after scenarios/
-
-# Full audit — every detail captured
-aat run --verbosity=detailed --screenshots=all scenarios/
-
-# devqa supports the same flags
-aat devqa "login test" --verbosity=concise --screenshots=before-after
-```
-
-**Expected timing (SC-NAV-001, 68-step scenario):**
-
-| Mode | Steps executed | Screenshots | ~Time |
-|------|---------------|-------------|-------|
-| `concise` + `on-failure` | 12 | 0–1 | ~1 min |
-| `concise` + `before-after` | 12 | 24 | ~2 min |
-| `detailed` + `all` | 68 | 68 | ~5 min |
-
+The local CLI is free forever with no limits.
 </details>
 
 <details>
 <summary><strong>Can I use it in CI/CD?</strong></summary>
 <br/>
 
-Yes. Pro and Team plans include API keys for CI/CD integration:
+Yes. For local runs, use the `--screenshots=on-failure` flag to keep output minimal. For cloud, the API accepts a POST request:
 
 ```bash
 curl -X POST https://your-awt-server.com/api/v1/run \
@@ -404,11 +415,11 @@ See the [CI/CD Guide](cloud/docs/CI_CD_GUIDE.md) for GitHub Actions and GitLab C
 <summary><strong>Is my data secure?</strong></summary>
 <br/>
 
-- All traffic is encrypted via HTTPS/TLS
-- BYOK API keys are Fernet-encrypted (AES-128-CBC + HMAC-SHA256) at rest
-- Screenshots are auto-deleted after 7 days
-- Database hosted on Supabase (AWS Seoul region)
-- See our <a href="https://ai-watch-tester.vercel.app/privacy">Privacy Policy</a> for full details
+- All traffic encrypted via HTTPS/TLS
+- BYOK API keys: Fernet-encrypted (AES-128-CBC + HMAC-SHA256) at rest
+- Screenshots: auto-deleted after 7 days
+- Local mode: nothing leaves your machine
+- See our <a href="https://ai-watch-tester.vercel.app/privacy">Privacy Policy</a>
 </details>
 
 ---

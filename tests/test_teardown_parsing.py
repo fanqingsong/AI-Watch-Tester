@@ -259,4 +259,5 @@ def test_teardown_timestamp_variable() -> None:
     assert "{{timestamp}}" not in (td.query or "")
     # Should be replaced with a numeric timestamp string
     import re
+
     assert re.search(r"\d{10}", td.query or ""), f"No timestamp in: {td.query!r}"
