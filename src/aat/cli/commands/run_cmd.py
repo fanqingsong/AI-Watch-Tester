@@ -369,8 +369,12 @@ async def _run(
         config.engine.slow_mo = 0
 
     # Load scenarios and sort by depends_on (topological sort)
+    # Inject config.url as {{url}} so scenarios don't need to hardcode the base URL
     path = Path(scenarios_path)
-    scenarios = _topo_sort(load_scenarios(path))
+    _base_vars: dict[str, str] = {}
+    if config.url:
+        _base_vars["url"] = config.url.rstrip("/")
+    scenarios = _topo_sort(load_scenarios(path, variables=_base_vars or None))
     total_scenario_steps = sum(len(s.steps) for s in scenarios)
 
     # ------------------------------------------------------------------ #
