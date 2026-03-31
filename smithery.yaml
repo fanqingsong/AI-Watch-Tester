@@ -1,0 +1,29 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  required: []
+  properties:
+    anthropicApiKey:
+      type: string
+      description: "Anthropic API key for Claude-powered test generation and self-healing (optional — defaults to ANTHROPIC_API_KEY env var)"
+    openaiApiKey:
+      type: string
+      description: "OpenAI API key for GPT-4o-powered test generation (optional — defaults to OPENAI_API_KEY env var)"
+    targetUrl:
+      type: string
+      description: "Default target URL to test (optional — can be passed per-run)"
+
+commandFunction: |-
+  (config) => ({
+    command: 'python',
+    args: ['mcp/server.py'],
+    env: {
+      ...(config.anthropicApiKey ? { ANTHROPIC_API_KEY: config.anthropicApiKey } : {}),
+      ...(config.openaiApiKey ? { OPENAI_API_KEY: config.openaiApiKey } : {}),
+      ...(config.targetUrl ? { AAT_URL: config.targetUrl } : {}),
+    }
+  })
