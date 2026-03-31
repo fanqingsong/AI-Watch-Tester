@@ -7,7 +7,7 @@
   <br/>
   <strong>AWT — AI Watch Tester</strong>
   <br/>
-  <em>Give it a URL. AWT tests your web app — no test code, no setup, no maintenance.</em>
+  <em>I got tired of writing E2E tests. So I built something that writes and fixes them for me.</em>
   <br/><br/>
   <a href="https://github.com/ksgisang/AI-Watch-Tester/actions"><img src="https://img.shields.io/github/actions/workflow/status/ksgisang/AI-Watch-Tester/ci.yml?label=CI&logo=github" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
@@ -29,13 +29,25 @@
 
 ---
 
-## What is AWT?
+## Why I built this
 
-**AWT is a browser testing tool that writes and fixes its own tests.**
+I was building a Flutter web app. Every time the UI changed, my Playwright tests broke. Fixing selectors, re-recording flows, updating assertions — it ate hours every week.
 
-You give it your web app's URL. AWT opens a real browser, figures out what's on the page (buttons, forms, links), writes test steps, runs them, and tells you what passed and what failed. If something breaks, the **DevQA Loop** kicks in — AI reads the error, updates the test or your code, and tries again.
+So I started hacking on a tool that could look at a page, write its own tests, and when those tests broke, figure out why and fix itself.
 
-**No test code to write. No recording sessions. No manual updates when the UI changes.**
+That became AWT.
+
+It's not perfect. OCR-based matching can be flaky on certain fonts. The self-healing loop sometimes needs a nudge. But for my day-to-day QA work — especially on Canvas and Flutter Web apps that Cypress can't even touch — it works well enough that I stopped writing test code entirely.
+
+I'm sharing it because I suspect I'm not the only one who got fed up. **If you've ever spent an afternoon fixing broken selectors, this might save you some time.**
+
+---
+
+## What it does
+
+You give AWT a URL. It opens a real Chrome window, reads the page, writes test steps, runs them, and reports what passed and what failed. If something breaks, the **DevQA Loop** kicks in — AI reads the error, patches the test, and retries automatically (up to 5 times).
+
+**No test code to write. No recording sessions. No manual selector updates.**
 
 ---
 
@@ -167,6 +179,19 @@ claude mcp add awt -- python mcp/server.py
 
 ---
 
+## Known Limitations (being honest)
+
+AWT works well for me, but it has rough edges I haven't fully solved yet:
+
+- **OCR matching** can misfire on custom fonts or low-contrast UIs — fallback to DOM selectors when that happens
+- **The self-healing loop** occasionally fixates on the wrong element. Setting `--max-attempts 3` helps avoid spinning wheels
+- **Complex SPAs** with heavy animation may need `--verbosity=detailed` and a longer wait time
+- **First-run scenario generation** is only as good as the page's accessibility tree — poorly structured HTML gives poor results
+
+If you hit something broken, please [open an issue](https://github.com/ksgisang/AI-Watch-Tester/issues). I fix reported bugs fast.
+
+---
+
 ## AWT vs Other Tools
 
 ### vs Playwright / Cypress
@@ -292,7 +317,9 @@ aat dashboard    # launch at http://localhost:9500
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — contributions, bug reports, and new plugins are welcome.
+Contributions, bug reports, and new plugins are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+If something doesn't work for your use case, please open an issue before spending time on a PR. Happy to help scope the right fix.
 
 ```bash
 git checkout -b feat/my-feature
@@ -429,7 +456,6 @@ See the [CI/CD Guide](cloud/docs/CI_CD_GUIDE.md) for GitHub Actions and GitLab C
 - BYOK API keys: Fernet-encrypted (AES-128-CBC + HMAC-SHA256) at rest
 - Screenshots: auto-deleted after 7 days
 - Local mode: nothing leaves your machine
-- See our <a href="https://ai-watch-tester.vercel.app/privacy">Privacy Policy</a>
 </details>
 
 ---
@@ -441,5 +467,5 @@ See the [CI/CD Guide](cloud/docs/CI_CD_GUIDE.md) for GitHub Actions and GitLab C
 ---
 
 <p align="center">
-  <sub>Built with Playwright, OpenCV, and a lot of AI. Made by <a href="https://github.com/ksgisang">@ksgisang</a>.</sub>
+  <sub>Built with Playwright, OpenCV, and too much frustration with broken selectors.<br/>Made by <a href="https://github.com/ksgisang">@ksgisang</a> — feedback and issues very welcome.</sub>
 </p>
