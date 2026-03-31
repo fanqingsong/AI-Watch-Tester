@@ -268,4 +268,4 @@ aat run --skill-mode --fast <scenario>
 - **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
-- **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (private)
+- **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)
