@@ -18,6 +18,7 @@ pip install mcp[cli]
 
 | Tool | 설명 |
 |------|------|
+| `aat_devqa` | **All-in-one**: 스캔→시나리오생성→승인대기→실행→자동수정 전체 루프 |
 | `aat_scan` | **Step 1**: URL 스캔, 인터랙티브 요소 수집 (scan_result.json 생성) |
 | `aat_run` | **Step 3**: 시나리오 파일 실행 (사용자 승인 후에만 호출) |
 | `aat_run_skill_mode` | **Step 3**: 스킬 모드 실행 (구조화된 실패 진단 포함) |
@@ -35,7 +36,7 @@ AWT 도구를 사용할 때 반드시 아래 순서를 지켜야 합니다:
 3. **`aat_run` 또는 `aat_run_skill_mode`** → 승인 후에만 실행 → 실패 시 보고 → **지시 대기**
 4. 결과 보고
 
-**금지:** `aat devqa`, `-y`/`--auto-approve`, 사용자 승인 없이 실행, 자동 코드 수정
+**금지:** `-y`/`--auto-approve` (해당 플래그 없음), 사용자 승인 없이 실행, 자동 코드 수정
 
 ## 설치 방법
 
@@ -103,12 +104,32 @@ claude mcp list
 MCP 등록 후 AI 도구에서:
 
 ```
+"로그인 테스트해줘"              → aat_devqa("로그인 테스트", url="http://localhost:3000")
 "시나리오 목록 보여줘"           → aat_list_scenarios 호출
 "login 시나리오 실행해줘"        → aat_run("scenarios/login.yaml")
 "환경 진단해줘"                 → aat_doctor 호출
 "비용 얼마 썼어?"               → aat_cost 호출
 "스킬 모드로 테스트 돌려줘"      → aat_run_skill_mode("scenarios/login.yaml")
 ```
+
+### verbosity / screenshots 옵션
+
+```
+aat_run("scenarios/login.yaml", verbosity="concise", screenshots="on-failure")
+aat_run("scenarios/login.yaml", verbosity="detailed", screenshots="all")
+aat_devqa("회원가입 테스트", url="http://localhost:3000", screenshots="before-after")
+```
+
+| verbosity | 설명 |
+|-----------|------|
+| `concise` | wait/screenshot 스텝 스킵, 빠름 (기본값) |
+| `detailed` | 모든 스텝 실행 |
+
+| screenshots | 설명 |
+|-------------|------|
+| `before-after` | 액션 전후만 저장, ~70% 파일 감소 (기본값) |
+| `all` | 매 스텝마다 저장 |
+| `on-failure` | 실패 시에만 저장 (CI/CD 최적) |
 
 ### DevQA Loop (스킬 모드)
 

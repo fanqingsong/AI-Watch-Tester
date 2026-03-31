@@ -42,7 +42,8 @@ mcp = FastMCP(
         "        → WAIT for user instruction. Do NOT auto-fix.\n\n"
         "Step 4: Report final results to the user.\n\n"
         "⛔ NEVER use aat_run without showing the scenario to the user first.\n"
-        "⛔ NEVER auto-fix code or scenarios without user permission."
+        "⛔ NEVER auto-fix code or scenarios without user permission.\n"
+        "⛔ There is NO --auto-approve or -y flag. Human approval is always required."
     ),
 )
 
@@ -134,7 +135,11 @@ async def aat_scan(url: str) -> str:
 
 
 @mcp.tool()
-async def aat_run(scenario_file: str) -> str:
+async def aat_run(
+    scenario_file: str,
+    verbosity: str = "concise",
+    screenshots: str = "before-after",
+) -> str:
     """STEP 3: Run AWT test scenarios (requires prior user approval).
 
     ⚠️ IMPORTANT: Only call this AFTER:
@@ -145,20 +150,31 @@ async def aat_run(scenario_file: str) -> str:
     If a test step fails, STOP and report to the user. Ask what to fix.
     Do NOT auto-retry or auto-fix without user permission.
 
-    ⛔ NEVER pass --auto-approve or -y flags.
-
     Args:
         scenario_file: Path to a YAML scenario file or directory containing scenarios.
+        verbosity: 'concise' (skip wait/screenshot steps, faster) or
+                   'detailed' (all steps including screenshots and waits). Default: 'concise'.
+        screenshots: 'all' (every step), 'before-after' (action boundaries only, ~70% fewer files),
+                     'on-failure' (only on failure, best for CI/CD). Default: 'before-after'.
     """
     result = await _run_cmd(
-        ["aat", "run", "--skill-mode", "--fast", "--learn", scenario_file],
+        [
+            "aat", "run", "--skill-mode", "--fast", "--learn",
+            f"--verbosity={verbosity}",
+            f"--screenshots={screenshots}",
+            scenario_file,
+        ],
         timeout=180,
     )
     return _format_result(result)
 
 
 @mcp.tool()
-async def aat_run_skill_mode(scenario_file: str) -> str:
+async def aat_run_skill_mode(
+    scenario_file: str,
+    verbosity: str = "concise",
+    screenshots: str = "before-after",
+) -> str:
     """STEP 3 (alternative): Run AWT in skill mode with structured failure diagnosis.
 
     Same rules as aat_run — requires prior user approval.
@@ -174,15 +190,57 @@ async def aat_run_skill_mode(scenario_file: str) -> str:
     3. Ask: "Should I fix the scenario or the source code?"
     4. WAIT for user instruction — do NOT auto-fix
 
-    ⛔ NEVER pass --auto-approve or -y flags.
-
     Args:
         scenario_file: Path to a YAML scenario file or directory.
+        verbosity: 'concise' (faster) or 'detailed' (all steps). Default: 'concise'.
+        screenshots: 'all', 'before-after', or 'on-failure'. Default: 'before-after'.
     """
     result = await _run_cmd(
-        ["aat", "run", "--skill-mode", "--fast", "--learn", scenario_file],
+        [
+            "aat", "run", "--skill-mode", "--fast", "--learn",
+            f"--verbosity={verbosity}",
+            f"--screenshots={screenshots}",
+            scenario_file,
+        ],
         timeout=180,
     )
+    return _format_result(result)
+
+
+@mcp.tool()
+async def aat_devqa(
+    description: str,
+    url: str = "",
+    verbosity: str = "concise",
+    screenshots: str = "before-after",
+) -> str:
+    """Full auto DevQA loop: scan → generate → show scenario → wait for approval → run → fix.
+
+    This is the recommended all-in-one command for most testing tasks.
+    It will:
+    1. Scan the target URL for interactive elements
+    2. Generate a test scenario from scan data
+    3. Show the scenario and PAUSE for human approval ([Enter] in terminal)
+    4. Run the test with real Chrome
+    5. On failure: re-scan, fix scenario, retry (up to 5 times)
+    6. Report final results
+
+    ⚠️ After calling this tool, tell the user to switch to their terminal
+    and press [Enter] to approve the generated scenario and start the test.
+    There is no way to bypass this approval step — it is mandatory.
+
+    Args:
+        description: What to test (e.g. "login flow test", "회원가입 테스트")
+        url: Target URL. Auto-detected from localhost if omitted.
+        verbosity: 'concise' (faster, recommended) or 'detailed' (all steps).
+        screenshots: 'all', 'before-after' (recommended), or 'on-failure'.
+    """
+    cmd = ["aat", "devqa", description,
+           f"--verbosity={verbosity}",
+           f"--screenshots={screenshots}"]
+    if url:
+        cmd += ["--url", url]
+    result = await _run_cmd(cmd, timeout=300)
     return _format_result(result)
 
 
