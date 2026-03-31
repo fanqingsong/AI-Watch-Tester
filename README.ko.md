@@ -53,31 +53,32 @@ URL을 주면 AWT가 실제 Chrome 창을 열고, 페이지를 읽고, 테스트
 
 ## 5분 안에 시작하기
 
-### 방법 1 — 클라우드 (설치 없음, 무료)
-
-```
-1. https://ai-watch-tester.vercel.app 접속
-2. 회원가입 (이메일 또는 GitHub — 30초)
-3. 앱 URL 붙여넣기
-4. AWT가 사이트를 테스트하는 걸 실시간으로 확인
-```
-
-### 방법 2 — 로컬 CLI (내 머신에서 실행)
+### 방법 1 — Agent Skill (Claude Code, Cursor, Copilot 등과 함께)
 
 ```bash
-# 설치 (Python 3.11+ 필요)
-pip install aat-devqa
-playwright install chromium
+# 한 줄 설치
+npx skills add ksgisang/awt-skill --skill awt -g
 
-# 비주얼 대시보드 실행
-aat dashboard
-# → http://localhost:9500 에서 열림
-
-# 또는 커맨드라인에서 직접 테스트
-aat devqa "로그인 플로우 테스트" --url https://your-app.com
+# 그 다음 AI 도구에게:
+"http://localhost:3000 로그인 플로우 테스트해줘"
+"회원가입 폼 잘 작동하는지 확인해줘"
+"마지막 커밋 이후 회귀 테스트 돌려줘"
+# → AWT가 스캔, 스텝 생성, 실행, 리포트
 ```
 
-이게 전부입니다. AWT가 페이지를 스캔하고, 테스트 플랜을 작성하고, 확인을 받은 뒤 실제 Chrome 창에서 실행합니다.
+### 방법 2 — MCP 서버 (Claude Desktop, Cursor, Windsurf)
+
+```bash
+# 설치
+pip install aat-devqa
+
+# Claude Code에 추가
+claude mcp add awt -- python mcp/server.py
+
+# 사용 가능한 도구: aat_devqa, aat_run, aat_doctor, aat_list_scenarios, aat_validate
+```
+
+> **클라우드 & 로컬 CLI** 버전은 현재 개발 중이며 별도로 공개 예정입니다.
 
 ---
 

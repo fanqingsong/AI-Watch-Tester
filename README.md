@@ -53,31 +53,32 @@ You give AWT a URL. It opens a real Chrome window, reads the page, writes test s
 
 ## Start in 5 Minutes
 
-### Option 1 — Cloud (no install, free)
-
-```
-1. Visit https://ai-watch-tester.vercel.app
-2. Sign up (email or GitHub — takes 30 seconds)
-3. Paste your app URL
-4. Watch AWT test your site live
-```
-
-### Option 2 — Local CLI (runs on your machine)
+### Option 1 — Agent Skill (works with Claude Code, Cursor, Copilot...)
 
 ```bash
-# Install (requires Python 3.11+)
-pip install aat-devqa
-playwright install chromium
+# One-line install
+npx skills add ksgisang/awt-skill --skill awt -g
 
-# Run the visual dashboard
-aat dashboard
-# → Opens at http://localhost:9500
-
-# Or test directly from the command line
-aat devqa "test the login flow" --url https://your-app.com
+# Then just ask your AI tool:
+"Test the login flow on http://localhost:3000"
+"Check if the signup form works"
+"Run regression tests after my last commit"
+# → AWT scans, generates steps, runs them, and reports back
 ```
 
-That's it. AWT scans your page, writes a test plan, shows it to you for approval, then runs it in a real Chrome window.
+### Option 2 — MCP Server (Claude Desktop, Cursor, Windsurf)
+
+```bash
+# Install
+pip install aat-devqa
+
+# Add to Claude Code
+claude mcp add awt -- python mcp/server.py
+
+# Tools available: aat_devqa, aat_run, aat_doctor, aat_list_scenarios, aat_validate
+```
+
+> **Cloud & Local CLI** versions are in active development and will be announced separately.
 
 ---
 
