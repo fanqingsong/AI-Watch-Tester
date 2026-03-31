@@ -202,12 +202,6 @@ def _topo_sort(scenarios: list[Scenario]) -> list[Scenario]:
 def run_command(
     scenarios_path: str = typer.Argument(help="Scenario file or directory path."),
     config_path: str | None = typer.Option(None, "--config", "-c", help="Config file path."),
-    auto_approve: bool = typer.Option(
-        False,
-        "--auto-approve",
-        "-y",
-        help="Skip human approval prompt. For CI / automated pipelines only.",
-    ),
     slow_mo: int | None = typer.Option(
         None,
         "--slow-mo",
@@ -283,7 +277,6 @@ def run_command(
                 debug,
                 strict,
                 skip_teardown,
-                auto_approve,
                 fast,
                 speed,
                 verbosity,
@@ -304,12 +297,14 @@ async def _run(
     debug_mode: bool = False,
     strict_mode: bool = False,
     skip_teardown: bool = False,
-    auto_approve: bool = False,
     fast_mode: bool = False,
     speed_override: str | None = None,
     verbosity_override: str | None = None,
     screenshots_override: str | None = None,
 ) -> None:
+    # Internal approval bypass: set ONLY by aat devqa after user approved in its own prompt.
+    # Never exposed as a public CLI flag — users must always press Enter.
+    auto_approve: bool = os.environ.get("_AAT_DEVQA_APPROVED") == "1"
     """Execute scenarios asynchronously."""
     # Debug logging
     if debug_mode:

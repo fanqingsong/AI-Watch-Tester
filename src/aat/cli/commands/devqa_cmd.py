@@ -38,12 +38,6 @@ def devqa_command(
     ),
     config_path: str | None = typer.Option(None, "--config", "-c"),
     max_attempts: int = typer.Option(_MAX_ATTEMPTS, "--max-attempts", "-m"),
-    auto_approve: bool = typer.Option(
-        False,
-        "--auto-approve",
-        "-y",
-        help="Skip scenario approval prompt (CI / non-interactive mode).",
-    ),
     fast: bool = typer.Option(
         False,
         "--fast",
@@ -76,7 +70,6 @@ def devqa_command(
                 url,
                 config_path,
                 max_attempts,
-                auto_approve,
                 fast,
                 verbosity,
                 screenshots,
@@ -92,7 +85,6 @@ async def _devqa(
     url_override: str | None,
     config_path: str | None,
     max_attempts: int,
-    auto_approve: bool = False,
     fast_mode: bool = False,
     verbosity: str = "detailed",
     screenshots: str = "all",
@@ -160,7 +152,7 @@ async def _devqa(
         scenario_yaml,
         scenario_path,
         attempt=1,
-        auto_approve=auto_approve,
+        auto_approve=False,  # devqa always requires human approval
     ):
         raise typer.Exit(code=0)
 
@@ -179,15 +171,16 @@ async def _devqa(
         ]
         if fast_mode:
             run_args.append("--fast")
-        if auto_approve:
-            run_args.append("-y")
         if verbosity != "detailed":
             run_args.extend(["--verbosity", verbosity])
         if screenshots != "all":
             run_args.extend(["--screenshots", screenshots])
         run_args.append(str(scenario_path))
 
-        exit_code = _run_aat(run_args)
+        # Pass approval bypass via env var — user already approved above in this session
+        import os as _os
+        env = {**_os.environ, "_AAT_DEVQA_APPROVED": "1"}
+        exit_code = _run_aat(run_args, env=env)
 
         if exit_code == 0:
             passed = True
@@ -220,7 +213,7 @@ async def _devqa(
             scenario_path,
             attempt=attempt + 1,
             previous_yaml=previous_yaml,
-            auto_approve=auto_approve,
+            auto_approve=False,  # always require human approval for retry
         ):
             typer.echo("[AWT] 재시도 취소됨.")
             raise typer.Exit(code=1)
@@ -817,13 +810,19 @@ def _read_last_failure(data_dir: Path) -> dict[str, Any]:
 # -- Helpers ------------------------------------------------------------------
 
 
-def _run_aat(args: list[str]) -> int:
-    """Run aat CLI command as subprocess."""
+def _run_aat(args: list[str], env: dict[str, str] | None = None) -> int:
+    """Run aat CLI command as subprocess.
+
+    Args:
+        args: CLI arguments for aat (e.g. ["run", "--skill-mode", "scenario.yaml"]).
+        env: Optional environment variables to pass. Used internally to set
+             _AAT_DEVQA_APPROVED=1 after user approves in devqa prompt.
+    """
     import shutil
 
     aat_bin = shutil.which("aat")
     cmd = [aat_bin, *args] if aat_bin else [sys.executable, "-m", "aat", *args]
-    result = subprocess.run(cmd, capture_output=False)
+    result = subprocess.run(cmd, capture_output=False, env=env)
     return result.returncode
 
 
