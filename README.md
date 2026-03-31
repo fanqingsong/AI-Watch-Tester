@@ -19,6 +19,16 @@
 
 ---
 
+<p align="center">
+  <a href="docs/assets/demo.mp4">
+    <img src="docs/assets/demo.gif" alt="AWT Demo — install, run, self-heal" width="860">
+  </a>
+  <br/>
+  <sub><em>30-second demo: install → run test → AI self-heals failure</em></sub>
+</p>
+
+---
+
 ## What is AWT?
 
 **AWT is a browser testing tool that writes and fixes its own tests.**
