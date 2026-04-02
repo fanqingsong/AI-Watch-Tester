@@ -26,7 +26,8 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP(
     "awt",
     instructions=(
-        "AWT (AI Watch Tester) — AI-powered E2E web testing.\n\n"
+        "AWT (AI Watch Tester) — AI-powered E2E web testing.\n"
+        "Use AWT as a Quality Gate in your AI coding harness.\n\n"
         "⛔ MANDATORY WORKFLOW — Follow these 4 steps IN ORDER. NEVER skip a step.\n\n"
         "Step 1: Call aat_scan to analyze the target URL.\n"
         "        → Present the scan summary to the user.\n"
@@ -41,6 +42,11 @@ mcp = FastMCP(
         "        → Ask: 'Should I fix the scenario or source code?'\n"
         "        → WAIT for user instruction. Do NOT auto-fix.\n\n"
         "Step 4: Report final results to the user.\n\n"
+        "📄 DOCUMENT-BASED WORKFLOW (GSD / Spec-driven):\n"
+        "If the user has a spec document, plan file (e.g. GSD PLAN.md), or PRD:\n"
+        "  → Call aat_generate_from_doc with the document path.\n"
+        "  → Show the generated scenarios to the user.\n"
+        "  → WAIT for approval, then run with aat_run_skill_mode.\n\n"
         "⛔ NEVER use aat_run without showing the scenario to the user first.\n"
         "⛔ NEVER auto-fix code or scenarios without user permission.\n"
         "⛔ There is NO --auto-approve or -y flag. Human approval is always required."
@@ -324,6 +330,39 @@ async def aat_validate(scenario_file: str) -> str:
         scenario_file: Path to a YAML scenario file or directory.
     """
     result = await _run_cmd(["aat", "validate", scenario_file], timeout=15)
+    return _format_result(result)
+
+
+@mcp.tool()
+async def aat_generate_from_doc(
+    doc_path: str,
+    output_dir: str = "",
+) -> str:
+    """Generate test scenarios from a document (spec, plan, or any text file).
+
+    Reads a document file and uses AI to generate E2E test scenarios.
+    Supports: Markdown (.md), plain text (.txt), and any structured text
+    including GSD PLAN.md files, PRDs, or free-form spec documents.
+
+    This is useful for:
+    - GSD workflow: pass your PLAN.md to auto-generate Verify scenarios
+    - Spec-driven testing: upload a PRD and get test cases
+    - Harness integration: use as a quality gate in your AI coding workflow
+
+    AFTER calling this tool:
+    1. Read the generated scenario YAML files
+    2. Present them to the user for review
+    3. Ask: "Should I run these tests?"
+    4. WAIT for user approval before calling aat_run
+
+    Args:
+        doc_path: Absolute path to the document file (.md, .txt).
+        output_dir: Directory to save generated scenarios. Default: ./scenarios/
+    """
+    cmd = ["aat", "generate", "--from", doc_path]
+    if output_dir:
+        cmd += ["--output", output_dir]
+    result = await _run_cmd(cmd, timeout=120)
     return _format_result(result)
 
 
