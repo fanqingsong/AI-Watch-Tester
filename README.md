@@ -75,7 +75,8 @@ pip install aat-devqa
 # Add to Claude Code
 claude mcp add awt -- python mcp/server.py
 
-# Tools available: aat_devqa, aat_run, aat_doctor, aat_list_scenarios, aat_validate
+# Tools available: aat_devqa, aat_run, aat_doctor, aat_list_scenarios,
+#                  aat_validate, aat_generate_from_doc
 ```
 
 > **Cloud & Local CLI** versions are in active development and will be announced separately.
@@ -159,8 +160,48 @@ npx skills add ksgisang/awt-skill --skill awt -g
 # Add to Claude Code
 claude mcp add awt -- python mcp/server.py
 
-# Tools available: aat_run, aat_doctor, aat_list_scenarios, aat_validate, aat_cost
+# Tools available: aat_run, aat_doctor, aat_list_scenarios, aat_validate,
+#                  aat_cost, aat_generate_from_doc
 ```
+
+---
+
+## Use AWT as a Quality Gate in Your AI Harness
+
+If you use **GSD (Get Shit Done)**, **Cursor Rules**, **CLAUDE.md**, or any AI coding workflow — AWT plugs in as the **Verify step** that catches what your AI missed.
+
+### GSD Workflow Integration
+
+```
+Discuss → Plan → Execute → Verify (AWT)
+                              │
+                    aat_generate_from_doc(PLAN.md)
+                              │
+                    → scenarios generated
+                    → aat_run_skill_mode
+                    → pass/fail report
+```
+
+```bash
+# MCP: pass your GSD plan file to generate test scenarios
+"Generate test scenarios from my PLAN.md and run them"
+# → AWT reads the plan, creates E2E tests, runs in real Chrome
+
+# CLI: same thing
+aat generate --from PLAN.md
+aat run scenarios/
+```
+
+### Add AWT to Your CLAUDE.md / Cursor Rules
+
+```markdown
+## QA Verification (AWT)
+- After writing code, verify with AWT before committing.
+- Run: aat scan --url {URL} → review scenario → aat run
+- All tests must pass before marking a task as done.
+```
+
+This turns AWT into an **automated quality gate** — your AI writes code, AWT verifies it works, and the loop continues until everything passes.
 
 ---
 

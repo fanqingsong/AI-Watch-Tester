@@ -159,8 +159,48 @@ npx skills add ksgisang/awt-skill --skill awt -g
 # Claude Code에 추가
 claude mcp add awt -- python mcp/server.py
 
-# 사용 가능한 도구: aat_run, aat_doctor, aat_list_scenarios, aat_validate, aat_cost
+# 사용 가능한 도구: aat_run, aat_doctor, aat_list_scenarios, aat_validate,
+#                  aat_cost, aat_generate_from_doc
 ```
+
+---
+
+## AI 하네스의 Quality Gate로 AWT 사용하기
+
+**GSD (Get Shit Done)**, **Cursor Rules**, **CLAUDE.md** 등 어떤 AI 코딩 워크플로우를 쓰든 — AWT는 AI가 놓친 것을 잡아내는 **Verify 단계**로 연결됩니다.
+
+### GSD 워크플로우 연동
+
+```
+Discuss → Plan → Execute → Verify (AWT)
+                              │
+                    aat_generate_from_doc(PLAN.md)
+                              │
+                    → 시나리오 자동 생성
+                    → aat_run_skill_mode 실행
+                    → 통과/실패 리포트
+```
+
+```bash
+# MCP: GSD 플랜 파일로 테스트 시나리오 생성
+"PLAN.md로 테스트 시나리오 만들고 실행해줘"
+# → AWT가 플랜을 읽고, E2E 테스트를 만들어 실제 Chrome에서 실행
+
+# CLI: 같은 동작
+aat generate --from PLAN.md
+aat run scenarios/
+```
+
+### CLAUDE.md / Cursor Rules에 AWT 추가하기
+
+```markdown
+## QA 검증 (AWT)
+- 코드 작성 후 커밋 전에 반드시 AWT로 검증할 것.
+- 실행: aat scan --url {URL} → 시나리오 확인 → aat run
+- 모든 테스트 통과 전에는 태스크를 완료로 표시하지 말 것.
+```
+
+이렇게 하면 AWT가 **자동화된 품질 게이트** 역할을 합니다 — AI가 코드를 짜고, AWT가 동작을 검증하고, 전부 통과할 때까지 루프가 계속됩니다.
 
 ---
 
