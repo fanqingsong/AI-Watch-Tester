@@ -52,7 +52,7 @@ async def _watch_native(
     debounce_ms: int,
 ) -> None:
     """Use watchfiles for efficient native FS events."""
-    from watchfiles import awatch
+    from watchfiles import awatch  # type: ignore[import-not-found]
 
     str_paths = [str(p) for p in watch_paths]
 
