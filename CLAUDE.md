@@ -243,6 +243,15 @@ aat run --skill-mode --fast <scenario>
   - PR 코멘트: 자동 생성/갱신 (기존 코멘트 업데이트, 스팸 방지)
   - 24개 단위 테스트 통과
 
+- [x] **AAT-104** Watch 모드 — 파일 변경 감지 + 자동 테스트 실행 — 완료 2026-04-03
+  - `aat watch <scenarios> --url <URL>` — 파일 변경 시 자동 테스트
+  - watchfiles (Rust 기반) + polling fallback
+  - 시나리오 변경 → 해당 시나리오만, 소스 변경 → 전체 시나리오 실행
+  - 기준선 존재 시 자동 visual diff 포함
+  - MCP: `aat_watch` 도구 추가
+  - `[watch]` optional dependency (watchfiles)
+  - 18개 단위 테스트 통과
+
 ---
 
 ## 협업 프로젝트 연동 (ClasRing + DSL)
@@ -290,8 +299,8 @@ aat run --skill-mode --fast <scenario>
 
 ## Current Status
 
-- **현재 단계**: Visual Regression + PR Comment 완료 (AAT-100~103)
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~103 (Post-MVP)
+- **현재 단계**: Visual Regression + PR Comment + Watch Mode 완료 (AAT-100~104)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~104 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)

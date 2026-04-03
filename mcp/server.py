@@ -424,6 +424,34 @@ async def aat_diff(
     return _format_result(result)
 
 
+@mcp.tool()
+async def aat_watch(
+    scenario_file: str,
+    url: str = "",
+    watch_dir: str = "",
+) -> str:
+    """Start watch mode — auto-run tests on file changes.
+
+    Monitors source files and scenario files for changes.
+    When a change is detected, automatically re-runs tests.
+
+    ⚠️ This is a long-running command. Tell the user it will keep
+    running until they press Ctrl+C in their terminal.
+
+    Args:
+        scenario_file: Path to scenario file or directory.
+        url: Target URL override (optional).
+        watch_dir: Additional directory to watch (optional).
+    """
+    cmd = ["aat", "watch", scenario_file]
+    if url:
+        cmd += ["--url", url]
+    if watch_dir:
+        cmd += ["--watch", watch_dir]
+    result = await _run_cmd(cmd, timeout=300)
+    return _format_result(result)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------

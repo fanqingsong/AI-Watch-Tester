@@ -123,6 +123,7 @@ from aat.cli.commands.setup_cmd import setup_command  # noqa: E402
 from aat.cli.commands.snapshot_cmd import snapshot_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
 from aat.cli.commands.validate_cmd import validate_command  # noqa: E402
+from aat.cli.commands.watch_cmd import watch_command  # noqa: E402
 
 app.command(name="setup")(setup_command)
 app.command(name="doctor")(doctor_command)
@@ -148,3 +149,4 @@ app.add_typer(hook_app, name="hook")
 app.command(name="snapshot")(snapshot_command)
 app.command(name="diff")(diff_command)
 app.add_typer(baseline_app, name="baseline")
+app.command(name="watch")(watch_command)
