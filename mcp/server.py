@@ -366,6 +366,64 @@ async def aat_generate_from_doc(
     return _format_result(result)
 
 
+@mcp.tool()
+async def aat_snapshot(
+    scenario_file: str,
+    url: str = "",
+) -> str:
+    """Capture baseline screenshots for visual regression testing.
+
+    Runs the scenario and saves after-screenshots as baselines.
+    Use ``aat_diff`` later to compare current state against these baselines.
+
+    No AI tokens used — pure Playwright + OpenCV.
+
+    Args:
+        scenario_file: Path to a YAML scenario file or directory.
+        url: Target URL override (optional).
+    """
+    cmd = ["aat", "snapshot", scenario_file]
+    if url:
+        cmd += ["--url", url]
+    result = await _run_cmd(cmd, timeout=180)
+    return _format_result(result)
+
+
+@mcp.tool()
+async def aat_diff(
+    scenario_file: str,
+    url: str = "",
+    threshold: float = 0.95,
+) -> str:
+    """Compare current screenshots against saved baselines (visual regression).
+
+    Runs the scenario, takes screenshots, and compares each step against
+    the baseline captured by ``aat_snapshot``. Reports SSIM similarity
+    scores and generates diff images for failed steps.
+
+    No AI tokens used — pure OpenCV image comparison.
+
+    AFTER calling this tool:
+    1. Review the SSIM scores and diff images
+    2. Steps below threshold are marked FAIL
+    3. Diff images are saved to .aat/diffs/
+
+    Args:
+        scenario_file: Path to a YAML scenario file or directory.
+        url: Target URL override (optional).
+        threshold: SSIM threshold (0.0–1.0). Below this = FAIL. Default: 0.95.
+    """
+    cmd = [
+        "aat", "diff",
+        f"--threshold={threshold}",
+        scenario_file,
+    ]
+    if url:
+        cmd += ["--url", url]
+    result = await _run_cmd(cmd, timeout=180)
+    return _format_result(result)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------

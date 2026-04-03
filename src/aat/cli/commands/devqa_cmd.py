@@ -179,6 +179,7 @@ async def _devqa(
 
         # Pass approval bypass via env var — user already approved above in this session
         import os as _os
+
         env = {**_os.environ, "_AAT_DEVQA_APPROVED": "1"}
         exit_code = _run_aat(run_args, env=env)
 

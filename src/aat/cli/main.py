@@ -100,10 +100,14 @@ def main(
 # -- Register commands --------------------------------------------------------
 
 from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
+
+# Visual regression commands
+from aat.cli.commands.baseline_cmd import baseline_app  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
 from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
 from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
 from aat.cli.commands.devqa_cmd import devqa_command  # noqa: E402
+from aat.cli.commands.diff_cmd import diff_command  # noqa: E402
 from aat.cli.commands.doctor_cmd import doctor_command  # noqa: E402
 from aat.cli.commands.generate_cmd import generate_command  # noqa: E402
 from aat.cli.commands.hook_cmd import hook_app  # noqa: E402
@@ -116,6 +120,7 @@ from aat.cli.commands.run_cmd import run_command  # noqa: E402
 from aat.cli.commands.scan_cmd import scan_command  # noqa: E402
 from aat.cli.commands.serve_cmd import serve_command  # noqa: E402
 from aat.cli.commands.setup_cmd import setup_command  # noqa: E402
+from aat.cli.commands.snapshot_cmd import snapshot_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
 from aat.cli.commands.validate_cmd import validate_command  # noqa: E402
 
@@ -138,3 +143,8 @@ app.add_typer(learned_app, name="learned")
 app.command(name="scan")(scan_command)
 app.command(name="devqa")(devqa_command)
 app.add_typer(hook_app, name="hook")
+
+# Visual regression
+app.command(name="snapshot")(snapshot_command)
+app.command(name="diff")(diff_command)
+app.add_typer(baseline_app, name="baseline")

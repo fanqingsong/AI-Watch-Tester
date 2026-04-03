@@ -217,6 +217,25 @@ aat run --skill-mode --fast <scenario>
   - tests/test-teardown-loop.sh: N회 연속 실행 스크립트
   - 실증: 3회 연속 실행 30/30 성공 (이메일 중복 없음)
 
+### Post-MVP: Visual Regression (AAT-100~102)
+
+- [x] **AAT-100** VisualComparator — OpenCV SSIM + diff 이미지 생성 — 완료 2026-04-03
+  - SSIM (Wang et al. 2004): OpenCV 직접 구현, 외부 의존성 없음
+  - 3-panel diff 이미지: Baseline | Current | Diff (빨간 오버레이)
+  - 단일 diff overlay 이미지 생성
+
+- [x] **AAT-101** BaselineStore + 모델 — 기준선 저장/로드/관리 — 완료 2026-04-03
+  - `.aat/baselines/{scenario_id}/` 구조, meta.json 포함
+  - StepDiffResult, VisualDiffReport, BaselineMeta Pydantic 모델
+  - save/load/list/clear/clear_all 메서드
+
+- [x] **AAT-102** CLI 커맨드 (snapshot, diff, baseline) + MCP 도구 — 완료 2026-04-03
+  - `aat snapshot <path>` — 시나리오 실행 후 기준선 캡처
+  - `aat diff <path> --threshold 0.95` — 기준선 대비 비교 + Rich 테이블
+  - `aat baseline list/clear` — 기준선 관리
+  - MCP: `aat_snapshot`, `aat_diff` 도구 추가
+  - 20개 단위 테스트 통과
+
 ---
 
 ## 협업 프로젝트 연동 (ClasRing + DSL)
@@ -264,8 +283,8 @@ aat run --skill-mode --fast <scenario>
 
 ## Current Status
 
-- **현재 단계**: State Teardown 완료 (AAT-093~095)
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 (Post-MVP)
+- **현재 단계**: Visual Regression 완료 (AAT-100~102)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~102 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)
