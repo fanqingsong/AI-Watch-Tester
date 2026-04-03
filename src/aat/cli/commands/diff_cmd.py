@@ -32,6 +32,12 @@ def diff_command(
         "--save-diffs/--no-save-diffs",
         help="Save diff images to .aat/diffs/. Default: True.",
     ),
+    output_format: str = typer.Option(
+        "table",
+        "--format",
+        "-f",
+        help="Output format: 'table' (default, Rich), 'github' (PR comment markdown), 'json'.",
+    ),
 ) -> None:
     """Compare current screenshots against saved baselines.
 
@@ -39,7 +45,9 @@ def diff_command(
     and run ``aat diff`` to detect visual regressions.
     """
     try:
-        asyncio.run(_diff(scenarios_path, config_path, url, threshold, save_diffs))
+        asyncio.run(
+            _diff(scenarios_path, config_path, url, threshold, save_diffs, output_format)
+        )
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -51,6 +59,7 @@ async def _diff(
     url_override: str | None,
     threshold: float,
     save_diffs: bool,
+    output_format: str = "table",
 ) -> None:
     """Execute scenarios and compare against baselines."""
     cfg_path = Path(config_path) if config_path else None
@@ -101,7 +110,7 @@ async def _diff(
     matchers = []
     for m in config.matching.chain_order:
         if m.value in MATCHER_REGISTRY and m.value != "vision_ai":
-            matchers.append(MATCHER_REGISTRY[m.value](config.matching))
+            matchers.append(MATCHER_REGISTRY[m.value](config.matching))  # type: ignore[call-arg]
     hybrid = HybridMatcher(matchers, config.matching)
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
@@ -233,8 +242,9 @@ async def _diff(
             if failed > 0:
                 overall_pass = False
 
-            # Print results table
-            _print_diff_table(report, diff_dir)
+            # Print results (unless github/json format — those print at the end)
+            if output_format == "table":
+                _print_diff_table(report, diff_dir)
 
     finally:
         await engine.stop()
@@ -244,27 +254,36 @@ async def _diff(
         report_path = Path(config.data_dir) / "visual_diff_report.json"
         report_data = [r.model_dump(mode="json") for r in all_reports]
         report_path.write_text(json.dumps(report_data, indent=2, default=str), encoding="utf-8")
-        typer.echo(f"\n[AWT] Report saved: {report_path}")
 
-    # Final summary
+        if output_format == "json":
+            typer.echo(json.dumps(report_data, indent=2, default=str))
+        elif output_format == "github":
+            typer.echo(format_github_comment(all_reports))
+        else:
+            typer.echo(f"\n[AWT] Report saved: {report_path}")
+
+    # Final summary (table mode only)
     total_p = sum(r.passed for r in all_reports)
     total_f = sum(r.failed for r in all_reports)
-    if overall_pass:
-        typer.echo(
-            typer.style(
-                f"\n✅ Visual regression: ALL PASSED ({total_p} steps)",
-                fg=typer.colors.GREEN,
-                bold=True,
+    if output_format == "table":
+        if overall_pass:
+            typer.echo(
+                typer.style(
+                    f"\n✅ Visual regression: ALL PASSED ({total_p} steps)",
+                    fg=typer.colors.GREEN,
+                    bold=True,
+                )
             )
-        )
-    else:
-        typer.echo(
-            typer.style(
-                f"\n❌ Visual regression: {total_f} FAILED, {total_p} passed",
-                fg=typer.colors.RED,
-                bold=True,
+        else:
+            typer.echo(
+                typer.style(
+                    f"\n❌ Visual regression: {total_f} FAILED, {total_p} passed",
+                    fg=typer.colors.RED,
+                    bold=True,
+                )
             )
-        )
+
+    if not overall_pass:
         raise typer.Exit(code=1)
 
 
@@ -316,3 +335,49 @@ def _print_diff_table(report: VisualDiffReport, diff_dir: Path | None) -> None:
                 typer.echo(f"  step{d.step:03d}    {d.ssim_score:>7.1%}  ❌ FAIL")
             else:
                 typer.echo(f"  step{d.step:03d}         —  ⚠️  {d.status}")
+
+
+def format_github_comment(reports: list[VisualDiffReport]) -> str:
+    """Format diff reports as a GitHub PR comment (Markdown)."""
+    total_p = sum(r.passed for r in reports)
+    total_f = sum(r.failed for r in reports)
+    overall = total_f == 0
+
+    lines: list[str] = []
+
+    if overall:
+        lines.append("## ✅ AWT Visual Regression — ALL PASSED")
+    else:
+        lines.append("## ❌ AWT Visual Regression — FAILED")
+
+    lines.append("")
+    lines.append(f"**{total_p} passed**, **{total_f} failed**")
+    lines.append("")
+
+    for report in reports:
+        lines.append(f"### {report.scenario_id}")
+        if report.scenario_name:
+            lines.append(f"_{report.scenario_name}_ | threshold: {report.threshold:.0%}")
+        lines.append("")
+        lines.append("| Step | SSIM | Status |")
+        lines.append("|------|------|--------|")
+
+        for d in report.steps:
+            if d.status == "pass":
+                lines.append(f"| step{d.step:03d} | {d.ssim_score:.1%} | ✅ Pass |")
+            elif d.status == "fail":
+                lines.append(f"| step{d.step:03d} | {d.ssim_score:.1%} | ❌ **Fail** |")
+            elif d.status == "missing_baseline":
+                lines.append(f"| step{d.step:03d} | — | ⚠️ No baseline |")
+            else:
+                lines.append(f"| step{d.step:03d} | — | ⚠️ No current |")
+
+        lines.append("")
+
+    lines.append("---")
+    lines.append(
+        "*Generated by [AWT](https://github.com/ksgisang/AI-Watch-Tester)"
+        " visual regression*"
+    )
+
+    return "\n".join(lines)

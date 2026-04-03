@@ -245,3 +245,98 @@ class TestVisualModels:
         assert meta.scenario_id == "SC-001"
         assert meta.step_count == 5
         assert meta.scenario_name == ""
+
+
+# ===========================================================================
+# GitHub comment formatter tests
+# ===========================================================================
+
+
+class TestGitHubCommentFormatter:
+    """Tests for format_github_comment output."""
+
+    def test_all_passed(self) -> None:
+        from aat.cli.commands.diff_cmd import format_github_comment
+
+        reports = [
+            VisualDiffReport(
+                scenario_id="SC-001",
+                scenario_name="Login",
+                threshold=0.95,
+                steps=[
+                    StepDiffResult(step=1, ssim_score=0.99, status="pass"),
+                    StepDiffResult(step=2, ssim_score=0.97, status="pass"),
+                ],
+                passed=2,
+                failed=0,
+            )
+        ]
+        md = format_github_comment(reports)
+        assert "ALL PASSED" in md
+        assert "| step001 |" in md
+        assert "| step002 |" in md
+        assert "AWT" in md
+
+    def test_with_failures(self) -> None:
+        from aat.cli.commands.diff_cmd import format_github_comment
+
+        reports = [
+            VisualDiffReport(
+                scenario_id="SC-001",
+                scenario_name="Login",
+                threshold=0.95,
+                steps=[
+                    StepDiffResult(step=1, ssim_score=0.99, status="pass"),
+                    StepDiffResult(step=2, ssim_score=0.80, status="fail"),
+                ],
+                passed=1,
+                failed=1,
+            )
+        ]
+        md = format_github_comment(reports)
+        assert "FAILED" in md
+        assert "**1 passed**" in md
+        assert "**1 failed**" in md
+        assert "**Fail**" in md
+
+    def test_multiple_scenarios(self) -> None:
+        from aat.cli.commands.diff_cmd import format_github_comment
+
+        reports = [
+            VisualDiffReport(
+                scenario_id="SC-001",
+                scenario_name="Login",
+                threshold=0.95,
+                steps=[StepDiffResult(step=1, ssim_score=0.99, status="pass")],
+                passed=1,
+                failed=0,
+            ),
+            VisualDiffReport(
+                scenario_id="SC-002",
+                scenario_name="Signup",
+                threshold=0.95,
+                steps=[StepDiffResult(step=1, ssim_score=0.70, status="fail")],
+                passed=0,
+                failed=1,
+            ),
+        ]
+        md = format_github_comment(reports)
+        assert "SC-001" in md
+        assert "SC-002" in md
+        assert "FAILED" in md  # Overall should be FAILED
+
+    def test_missing_baseline_status(self) -> None:
+        from aat.cli.commands.diff_cmd import format_github_comment
+
+        reports = [
+            VisualDiffReport(
+                scenario_id="SC-001",
+                scenario_name="Test",
+                threshold=0.95,
+                steps=[StepDiffResult(step=1, status="missing_baseline")],
+                passed=0,
+                failed=1,
+            )
+        ]
+        md = format_github_comment(reports)
+        assert "No baseline" in md

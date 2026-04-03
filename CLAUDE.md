@@ -236,6 +236,13 @@ aat run --skill-mode --fast <scenario>
   - MCP: `aat_snapshot`, `aat_diff` 도구 추가
   - 20개 단위 테스트 통과
 
+- [x] **AAT-103** PR 코멘트 GitHub Action + `--format=github` — 완료 2026-04-03
+  - `aat diff --format=github` → PR 코멘트용 마크다운 출력
+  - `aat diff --format=json` → JSON 출력
+  - `.github/workflows/visual-regression.yml` 템플릿
+  - PR 코멘트: 자동 생성/갱신 (기존 코멘트 업데이트, 스팸 방지)
+  - 24개 단위 테스트 통과
+
 ---
 
 ## 협업 프로젝트 연동 (ClasRing + DSL)
@@ -283,8 +290,8 @@ aat run --skill-mode --fast <scenario>
 
 ## Current Status
 
-- **현재 단계**: Visual Regression 완료 (AAT-100~102)
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~102 (Post-MVP)
+- **현재 단계**: Visual Regression + PR Comment 완료 (AAT-100~103)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~103 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)

@@ -77,7 +77,7 @@ async def _snapshot(
     matchers = []
     for m in config.matching.chain_order:
         if m.value in MATCHER_REGISTRY and m.value != "vision_ai":
-            matchers.append(MATCHER_REGISTRY[m.value](config.matching))
+            matchers.append(MATCHER_REGISTRY[m.value](config.matching))  # type: ignore[call-arg]
     hybrid = HybridMatcher(matchers, config.matching)
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
