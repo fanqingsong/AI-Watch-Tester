@@ -38,6 +38,7 @@ aat run --skill-mode --fast <scenario>
 - `PM/Develop_Plan_v0.2.md` — 기술 아키텍처
 - `PM/설계서_v0.2.md` — **구현 상세 설계** (이 파일이 구현의 기준)
 - `PM/비즈니스_플랜_v0.2.md` — 사업 전략
+- `docs/RELEASE_GUIDE.md` — **배포 가이드** (PyPI/README/PR 동기화 절차)
 
 ## Tech Stack
 
@@ -65,6 +66,9 @@ aat run --skill-mode --fast <scenario>
 5. CI가 `"completed/success"`일 때만 작업 완료 보고
 
 커밋은 Phase나 기능 단위로 나눠서 한다. 한 번에 10개 이상 파일을 변경하는 커밋은 피한다.
+
+**배포가 필요한 경우** `docs/RELEASE_GUIDE.md`의 체크리스트를 따른다.
+특히 MCP 도구 변경 시 Anthropic Skills PR과 MCP Servers PR 동기화를 잊지 말 것.
 
 ## Commands
 
