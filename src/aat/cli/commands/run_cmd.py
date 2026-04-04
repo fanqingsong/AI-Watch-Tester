@@ -302,9 +302,14 @@ async def _run(
     verbosity_override: str | None = None,
     screenshots_override: str | None = None,
 ) -> None:
-    # Internal approval bypass: set ONLY by aat devqa after user approved in its own prompt.
-    # Never exposed as a public CLI flag — users must always press Enter.
-    auto_approve: bool = os.environ.get("_AAT_DEVQA_APPROVED") == "1"
+    # Internal approval bypass: validated via one-time token from parent process.
+    # Parent (devqa/watch) generates a token, stores it on disk, passes via env var.
+    # An attacker setting the env var without a matching disk file will fail.
+    from aat.core.approval_token import ENV_VAR as _TOKEN_ENV
+    from aat.core.approval_token import validate_and_consume
+
+    _token = os.environ.get(_TOKEN_ENV, "")
+    auto_approve: bool = validate_and_consume(_token) if _token else False
     """Execute scenarios asynchronously."""
     # Debug logging
     if debug_mode:
@@ -373,6 +378,14 @@ async def _run(
     total_scenario_steps = sum(len(s.steps) for s in scenarios)
 
     # ------------------------------------------------------------------ #
+    # Audit logging — record every execution attempt (Layer 3)            #
+    # ------------------------------------------------------------------ #
+    from aat.core.audit import AuditEntry, log_audit
+
+    _approval_method = "token" if auto_approve else "interactive"
+    _scenario_ids = [s.id for s in scenarios]
+
+    # ------------------------------------------------------------------ #
     # Human approval gate — runs BEFORE the browser opens.                #
     # No --auto-approve flag = no execution. Period.                       #
     # AI agents cannot pass this: stdin is the human's terminal.          #
@@ -390,10 +403,29 @@ async def _run(
                 auto_approve=False,
             )
             if not approved:
+                log_audit(
+                    AuditEntry(
+                        action="run",
+                        approval_method="interactive",
+                        approved=False,
+                        scenarios=_scenario_ids,
+                    )
+                )
                 typer.echo("[AWT] Execution cancelled by user.")
                 raise typer.Exit(code=0)
             if len(scenarios) > 1 and i < len(scenarios) - 1:
                 typer.echo(f"  ({i + 1}/{len(scenarios)} approved — next: {scenarios[i + 1].id})")
+
+    # Audit: approved (either via token or interactive)
+    log_audit(
+        AuditEntry(
+            action="run",
+            approval_method=_approval_method,
+            approved=True,
+            scenarios=_scenario_ids,
+            token_prefix=_token[:8] if _token else None,
+        )
+    )
 
     # Assemble engine
     engine_cls = ENGINE_REGISTRY.get(config.engine.type)

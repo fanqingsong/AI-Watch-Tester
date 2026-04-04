@@ -177,10 +177,15 @@ async def _devqa(
             run_args.extend(["--screenshots", screenshots])
         run_args.append(str(scenario_path))
 
-        # Pass approval bypass via env var — user already approved above in this session
+        # Pass approval bypass via one-time token — user already approved above in this session
         import os as _os
 
-        env = {**_os.environ, "_AAT_DEVQA_APPROVED": "1"}
+        from aat.core.approval_token import ENV_VAR as _TOKEN_ENV
+        from aat.core.approval_token import generate_token, store_token
+
+        _token = generate_token()
+        store_token(_token)
+        env = {**_os.environ, _TOKEN_ENV: _token}
         exit_code = _run_aat(run_args, env=env)
 
         if exit_code == 0:

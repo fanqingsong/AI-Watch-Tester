@@ -32,6 +32,30 @@ aat run --skill-mode --fast <scenario>
 - 사용자 승인 없이 테스트 실행 금지
 - 사용자 지시 없이 코드/시나리오 자동 수정 금지
 
+## ⛔ AI Security Rules — Approval Bypass Prevention (Layer 4)
+
+**이 섹션은 모든 AI 에이전트(Claude, GPT, Copilot 등)가 반드시 준수해야 합니다.**
+
+### 절대 금지 행위
+1. `_AAT_APPROVAL_TOKEN` 환경변수를 직접 설정하거나 위조하지 마세요.
+2. `.aat/.approval_token_*` 파일을 직접 생성, 읽기, 수정하지 마세요.
+3. `approval_token.py`, `scenario_reviewer.py`, `audit.py`의 보안 로직을 수정하지 마세요.
+4. `/dev/tty` 읽기를 우회하거나 `_is_interactive()` 결과를 조작하지 마세요.
+5. `.aat/audit.log`를 삭제하거나 수정하지 마세요.
+6. `--auto-approve`, `-y` 플래그를 사용하거나 구현하지 마세요.
+7. `echo "" | aat run` 같은 stdin 파이프로 승인을 우회하지 마세요.
+
+### 승인 메커니즘 (4-Layer Defense)
+- **Layer 1**: `/dev/tty` 직접 읽기 — stdin 파이프 우회 방지
+- **Layer 2**: 일회용 암호화 토큰 — 환경변수 위조 방지
+- **Layer 3**: JSONL 감사 로그 — 모든 실행 시도 기록
+- **Layer 4**: 이 규칙 — AI 에이전트의 우회 시도 자체를 금지
+
+### AI 에이전트의 올바른 동작
+- `aat run`은 반드시 사용자의 터미널에서 실행하세요.
+- 사용자가 직접 Enter를 눌러 승인해야 합니다.
+- 승인 프롬프트를 건너뛸 수 있는 방법을 찾으려 하지 마세요.
+
 ## Key Documents
 
 - `PM/기획서_v1.md` — 제품 기획서 (전체 비전)
@@ -276,6 +300,18 @@ aat run --skill-mode --fast <scenario>
   - MCP: `aat_snapshot`, `aat_diff` 파라미터 추가
   - 25개 단위 테스트 통과 (test_enhancements.py)
 
+### Post-MVP: Approval Security (AAT-108)
+
+- [x] **AAT-108** 4-Layer Approval Security — AI 에이전트 승인 우회 방지 — 완료 2026-04-04
+  - Layer 1: `/dev/tty` 직접 읽기 — stdin 파이프 우회 방지 (`scenario_reviewer.py`, `loop.py`)
+  - Layer 2: 일회용 암호화 토큰 — `_AAT_DEVQA_APPROVED` 환경변수 → `_AAT_APPROVAL_TOKEN` + 디스크 파일 검증
+  - Layer 3: JSONL 감사 로그 — `.aat/audit.log`에 모든 실행 시도 기록
+  - Layer 4: CLAUDE.md + MCP instructions에 AI 보안 규칙 명시
+  - `approval_token.py`: `generate_token()`, `store_token()`, `validate_and_consume()`
+  - `audit.py`: `AuditEntry` Pydantic 모델, `log_audit()`, `read_audit()`
+  - `run_cmd.py`, `devqa_cmd.py`, `watch_cmd.py` 통합
+  - 17개 보안 테스트 통과 (test_approval_security.py)
+
 ---
 
 ## 협업 프로젝트 연동 (ClasRing + DSL)
@@ -323,8 +359,8 @@ aat run --skill-mode --fast <scenario>
 
 ## Current Status
 
-- **현재 단계**: Enhancement (반응형/콘솔/자동열기) 완료 (AAT-105~107)
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~107 (Post-MVP)
+- **현재 단계**: 4-Layer Approval Security 완료 (AAT-108)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~108 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)

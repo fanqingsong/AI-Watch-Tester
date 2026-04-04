@@ -194,7 +194,10 @@ def test_show_and_approve_auto_approve(capsys: pytest.CaptureFixture[str]) -> No
 def test_show_and_approve_user_enters(capsys: pytest.CaptureFixture[str]) -> None:
     """Empty input (Enter) → proceed."""
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value=""):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value=""),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         result = r.show_and_approve(_LOGIN_YAML, attempt=1)
     assert result is True
 
@@ -202,7 +205,10 @@ def test_show_and_approve_user_enters(capsys: pytest.CaptureFixture[str]) -> Non
 def test_show_and_approve_user_cancels(capsys: pytest.CaptureFixture[str]) -> None:
     """'n' input → cancel."""
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value="n"):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value="n"),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         result = r.show_and_approve(_LOGIN_YAML, attempt=1)
     assert result is False
 
@@ -210,7 +216,10 @@ def test_show_and_approve_user_cancels(capsys: pytest.CaptureFixture[str]) -> No
 def test_show_and_approve_shows_header(capsys: pytest.CaptureFixture[str]) -> None:
     """First attempt shows 검토 header."""
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value=""):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value=""),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         r.show_and_approve(_LOGIN_YAML, attempt=1)
     captured = capsys.readouterr()
     assert "Scenario Review" in captured.out
@@ -220,7 +229,10 @@ def test_show_and_approve_shows_header(capsys: pytest.CaptureFixture[str]) -> No
 def test_show_and_approve_retry_header(capsys: pytest.CaptureFixture[str]) -> None:
     """Second attempt shows 재시도 header."""
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value=""):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value=""),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         r.show_and_approve(_LOGIN_YAML, attempt=2, previous_yaml=_LOGIN_YAML)
     captured = capsys.readouterr()
     assert "attempt 2" in captured.out
@@ -237,7 +249,10 @@ def test_show_and_approve_diff_marker(capsys: pytest.CaptureFixture[str]) -> Non
     prev_yaml = _yaml.safe_dump(prev, allow_unicode=True)
 
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value=""):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value=""),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         r.show_and_approve(_LOGIN_YAML, attempt=2, previous_yaml=prev_yaml)
     captured = capsys.readouterr()
     assert "← changed" in captured.out
@@ -246,6 +261,9 @@ def test_show_and_approve_diff_marker(capsys: pytest.CaptureFixture[str]) -> Non
 def test_show_and_approve_invalid_yaml_fallback() -> None:
     """Broken YAML falls back gracefully."""
     r = ScenarioReviewer()
-    with patch("builtins.input", return_value=""):
+    with (
+        patch("aat.core.scenario_reviewer._read_tty", return_value=""),
+        patch("aat.core.scenario_reviewer._is_interactive", return_value=True),
+    ):
         result = r.show_and_approve("not: valid: yaml: {{{", attempt=1)
     assert result is True

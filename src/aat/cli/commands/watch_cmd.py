@@ -12,6 +12,8 @@ from pathlib import Path
 
 import typer
 
+from aat.core.approval_token import ENV_VAR as _TOKEN_ENV
+from aat.core.approval_token import generate_token, store_token
 from aat.core.config import load_config
 from aat.core.exceptions import AATError
 
@@ -195,8 +197,10 @@ def _run_tests(
 
     typer.echo(typer.style("  ▶ Running tests...", fg=typer.colors.CYAN))
 
+    _token = generate_token()
+    store_token(_token)
     env = {**os.environ}
-    env["_AAT_DEVQA_APPROVED"] = "1"  # Skip approval in watch mode
+    env[_TOKEN_ENV] = _token
     if url_override:
         env["AAT_URL"] = url_override
 
@@ -254,8 +258,10 @@ def _run_diff(
     if config_path:
         cmd += ["--config", config_path]
 
+    _token2 = generate_token()
+    store_token(_token2)
     env = {**os.environ}
-    env["_AAT_DEVQA_APPROVED"] = "1"
+    env[_TOKEN_ENV] = _token2
     if url_override:
         env["AAT_URL"] = url_override
 

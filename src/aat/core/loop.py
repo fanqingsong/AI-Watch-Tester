@@ -30,8 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 def _default_prompt_approval(analysis_text: str) -> bool:
-    """Default approval callback using input()."""
-    response = input(f"\nAnalysis: {analysis_text}\nApprove fix? [y/N]: ")
+    """Default approval callback — reads from /dev/tty to prevent pipe bypass."""
+    from aat.core.scenario_reviewer import _is_interactive, _read_tty
+
+    if not _is_interactive():
+        logger.warning("Non-interactive terminal — cannot prompt for approval")
+        return False
+
+    prompt = f"\nAnalysis: {analysis_text}\nApprove fix? [y/N]: "
+    response = _read_tty(prompt)
     return response.strip().lower() in ("y", "yes")
 
 

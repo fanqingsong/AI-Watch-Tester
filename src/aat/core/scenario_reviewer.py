@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -241,10 +242,20 @@ class ScenarioReviewer:
     # -----------------------------------------------------------------------
 
     def _prompt(self, scenario_yaml: str, scenario_path: Path | None) -> bool:
-        """Interactive prompt: Enter / e / n."""
+        """Interactive prompt: Enter / e / n.
+
+        Reads from /dev/tty (not stdin) to prevent pipe bypass.
+        """
+        if not _is_interactive():
+            typer.echo(
+                "[AWT] ERROR: approval requires an interactive terminal. "
+                "Cannot proceed in non-interactive mode."
+            )
+            return False
+
         while True:
             try:
-                answer = input("▶ ").strip().lower()
+                answer = _read_tty("▶ ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 typer.echo()
                 typer.echo("[AWT] Cancelled")
@@ -265,8 +276,11 @@ class ScenarioReviewer:
     @staticmethod
     def _prompt_raw() -> bool:
         """Fallback prompt when YAML parse failed."""
+        if not _is_interactive():
+            typer.echo("[AWT] ERROR: approval requires an interactive terminal.")
+            return False
         try:
-            answer = input("Proceed? [Enter=yes / n=no] ").strip().lower()
+            answer = _read_tty("Proceed? [Enter=yes / n=no] ").strip().lower()
             return answer != "n"
         except (EOFError, KeyboardInterrupt):
             return False
@@ -300,3 +314,38 @@ class ScenarioReviewer:
 
         tmp.unlink(missing_ok=True)
         return changed
+
+
+# ---------------------------------------------------------------------------
+# TTY helpers — read from /dev/tty to prevent pipe bypass (like sudo)
+# ---------------------------------------------------------------------------
+
+
+def _is_interactive() -> bool:
+    """Check if the current process has an interactive terminal."""
+    if not sys.stdin.isatty():
+        return False
+    # Also check /dev/tty accessibility (may not exist in containers)
+    try:
+        with open("/dev/tty"):  # noqa: SIM115
+            return True
+    except OSError:
+        return sys.stdin.isatty()  # Windows fallback
+
+
+def _read_tty(prompt: str = "") -> str:
+    """Read a line from /dev/tty, bypassing stdin redirection.
+
+    This is the same technique sudo uses to read passwords — even if
+    stdin is piped (``echo "" | aat run``), /dev/tty reads from the
+    actual terminal device.
+    """
+    if prompt:
+        sys.stderr.write(prompt)
+        sys.stderr.flush()
+    try:
+        with open("/dev/tty") as tty:  # noqa: SIM115
+            return tty.readline().rstrip("\n")
+    except OSError:
+        # /dev/tty unavailable (Windows, Docker without tty)
+        return input(prompt)

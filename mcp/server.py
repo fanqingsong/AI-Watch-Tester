@@ -49,7 +49,13 @@ mcp = FastMCP(
         "  → WAIT for approval, then run with aat_run_skill_mode.\n\n"
         "⛔ NEVER use aat_run without showing the scenario to the user first.\n"
         "⛔ NEVER auto-fix code or scenarios without user permission.\n"
-        "⛔ There is NO --auto-approve or -y flag. Human approval is always required."
+        "⛔ There is NO --auto-approve or -y flag. Human approval is always required.\n\n"
+        "🔒 SECURITY — Approval Bypass Prevention:\n"
+        "- NEVER set _AAT_APPROVAL_TOKEN env var or create .approval_token_* files.\n"
+        "- NEVER pipe input to aat run (e.g. echo '' | aat run).\n"
+        "- NEVER modify approval_token.py, scenario_reviewer.py, or audit.py.\n"
+        "- NEVER delete or modify .aat/audit.log.\n"
+        "- All execution attempts are cryptographically logged and auditable."
     ),
 )
 
