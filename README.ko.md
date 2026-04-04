@@ -75,7 +75,9 @@ pip install aat-devqa
 # Claude Code에 추가
 claude mcp add awt -- python mcp/server.py
 
-# 사용 가능한 도구: aat_devqa, aat_run, aat_doctor, aat_list_scenarios, aat_validate
+# 사용 가능한 도구: aat_devqa, aat_run, aat_doctor, aat_list_scenarios,
+#                  aat_validate, aat_generate_from_doc,
+#                  aat_snapshot, aat_diff, aat_watch
 ```
 
 > **클라우드 & 로컬 CLI** 버전은 현재 개발 중이며 별도로 공개 예정입니다.
@@ -160,7 +162,8 @@ npx skills add ksgisang/awt-skill --skill awt -g
 claude mcp add awt -- python mcp/server.py
 
 # 사용 가능한 도구: aat_run, aat_doctor, aat_list_scenarios, aat_validate,
-#                  aat_cost, aat_generate_from_doc
+#                  aat_cost, aat_generate_from_doc,
+#                  aat_snapshot, aat_diff, aat_watch
 ```
 
 ---
@@ -204,6 +207,91 @@ aat run scenarios/
 
 ---
 
+## 비주얼 리그레션 — UI 변경을 자동으로 감지
+
+코드 수정 전후 스크린샷을 비교해서 의도하지 않은 UI 변경을 잡아냅니다. **AI 토큰 제로** — 순수 Playwright + OpenCV.
+
+```bash
+# 1단계: 기준선 캡처 (코드 수정 전)
+aat snapshot scenarios/login.yaml --url http://localhost:3000
+
+# 2단계: 코드 수정 후 비교
+aat diff scenarios/login.yaml --url http://localhost:3000
+
+# 결과:
+# step001  99.8%  ✅ PASS
+# step002  87.3%  ❌ FAIL  ← UI 변경 감지
+# step003 100.0%  ✅ PASS
+```
+
+### 반응형 — 3종 뷰포트 한번에 테스트
+
+```bash
+# 모바일 + 태블릿 + 데스크톱 기준선 캡처
+aat snapshot scenarios/ --url http://localhost:3000 --responsive
+
+# 3종 뷰포트 비교
+aat diff scenarios/ --url http://localhost:3000 --responsive
+
+# 단일 커스텀 뷰포트 지정
+aat snapshot scenarios/ --viewport 414x896
+```
+
+| 뷰포트 | 크기 | 용도 |
+|----------|------|----------|
+| mobile | 375×812 | iPhone급 기기 |
+| tablet | 768×1024 | iPad급 기기 |
+| desktop | 1280×720 | 일반 데스크톱 |
+
+### 콘솔 에러 수집
+
+```bash
+# 기준선 캡처하면서 JS 에러 체크
+aat snapshot scenarios/ --url http://localhost:3000 --console
+
+# 콘솔 에러가 있으면 실패 처리
+aat snapshot scenarios/ --url http://localhost:3000 --console-fail
+```
+
+시각적 검사를 통과해도 숨어있는 JS 에러를 잡아냅니다 — `TypeError`, 네트워크 404, 미처리 예외.
+
+### diff 이미지 자동 열기
+
+```bash
+# 실패한 diff 이미지를 시스템 뷰어로 자동 열기
+aat diff scenarios/ --url http://localhost:3000 --open
+
+# → macOS: Preview로 열기
+# → Linux: xdg-open으로 열기
+```
+
+### Watch 모드 — 파일 저장 시 자동 테스트
+
+```bash
+aat watch scenarios/ --url http://localhost:3000
+# → 파일 저장하면 테스트 자동 실행
+# → 기준선 있으면 비주얼 diff 포함
+# → Ctrl+C로 종료
+```
+
+- 시나리오 파일 변경 → 해당 시나리오만 재실행
+- 소스 파일 변경 → 전체 시나리오 실행 (전체 리그레션)
+- [watchfiles](https://github.com/samuelcolvin/watchfiles) (Rust 기반) 사용, 폴링 폴백 지원
+
+### PR 코멘트 (GitHub Action)
+
+```bash
+# PR 코멘트용 마크다운 출력
+aat diff scenarios/ --format=github
+
+# JSON 출력 (다른 도구 연동용)
+aat diff scenarios/ --format=json
+```
+
+`.github/workflows/visual-regression.yml` 템플릿이 포함되어 있습니다 — 저장소에 넣으면 모든 PR에 자동으로 비주얼 리그레션 코멘트가 달립니다.
+
+---
+
 ## AWT가 잘하는 것
 
 | | 기능 | 설명 |
@@ -217,6 +305,10 @@ aat run scenarios/
 | ⚡ | **속도 모드** | React/Next.js는 `fast` · Flutter/애니메이션은 `slow` |
 | 📸 | **스마트 스크린샷** | `all` / `before-after` / `on-failure` — 필요에 맞게 선택 |
 | 🔌 | **플러그인 아키텍처** | 엔진, 매처, AI 제공자를 레지스트리로 교체 가능 |
+| 📊 | **비주얼 리그레션** | SSIM 기반 스크린샷 비교 — AI 토큰 제로, 순수 OpenCV |
+| 📱 | **반응형 테스트** | 모바일/태블릿/데스크톱 뷰포트를 한 명령으로 (`--responsive`) |
+| 🖥️ | **Watch 모드** | 파일 저장 시 자동 테스트 — 즉각적인 피드백 루프 |
+| 🔍 | **콘솔 에러 캡처** | 시각적 검사를 통과해도 숨은 JS 에러를 잡아냄 (`--console`) |
 
 ---
 
@@ -256,6 +348,10 @@ Playwright와 Cypress는 훌륭한 도구입니다 — AWT도 Playwright 위에 
 | 자가 수복 | DevQA Loop (AI가 자동 재생성) | 내장 자동 유지보수 |
 | 가격 | 무료 (MIT, 셀프 호스팅) | 엔터프라이즈 (~$800+/월) |
 | 오픈소스 | ✅ MIT 라이선스 | ❌ |
+
+### vs Applitools
+
+Applitools는 AI 기반 **비주얼 리그레션**에 특화되어 있습니다. AWT도 이제 자체 비주얼 리그레션(SSIM 기반, AI 토큰 제로)을 갖추고 있으며, **기능 테스트**까지 함께 합니다. 브라우저/뷰포트 간 픽셀 퍼펙트 비교가 필요하면 Applitools가 더 성숙합니다. 하지만 AWT는 기능 + 시각 테스트를 하나의 무료 도구로 제공합니다.
 
 ---
 
@@ -303,7 +399,7 @@ ai:
 ## 아키텍처
 
 ```
-aat devqa / aat run / aat dashboard
+aat devqa / aat run / aat snapshot / aat diff / aat watch
               │
               ▼
     ┌─────────────────────────────────────┐
@@ -315,6 +411,8 @@ aat devqa / aat run / aat dashboard
     │   Engine   │ Matcher  │  AI Adapter │
     │ web/desktop│ocr/cv/ai │ openai/etc. │
     ├────────────┴──────────┴─────────────┤
+    │  Visual Regression · Watch Mode     │
+    ├─────────────────────────────────────┤
     │  Pydantic v2 Models · SQLite Learn  │
     └─────────────────────────────────────┘
 ```
@@ -398,6 +496,21 @@ AWT의 DevQA Loop는 실패 후 페이지를 재스캔하고, 업데이트된 �
 | 적합한 용도 | 첫 실행, 빠른 테스트 | 코드 수정 포함 반복 개발 |
 
 처음 시작할 때는 `aat devqa`, 앱 코드도 함께 고치고 싶을 때는 `aat loop`.
+</details>
+
+<details>
+<summary><strong>비주얼 리그레션 테스트가 뭔가요?</strong></summary>
+<br/>
+
+코드 수정 전후 스크린샷을 비교해서 UI가 의도치 않게 바뀌었는지 확인하는 것입니다 — 레이아웃 밀림, 요소 누락, 색상 변경 등.
+
+```bash
+aat snapshot scenarios/ --url http://localhost:3000   # 수정 전
+# ... 코드 수정 ...
+aat diff scenarios/ --url http://localhost:3000        # 비교
+```
+
+AWT는 SSIM(구조적 유사도 지수)을 사용합니다 — AI 토큰이 필요 없습니다. `--responsive`를 추가하면 모바일, 태블릿, 데스크톱 뷰포트를 한번에 테스트할 수 있습니다.
 </details>
 
 <details>

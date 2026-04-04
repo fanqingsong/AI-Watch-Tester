@@ -76,7 +76,8 @@ pip install aat-devqa
 claude mcp add awt -- python mcp/server.py
 
 # Tools available: aat_devqa, aat_run, aat_doctor, aat_list_scenarios,
-#                  aat_validate, aat_generate_from_doc
+#                  aat_validate, aat_generate_from_doc,
+#                  aat_snapshot, aat_diff, aat_watch
 ```
 
 > **Cloud & Local CLI** versions are in active development and will be announced separately.
@@ -161,7 +162,8 @@ npx skills add ksgisang/awt-skill --skill awt -g
 claude mcp add awt -- python mcp/server.py
 
 # Tools available: aat_run, aat_doctor, aat_list_scenarios, aat_validate,
-#                  aat_cost, aat_generate_from_doc
+#                  aat_cost, aat_generate_from_doc,
+#                  aat_snapshot, aat_diff, aat_watch
 ```
 
 ---
@@ -205,6 +207,91 @@ This turns AWT into an **automated quality gate** — your AI writes code, AWT v
 
 ---
 
+## Visual Regression — Catch UI Changes Automatically
+
+AWT detects unintended UI changes by comparing screenshots before and after code changes. **Zero AI tokens** — pure Playwright + OpenCV.
+
+```bash
+# Step 1: Capture baselines (before code change)
+aat snapshot scenarios/login.yaml --url http://localhost:3000
+
+# Step 2: After code changes, compare
+aat diff scenarios/login.yaml --url http://localhost:3000
+
+# Result:
+# step001  99.8%  ✅ PASS
+# step002  87.3%  ❌ FAIL  ← UI change detected
+# step003 100.0%  ✅ PASS
+```
+
+### Responsive — Test 3 Viewports at Once
+
+```bash
+# Capture mobile + tablet + desktop baselines
+aat snapshot scenarios/ --url http://localhost:3000 --responsive
+
+# Compare all 3 viewports
+aat diff scenarios/ --url http://localhost:3000 --responsive
+
+# Or test a single custom viewport
+aat snapshot scenarios/ --viewport 414x896
+```
+
+| Viewport | Size | Use Case |
+|----------|------|----------|
+| mobile | 375×812 | iPhone-class devices |
+| tablet | 768×1024 | iPad-class devices |
+| desktop | 1280×720 | Standard desktop |
+
+### Console Error Collection
+
+```bash
+# Capture baselines and check for JS errors
+aat snapshot scenarios/ --url http://localhost:3000 --console
+
+# Fail the run if console errors are found
+aat snapshot scenarios/ --url http://localhost:3000 --console-fail
+```
+
+Catches hidden JavaScript errors that pass visual checks — `TypeError`, network 404s, uncaught exceptions.
+
+### Auto-Open Diff Images
+
+```bash
+# Open failed diff images in your system viewer
+aat diff scenarios/ --url http://localhost:3000 --open
+
+# → macOS: opens in Preview
+# → Linux: opens with xdg-open
+```
+
+### Watch Mode — Auto-Test on File Changes
+
+```bash
+aat watch scenarios/ --url http://localhost:3000
+# → Saves a file? Tests re-run automatically
+# → Baselines exist? Visual diff included
+# → Ctrl+C to stop
+```
+
+- Scenario file changed → re-run that scenario only
+- Source file changed → re-run all scenarios (full regression)
+- Powered by [watchfiles](https://github.com/samuelcolvin/watchfiles) (Rust-based), with polling fallback
+
+### PR Comments (GitHub Action)
+
+```bash
+# Output GitHub-flavored markdown for PR comments
+aat diff scenarios/ --format=github
+
+# JSON output for other tools
+aat diff scenarios/ --format=json
+```
+
+A `.github/workflows/visual-regression.yml` template is included — drop it into your repo and every PR gets automatic visual regression comments.
+
+---
+
 ## What AWT Is Great At
 
 | | Feature | Description |
@@ -218,6 +305,10 @@ This turns AWT into an **automated quality gate** — your AI writes code, AWT v
 | ⚡ | **Speed modes** | `fast` for React/Next.js · `slow` for Flutter/animations |
 | 📸 | **Smart screenshots** | `all` / `before-after` / `on-failure` — choose your audit level |
 | 🔌 | **Plugin architecture** | Swap engines, matchers, AI providers via simple registries |
+| 📊 | **Visual regression** | SSIM-based screenshot comparison — zero AI tokens, pure OpenCV |
+| 📱 | **Responsive testing** | Test mobile/tablet/desktop viewports in one command (`--responsive`) |
+| 🖥️ | **Watch mode** | Auto-run tests on file save — instant feedback loop |
+| 🔍 | **Console error capture** | Catch hidden JS errors that pass visual checks (`--console`) |
 
 ---
 
@@ -260,7 +351,7 @@ Playwright and Cypress are excellent — and AWT is built on top of Playwright. 
 
 ### vs Applitools
 
-Applitools specializes in **visual regression** (pixel-by-pixel screenshot comparison). AWT specializes in **functional testing** (does the login actually work?). They complement each other — run AWT for functional tests, add Applitools for pixel-perfect visual checks.
+Applitools specializes in **visual regression** with AI-powered comparison. AWT now includes its own visual regression (SSIM-based, zero AI tokens) **plus** functional testing. For pixel-perfect comparison across browsers and viewports, Applitools is still more mature. But AWT covers both functional + visual in a single free tool.
 
 ---
 
@@ -308,7 +399,7 @@ ai:
 ## Architecture
 
 ```
-aat devqa / aat run / aat dashboard
+aat devqa / aat run / aat snapshot / aat diff / aat watch
               │
               ▼
     ┌─────────────────────────────────────┐
@@ -316,10 +407,11 @@ aat devqa / aat run / aat dashboard
     ├─────────────────────────────────────┤
     │         Core Orchestrator           │
     │  Executor · Comparator · DevQALoop  │
-    ├────────────┬──────────┬─────────────┤
-    │   Engine   │ Matcher  │  AI Adapter │
-    │ web/desktop│ocr/cv/ai │ openai/etc. │
-    ├────────────┴──────────┴─────────────┤
+    ├────────────┬────────────┬───────────┤
+    │   Engine   │  Matcher   │ AI Adapter│
+    │ web/desktop│ ocr/cv/ai  │openai/etc.│
+    ├────────────┴────────────┴───────────┤
+    │  Visual Regression · Watch Mode     │
     │  Pydantic v2 Models · SQLite Learn  │
     └─────────────────────────────────────┘
 ```
@@ -472,6 +564,21 @@ Cloud BYOK keys are encrypted at rest (Fernet/AES-128-CBC).
 | **Team** | $98.99/mo | 500 |
 
 The local CLI is free forever with no limits.
+</details>
+
+<details>
+<summary><strong>What is visual regression testing?</strong></summary>
+<br/>
+
+Visual regression compares screenshots taken before and after a code change. If the UI changed unexpectedly (layout shift, missing element, color change), AWT flags it.
+
+```bash
+aat snapshot scenarios/ --url http://localhost:3000   # before change
+# ... make code changes ...
+aat diff scenarios/ --url http://localhost:3000        # compare
+```
+
+AWT uses SSIM (Structural Similarity Index) — no AI tokens needed. Add `--responsive` to test mobile, tablet, and desktop viewports at once.
 </details>
 
 <details>
