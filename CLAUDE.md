@@ -252,6 +252,26 @@ aat run --skill-mode --fast <scenario>
   - `[watch]` optional dependency (watchfiles)
   - 18개 단위 테스트 통과
 
+### Post-MVP: Enhancement (AAT-105~107)
+
+- [x] **AAT-105** 반응형 스크린샷 `--responsive` / `--viewport` — 완료 2026-04-04
+  - 3종 뷰포트: mobile (375x812), tablet (768x1024), desktop (1280x720)
+  - `aat snapshot --responsive` / `aat diff --responsive` — 3종 한번에 캡처/비교
+  - `--viewport 375x812` 단일 지정도 지원
+  - BaselineStore viewport suffix: `step001-mobile_after.png`
+  - RESPONSIVE_VIEWPORTS 상수 (gstack 호환)
+
+- [x] **AAT-106** 콘솔 에러 수집 `--console` / `--console-fail` — 완료 2026-04-04
+  - Playwright `page.on('console')` / `page.on('pageerror')` 기반
+  - 스크린샷 통과해도 JS 에러 있으면 ⚠️ 경고
+  - `--console-fail`: 에러 있으면 FAIL 처리
+  - ConsoleCollector 클래스 (visual/console_collector.py)
+
+- [x] **AAT-107** diff 결과 자동 열기 `--open` — 완료 2026-04-04
+  - `aat diff --open` → FAIL diff 이미지를 macOS Preview / xdg-open으로 자동 열기
+  - MCP: `aat_snapshot`, `aat_diff` 파라미터 추가
+  - 25개 단위 테스트 통과 (test_enhancements.py)
+
 ---
 
 ## 협업 프로젝트 연동 (ClasRing + DSL)
@@ -299,8 +319,8 @@ aat run --skill-mode --fast <scenario>
 
 ## Current Status
 
-- **현재 단계**: Visual Regression + PR Comment + Watch Mode 완료 (AAT-100~104)
-- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~104 (Post-MVP)
+- **현재 단계**: Enhancement (반응형/콘솔/자동열기) 완료 (AAT-105~107)
+- **완료**: Phase 1~6 (Ultra-MVP) + AAT-060~065 + AAT-070~076 + AAT-080~081 + AAT-090~092 + AAT-093~095 + AAT-100~107 (Post-MVP)
 - **블로커**: 없음
 - **Python**: 3.12.12 (.venv), `source .venv/bin/activate`
 - **GitHub**: https://github.com/ksgisang/AI-Watch-Tester (public)

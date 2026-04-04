@@ -370,6 +370,10 @@ async def aat_generate_from_doc(
 async def aat_snapshot(
     scenario_file: str,
     url: str = "",
+    responsive: bool = False,
+    viewport: str = "",
+    console: bool = False,
+    console_fail: bool = False,
 ) -> str:
     """Capture baseline screenshots for visual regression testing.
 
@@ -381,10 +385,22 @@ async def aat_snapshot(
     Args:
         scenario_file: Path to a YAML scenario file or directory.
         url: Target URL override (optional).
+        responsive: Capture 3 viewports (mobile/tablet/desktop).
+        viewport: Single viewport WxH (e.g. '375x812'). Overrides responsive.
+        console: Collect browser console errors during capture.
+        console_fail: Fail if console errors detected. Implies console.
     """
     cmd = ["aat", "snapshot", scenario_file]
     if url:
         cmd += ["--url", url]
+    if responsive:
+        cmd.append("--responsive")
+    if viewport:
+        cmd += ["--viewport", viewport]
+    if console_fail:
+        cmd.append("--console-fail")
+    elif console:
+        cmd.append("--console")
     result = await _run_cmd(cmd, timeout=180)
     return _format_result(result)
 
@@ -394,6 +410,9 @@ async def aat_diff(
     scenario_file: str,
     url: str = "",
     threshold: float = 0.95,
+    responsive: bool = False,
+    viewport: str = "",
+    open_diffs: bool = False,
 ) -> str:
     """Compare current screenshots against saved baselines (visual regression).
 
@@ -412,6 +431,9 @@ async def aat_diff(
         scenario_file: Path to a YAML scenario file or directory.
         url: Target URL override (optional).
         threshold: SSIM threshold (0.0–1.0). Below this = FAIL. Default: 0.95.
+        responsive: Compare 3 viewports (mobile/tablet/desktop).
+        viewport: Single viewport WxH (e.g. '375x812'). Overrides responsive.
+        open_diffs: Auto-open diff images for failed steps.
     """
     cmd = [
         "aat", "diff",
@@ -420,6 +442,12 @@ async def aat_diff(
     ]
     if url:
         cmd += ["--url", url]
+    if responsive:
+        cmd.append("--responsive")
+    if viewport:
+        cmd += ["--viewport", viewport]
+    if open_diffs:
+        cmd.append("--open")
     result = await _run_cmd(cmd, timeout=180)
     return _format_result(result)
 

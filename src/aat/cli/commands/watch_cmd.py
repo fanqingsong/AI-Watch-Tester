@@ -142,9 +142,7 @@ async def _watch(
         """Handle file changes — schedule test run."""
         summary = format_change_summary(changed_files)
         timestamp = time.strftime("%H:%M:%S")
-        typer.echo(
-            typer.style(f"\n  [{timestamp}] Changed: {summary}", fg=typer.colors.YELLOW)
-        )
+        typer.echo(typer.style(f"\n  [{timestamp}] Changed: {summary}", fg=typer.colors.YELLOW))
 
         # Determine what to run
         if sc_path.is_dir():
@@ -161,9 +159,7 @@ async def _watch(
                     )
             else:
                 # Source change — run all
-                _run_tests(
-                    scenarios_path, config_path, url_override, threshold, has_baselines
-                )
+                _run_tests(scenarios_path, config_path, url_override, threshold, has_baselines)
         else:
             _run_tests(scenarios_path, config_path, url_override, threshold, has_baselines)
 
@@ -186,8 +182,13 @@ def _run_tests(
 
     # Build aat run command
     cmd = [
-        sys.executable, "-m", "aat", "run",
-        "--fast", "--screenshots=on-failure", scenarios_path,
+        sys.executable,
+        "-m",
+        "aat",
+        "run",
+        "--fast",
+        "--screenshots=on-failure",
+        scenarios_path,
     ]
     if config_path:
         cmd += ["--config", config_path]
@@ -219,13 +220,9 @@ def _run_tests(
             typer.echo(f"  {stripped}")
 
     if result.returncode == 0:
-        typer.echo(
-            typer.style(f"  ✅ PASSED ({elapsed:.1f}s)", fg=typer.colors.GREEN, bold=True)
-        )
+        typer.echo(typer.style(f"  ✅ PASSED ({elapsed:.1f}s)", fg=typer.colors.GREEN, bold=True))
     else:
-        typer.echo(
-            typer.style(f"  ❌ FAILED ({elapsed:.1f}s)", fg=typer.colors.RED, bold=True)
-        )
+        typer.echo(typer.style(f"  ❌ FAILED ({elapsed:.1f}s)", fg=typer.colors.RED, bold=True))
         # Show stderr on failure
         if result.stderr:
             for line in result.stderr.splitlines()[-5:]:
@@ -235,9 +232,7 @@ def _run_tests(
     if run_diff:
         _run_diff(scenarios_path, config_path, url_override, threshold)
 
-    typer.echo(
-        typer.style("  ⏳ Watching for changes...", fg=typer.colors.BRIGHT_BLACK)
-    )
+    typer.echo(typer.style("  ⏳ Watching for changes...", fg=typer.colors.BRIGHT_BLACK))
 
 
 def _run_diff(
@@ -248,7 +243,10 @@ def _run_diff(
 ) -> None:
     """Run visual diff as subprocess."""
     cmd = [
-        sys.executable, "-m", "aat", "diff",
+        sys.executable,
+        "-m",
+        "aat",
+        "diff",
         f"--threshold={threshold}",
         "--no-save-diffs",
         scenarios_path,

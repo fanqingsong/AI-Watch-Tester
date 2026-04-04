@@ -35,6 +35,7 @@ class BaselineStore:
         *,
         scenario_name: str = "",
         url: str = "",
+        viewport: str = "",
     ) -> BaselineMeta:
         """Save step screenshots as the baseline for *scenario_id*.
 
@@ -43,19 +44,24 @@ class BaselineStore:
             screenshot_paths: Mapping of step number → screenshot file path.
             scenario_name: Human-readable name (stored in meta).
             url: Target URL at capture time.
+            viewport: Viewport label (e.g. "mobile", "tablet", "desktop").
+                      If set, filenames use ``step001-mobile_after.png`` pattern.
 
         Returns:
             Metadata describing the saved baseline.
         """
         dest = self._root / scenario_id
-        if dest.exists():
+        # Only wipe the directory if no viewport suffix (full overwrite)
+        # With viewport, we preserve other viewport files
+        if not viewport and dest.exists():
             shutil.rmtree(dest)
-        dest.mkdir(parents=True)
+        dest.mkdir(parents=True, exist_ok=True)
 
+        suffix = f"-{viewport}" if viewport else ""
         for step_num, src in sorted(screenshot_paths.items()):
             src_path = Path(src)
             if src_path.exists():
-                target = dest / f"step{step_num:03d}_after.png"
+                target = dest / f"step{step_num:03d}{suffix}_after.png"
                 shutil.copy2(src_path, target)
 
         meta = BaselineMeta(
@@ -70,8 +76,13 @@ class BaselineStore:
 
     # -- read ----------------------------------------------------------------
 
-    def load(self, scenario_id: str) -> dict[int, Path]:
+    def load(self, scenario_id: str, *, viewport: str = "") -> dict[int, Path]:
         """Load baseline screenshots for *scenario_id*.
+
+        Args:
+            scenario_id: Scenario identifier.
+            viewport: Viewport label to filter by (e.g. "mobile").
+                      Empty string loads the default (no-suffix) files.
 
         Returns:
             Mapping of step number → baseline PNG path.
@@ -80,11 +91,16 @@ class BaselineStore:
         if not dest.exists():
             return {}
 
+        suffix = f"-{viewport}" if viewport else ""
+        pattern = f"step*{suffix}_after.png"
+
         result: dict[int, Path] = {}
-        for png in sorted(dest.glob("step*_after.png")):
-            # step001_after.png → 1
+        for png in sorted(dest.glob(pattern)):
+            # step001_after.png → 1  or  step001-mobile_after.png → 1
             try:
-                num = int(png.name.split("_")[0].replace("step", ""))
+                stem = png.name.split("_")[0]  # "step001" or "step001-mobile"
+                num_str = stem.split("-")[0].replace("step", "")
+                num = int(num_str)
                 result[num] = png
             except (ValueError, IndexError):
                 continue

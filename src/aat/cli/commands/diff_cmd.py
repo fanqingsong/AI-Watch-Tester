@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import platform
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +40,21 @@ def diff_command(
         "-f",
         help="Output format: 'table' (default, Rich), 'github' (PR comment markdown), 'json'.",
     ),
+    responsive: bool = typer.Option(
+        False,
+        "--responsive",
+        help="Compare 3 viewports: mobile (375x812), tablet (768x1024), desktop (1280x720).",
+    ),
+    viewport: str | None = typer.Option(
+        None,
+        "--viewport",
+        help="Single viewport WxH (e.g. '375x812'). Overrides --responsive.",
+    ),
+    open_diffs: bool = typer.Option(
+        False,
+        "--open",
+        help="Auto-open diff images for failed steps (macOS/Linux).",
+    ),
 ) -> None:
     """Compare current screenshots against saved baselines.
 
@@ -46,11 +63,41 @@ def diff_command(
     """
     try:
         asyncio.run(
-            _diff(scenarios_path, config_path, url, threshold, save_diffs, output_format)
+            _diff(
+                scenarios_path,
+                config_path,
+                url,
+                threshold,
+                save_diffs,
+                output_format,
+                responsive,
+                viewport,
+                open_diffs,
+            )
         )
     except AATError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1) from None
+
+
+def _resolve_viewports(
+    responsive: bool,
+    viewport_str: str | None,
+) -> list[tuple[str, int, int]]:
+    """Return list of (label, width, height) to compare."""
+    from aat.visual import RESPONSIVE_VIEWPORTS
+
+    if viewport_str:
+        parts = viewport_str.lower().split("x")
+        if len(parts) != 2:
+            msg = f"Invalid viewport format: {viewport_str!r}. Expected WxH."
+            raise AATError(msg)
+        return [("", int(parts[0]), int(parts[1]))]
+
+    if responsive:
+        return [(name, w, h) for name, (w, h) in RESPONSIVE_VIEWPORTS.items()]
+
+    return []
 
 
 async def _diff(
@@ -60,6 +107,9 @@ async def _diff(
     threshold: float,
     save_diffs: bool,
     output_format: str = "table",
+    responsive: bool = False,
+    viewport_str: str | None = None,
+    open_diffs: bool = False,
 ) -> None:
     """Execute scenarios and compare against baselines."""
     cfg_path = Path(config_path) if config_path else None
@@ -92,162 +142,175 @@ async def _diff(
         typer.echo("  Run `aat snapshot` first to capture baselines.")
         raise typer.Exit(code=1)
 
-    # Import engine components
-    from aat.engine import ENGINE_REGISTRY
-    from aat.engine.comparator import Comparator
-    from aat.engine.executor import StepExecutor
-    from aat.engine.humanizer import Humanizer
-    from aat.engine.waiter import Waiter
-    from aat.matchers import MATCHER_REGISTRY
-    from aat.matchers.hybrid import HybridMatcher
-
-    engine_cls = ENGINE_REGISTRY.get(config.engine.type)
-    if engine_cls is None:
-        msg = f"Unknown engine type: {config.engine.type}"
-        raise AATError(msg)
-    engine = engine_cls(config.engine)
-
-    matchers = []
-    for m in config.matching.chain_order:
-        if m.value in MATCHER_REGISTRY and m.value != "vision_ai":
-            matchers.append(MATCHER_REGISTRY[m.value](config.matching))  # type: ignore[call-arg]
-    hybrid = HybridMatcher(matchers, config.matching)
-    humanizer = Humanizer(config.humanizer)
-    waiter = Waiter()
-    comparator = Comparator()
-
-    ss_dir = Path(config.data_dir) / "screenshots"
-    ss_dir.mkdir(parents=True, exist_ok=True)
-
-    executor = StepExecutor(
-        engine,
-        hybrid,
-        humanizer,
-        waiter,
-        comparator,
-        screenshot_dir=ss_dir,
-    )
+    viewports = _resolve_viewports(responsive, viewport_str)
+    if not viewports:
+        viewports = [("", config.engine.viewport_width, config.engine.viewport_height)]
 
     all_reports: list[VisualDiffReport] = []
+    all_diff_images: list[str] = []  # for --open
     overall_pass = True
 
-    try:
-        await engine.start()
+    for vp_label, vp_w, vp_h in viewports:
+        config.engine.viewport_width = vp_w
+        config.engine.viewport_height = vp_h
 
-        for scenario in scenarios:
-            typer.echo(f"\n[AWT] Diff: {scenario.id} — {scenario.name}")
+        vp_display = f" [{vp_label} {vp_w}x{vp_h}]" if vp_label else ""
 
-            baselines = store.load(scenario.id)
+        # Import engine components
+        from aat.engine import ENGINE_REGISTRY
+        from aat.engine.comparator import Comparator
+        from aat.engine.executor import StepExecutor
+        from aat.engine.humanizer import Humanizer
+        from aat.engine.waiter import Waiter
+        from aat.matchers import MATCHER_REGISTRY
+        from aat.matchers.hybrid import HybridMatcher
 
-            # Resolve scenario vars
-            import os
-            import re
+        engine_cls = ENGINE_REGISTRY.get(config.engine.type)
+        if engine_cls is None:
+            msg = f"Unknown engine type: {config.engine.type}"
+            raise AATError(msg)
+        engine = engine_cls(config.engine)
 
-            executor._scenario_vars = {}
-            if scenario.vars:
-                env_pat = re.compile(r"\{\{env\.(\w+)\}\}")
-                for k, v in scenario.vars.items():
-                    if isinstance(v, str):
-                        v = env_pat.sub(lambda m: os.environ.get(m.group(1), m.group(0)), v)
-                    executor._scenario_vars[k] = str(v) if v is not None else ""
+        matchers = []
+        for m in config.matching.chain_order:
+            if m.value in MATCHER_REGISTRY and m.value != "vision_ai":
+                matchers.append(
+                    MATCHER_REGISTRY[m.value](config.matching)  # type: ignore[call-arg]
+                )
+        hybrid = HybridMatcher(matchers, config.matching)
+        humanizer = Humanizer(config.humanizer)
+        waiter = Waiter()
+        comparator = Comparator()
 
-            current_screenshots: dict[int, Path] = {}
+        ss_dir = Path(config.data_dir) / "screenshots"
+        ss_dir.mkdir(parents=True, exist_ok=True)
 
-            for step in scenario.steps:
-                try:
-                    result = await executor.execute_step(step)
-                except Exception:
-                    typer.echo(f"  Step {step.step}: execution failed — skipping")
-                    break
+        executor = StepExecutor(
+            engine,
+            hybrid,
+            humanizer,
+            waiter,
+            comparator,
+            screenshot_dir=ss_dir,
+        )
 
-                if result.screenshot_after:
-                    ss_path = Path(result.screenshot_after)
-                    if ss_path.exists():
-                        current_screenshots[step.step] = ss_path
+        try:
+            await engine.start()
 
-            # Compare each step
-            diff_results: list[StepDiffResult] = []
-            all_steps = sorted(set(baselines.keys()) | set(current_screenshots.keys()))
+            for scenario in scenarios:
+                typer.echo(f"\n[AWT] Diff{vp_display}: {scenario.id} — {scenario.name}")
 
-            # Prepare diff output directory
-            diff_dir = None
-            if save_diffs:
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                diff_dir = Path(config.data_dir) / "diffs" / f"{scenario.id}_{ts}"
-                diff_dir.mkdir(parents=True, exist_ok=True)
+                baselines = store.load(scenario.id, viewport=vp_label)
 
-            for step_num in all_steps:
-                baseline_path = baselines.get(step_num)
-                current_path = current_screenshots.get(step_num)
+                # Resolve scenario vars
+                import os
+                import re
 
-                if baseline_path is None:
-                    diff_results.append(
-                        StepDiffResult(
-                            step=step_num,
-                            current_path=str(current_path) if current_path else None,
-                            status="missing_baseline",
+                executor._scenario_vars = {}
+                if scenario.vars:
+                    env_pat = re.compile(r"\{\{env\.(\w+)\}\}")
+                    for k, v in scenario.vars.items():
+                        if isinstance(v, str):
+                            v = env_pat.sub(lambda m: os.environ.get(m.group(1), m.group(0)), v)
+                        executor._scenario_vars[k] = str(v) if v is not None else ""
+
+                current_screenshots: dict[int, Path] = {}
+
+                for step in scenario.steps:
+                    try:
+                        result = await executor.execute_step(step)
+                    except Exception:
+                        typer.echo(f"  Step {step.step}: execution failed — skipping")
+                        break
+
+                    if result.screenshot_after:
+                        ss_path = Path(result.screenshot_after)
+                        if ss_path.exists():
+                            current_screenshots[step.step] = ss_path
+
+                # Compare each step
+                diff_results: list[StepDiffResult] = []
+                all_steps = sorted(set(baselines.keys()) | set(current_screenshots.keys()))
+
+                diff_dir = None
+                if save_diffs:
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    vp_suffix = f"_{vp_label}" if vp_label else ""
+                    diff_dir = Path(config.data_dir) / "diffs" / f"{scenario.id}{vp_suffix}_{ts}"
+                    diff_dir.mkdir(parents=True, exist_ok=True)
+
+                for step_num in all_steps:
+                    baseline_path = baselines.get(step_num)
+                    current_path = current_screenshots.get(step_num)
+
+                    if baseline_path is None:
+                        diff_results.append(
+                            StepDiffResult(
+                                step=step_num,
+                                current_path=(str(current_path) if current_path else None),
+                                status="missing_baseline",
+                            )
                         )
-                    )
-                    continue
+                        continue
 
-                if current_path is None:
+                    if current_path is None:
+                        diff_results.append(
+                            StepDiffResult(
+                                step=step_num,
+                                baseline_path=str(baseline_path),
+                                status="missing_current",
+                            )
+                        )
+                        continue
+
+                    baseline_bytes = baseline_path.read_bytes()
+                    current_bytes = current_path.read_bytes()
+
+                    score = comp.ssim(baseline_bytes, current_bytes)
+                    status = "pass" if score >= threshold else "fail"
+
+                    diff_image_path = None
+                    if save_diffs and diff_dir and status == "fail":
+                        diff_img = comp.make_diff_image(baseline_bytes, current_bytes)
+                        vp_tag = f"-{vp_label}" if vp_label else ""
+                        diff_file = diff_dir / f"step{step_num:03d}{vp_tag}_diff.png"
+                        diff_file.write_bytes(diff_img)
+                        diff_image_path = str(diff_file)
+                        all_diff_images.append(diff_image_path)
+
                     diff_results.append(
                         StepDiffResult(
                             step=step_num,
                             baseline_path=str(baseline_path),
-                            status="missing_current",
+                            current_path=str(current_path),
+                            ssim_score=score,
+                            status=status,
+                            diff_image_path=diff_image_path,
                         )
                     )
-                    continue
 
-                # Read both images
-                baseline_bytes = baseline_path.read_bytes()
-                current_bytes = current_path.read_bytes()
+                passed = sum(1 for d in diff_results if d.status == "pass")
+                failed = sum(1 for d in diff_results if d.status != "pass")
 
-                # Compute SSIM
-                score = comp.ssim(baseline_bytes, current_bytes)
-                status = "pass" if score >= threshold else "fail"
-
-                diff_image_path = None
-                if save_diffs and diff_dir and status == "fail":
-                    diff_img = comp.make_diff_image(baseline_bytes, current_bytes)
-                    diff_file = diff_dir / f"step{step_num:03d}_diff.png"
-                    diff_file.write_bytes(diff_img)
-                    diff_image_path = str(diff_file)
-
-                diff_results.append(
-                    StepDiffResult(
-                        step=step_num,
-                        baseline_path=str(baseline_path),
-                        current_path=str(current_path),
-                        ssim_score=score,
-                        status=status,
-                        diff_image_path=diff_image_path,
-                    )
+                report_id = f"{scenario.id} [{vp_label}]" if vp_label else scenario.id
+                report = VisualDiffReport(
+                    scenario_id=report_id,
+                    scenario_name=scenario.name,
+                    threshold=threshold,
+                    steps=diff_results,
+                    passed=passed,
+                    failed=failed,
                 )
+                all_reports.append(report)
 
-            passed = sum(1 for d in diff_results if d.status == "pass")
-            failed = sum(1 for d in diff_results if d.status != "pass")
+                if failed > 0:
+                    overall_pass = False
 
-            report = VisualDiffReport(
-                scenario_id=scenario.id,
-                scenario_name=scenario.name,
-                threshold=threshold,
-                steps=diff_results,
-                passed=passed,
-                failed=failed,
-            )
-            all_reports.append(report)
+                if output_format == "table":
+                    _print_diff_table(report, diff_dir)
 
-            if failed > 0:
-                overall_pass = False
-
-            # Print results (unless github/json format — those print at the end)
-            if output_format == "table":
-                _print_diff_table(report, diff_dir)
-
-    finally:
-        await engine.stop()
+        finally:
+            await engine.stop()
 
     # Save reports as JSON
     if all_reports:
@@ -283,8 +346,27 @@ async def _diff(
                 )
             )
 
+    # --open: auto-open diff images
+    if open_diffs and all_diff_images:
+        _open_images(all_diff_images)
+
     if not overall_pass:
         raise typer.Exit(code=1)
+
+
+def _open_images(paths: list[str]) -> None:
+    """Open image files with the system viewer (macOS: open, Linux: xdg-open)."""
+    opener = "open" if platform.system() == "Darwin" else "xdg-open"
+    for p in paths:
+        try:
+            subprocess.Popen(  # noqa: S603, S607
+                [opener, p],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            typer.echo(f"  Could not open: {p} ({opener} not found)")
+            break
 
 
 def _print_diff_table(report: VisualDiffReport, diff_dir: Path | None) -> None:
@@ -376,8 +458,7 @@ def format_github_comment(reports: list[VisualDiffReport]) -> str:
 
     lines.append("---")
     lines.append(
-        "*Generated by [AWT](https://github.com/ksgisang/AI-Watch-Tester)"
-        " visual regression*"
+        "*Generated by [AWT](https://github.com/ksgisang/AI-Watch-Tester) visual regression*"
     )
 
     return "\n".join(lines)
