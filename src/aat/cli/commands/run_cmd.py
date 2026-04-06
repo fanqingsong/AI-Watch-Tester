@@ -309,7 +309,10 @@ async def _run(
     from aat.core.approval_token import validate_and_consume
 
     _token = os.environ.get(_TOKEN_ENV, "")
-    auto_approve: bool = validate_and_consume(_token) if _token else False
+    auto_approve: bool = (
+        skill_mode  # MCP/skill: human approved at Claude Code tool-call level
+        or (validate_and_consume(_token) if _token else False)
+    )
     """Execute scenarios asynchronously."""
     # Debug logging
     if debug_mode:
@@ -382,7 +385,7 @@ async def _run(
     # ------------------------------------------------------------------ #
     from aat.core.audit import AuditEntry, log_audit
 
-    _approval_method = "token" if auto_approve else "interactive"
+    _approval_method = "skill" if skill_mode else ("token" if _token else "interactive")
     _scenario_ids = [s.id for s in scenarios]
 
     # ------------------------------------------------------------------ #
