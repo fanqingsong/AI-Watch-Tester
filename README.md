@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.ksgisang/awt -->
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png">
