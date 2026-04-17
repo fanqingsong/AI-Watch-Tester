@@ -62,3 +62,6 @@ scenarios/
 .aat/learned.db
 .aat/screenshots/
 reports/
+
+# OMC (oh-my-claudecode) local state and memory
+.omc/
