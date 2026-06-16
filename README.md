@@ -81,7 +81,32 @@ claude mcp add awt -- python mcp/server.py
 #                  aat_snapshot, aat_diff, aat_watch
 ```
 
-> **Cloud & Local CLI** versions are in active development and will be announced separately.
+> **Cloud & Local CLI** versions are available for local development.
+
+---
+
+## Cloud — Local Web UI
+
+Run the full cloud platform (backend + frontend) locally:
+
+```bash
+# Install dependencies
+pip install -e .
+cd cloud/frontend && npm install
+
+# Start all services (backend on :8000, frontend on :3000)
+aat cloud start
+
+# Or customize ports
+aat cloud start --backend-port 8080 --frontend-port 3001
+
+# Check service status
+aat cloud status
+```
+
+Open http://localhost:3000 in your browser.
+
+**No Supabase configuration needed** — local mode uses SQLite and skips authentication.
 
 ---
 

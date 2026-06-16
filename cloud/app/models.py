@@ -32,13 +32,19 @@ class UserTier(enum.StrEnum):
     TEAM = "team"
 
 
+# Default local user ID (from auth.py)
+DEFAULT_USER_ID = "local-user"
+
+
 class Test(Base):
     """A test run record."""
 
     __tablename__ = "tests"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     status: Mapped[TestStatus] = mapped_column(
         Enum(TestStatus), default=TestStatus.QUEUED, nullable=False
@@ -63,15 +69,13 @@ class Test(Base):
 
 
 class User(Base):
-    """User profile (synced from Supabase Auth)."""
+    """User profile (local mode, no Supabase sync)."""
 
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(128), primary_key=True)  # Supabase user UUID
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
-    tier: Mapped[UserTier] = mapped_column(
-        Enum(UserTier), default=UserTier.FREE, nullable=False
-    )
+    tier: Mapped[UserTier] = mapped_column(Enum(UserTier), default=UserTier.FREE, nullable=False)
     lemon_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     lemon_subscription_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     plan_expires_at: Mapped[datetime | None] = mapped_column(
@@ -101,7 +105,9 @@ class Scan(Base):
     __tablename__ = "scans"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     status: Mapped[ScanStatus] = mapped_column(
         Enum(ScanStatus), default=ScanStatus.SCANNING, nullable=False
@@ -122,9 +128,7 @@ class Scan(Base):
         server_default=func.now(),
         default=lambda: datetime.now(UTC),
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ScenarioCache(Base):
@@ -136,7 +140,9 @@ class ScenarioCache(Base):
     __tablename__ = "scenario_cache"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     scan_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     selected_tests_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -160,7 +166,9 @@ class ExecutionPath(Base):
     __tablename__ = "execution_paths"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     scenario_name: Mapped[str] = mapped_column(String(512), nullable=False)
     scenario_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -185,7 +193,9 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -206,7 +216,8 @@ class UserAIConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     provider: Mapped[str] = mapped_column(
-        String(32), nullable=False,
+        String(32),
+        nullable=False,
     )  # openai | anthropic | deepseek | ollama
     api_key_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # Fernet encrypted
     model: Mapped[str] = mapped_column(String(64), default="", nullable=False)
@@ -240,15 +251,11 @@ class GitHubConnection(Base):
     __tablename__ = "github_connections"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(
-        String(128), unique=True, index=True, nullable=False
-    )
+    user_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     pat_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # Fernet
     owner: Mapped[str] = mapped_column(String(256), nullable=False)
     repo: Mapped[str] = mapped_column(String(256), nullable=False)
-    default_branch: Mapped[str] = mapped_column(
-        String(128), default="main", nullable=False
-    )
+    default_branch: Mapped[str] = mapped_column(String(128), default="main", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -269,7 +276,9 @@ class FixGuide(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     test_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     scenario_id: Mapped[str] = mapped_column(String(256), nullable=False)
     status: Mapped[FixGuideStatus] = mapped_column(
         Enum(FixGuideStatus), default=FixGuideStatus.PENDING, nullable=False
@@ -297,7 +306,9 @@ class ApiKey(Base):
     __tablename__ = "api_keys"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(128), index=True, nullable=False, default=DEFAULT_USER_ID
+    )
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     prefix: Mapped[str] = mapped_column(String(12), nullable=False)  # awt_xxxx (UI display)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -306,6 +317,4 @@ class ApiKey(Base):
         server_default=func.now(),
         default=lambda: datetime.now(UTC),
     )
-    last_used_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -1,58 +1,37 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase";
+import { createContext, useContext, type ReactNode } from "react";
+
+interface LocalUser {
+  id: string;
+  email: string;
+}
 
 interface AuthCtx {
-  user: User | null;
-  session: Session | null;
+  user: LocalUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthCtx>({
-  user: null,
-  session: null,
-  loading: true,
+  user: { id: "local-user", email: "local@awt.dev" },
+  loading: false,
   signOut: async () => {},
 });
 
+const LOCAL_USER: LocalUser = {
+  id: "local-user",
+  email: "local@awt.dev",
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // Local mode: no authentication, always return the default local user
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
+    // No-op in local mode
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signOut }}
-    >
+    <AuthContext.Provider value={{ user: LOCAL_USER, loading: false, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-# Cloud backend dependencies
+# Cloud backend dependencies (local mode - no Supabase)
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.0
@@ -6,11 +6,7 @@ pydantic-settings>=2.0
 
 # Database
 sqlalchemy[asyncio]>=2.0
-aiosqlite>=0.20.0        # SQLite async (dev)
-asyncpg>=0.30.0          # PostgreSQL async (prod — Supabase)
-
-# Auth — Supabase JWT verification (ES256 via JWKS)
-PyJWT[crypto]>=2.8.0
+aiosqlite>=0.20.0        # SQLite async (local dev)
 
 # WebSocket
 websockets>=12.0

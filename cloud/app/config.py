@@ -22,10 +22,10 @@ class Settings(BaseSettings):
     # PostgreSQL: postgresql+asyncpg://postgres.[ref]:[password]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
     database_url: str = "sqlite+aiosqlite:///./awt_cloud.db"
 
-    # Supabase
-    supabase_url: str = ""          # https://<project-ref>.supabase.co
-    supabase_anon_key: str = ""     # public anon key (for client-side auth)
-    supabase_jwt_secret: str = ""   # JWT secret (Settings > API > JWT Secret)
+    # Supabase (removed for local mode - no authentication required)
+    # supabase_url: str = ""
+    # supabase_anon_key: str = ""
+    # supabase_jwt_secret: str = ""
 
     # Rate limits (monthly POST /api/tests)
     rate_limit_free: int = 5

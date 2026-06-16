@@ -1,23 +1,11 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-async function getToken(): Promise<string | null> {
-  const { createClient } = await import("./supabase");
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
-}
-
-async function authFetch(path: string, options: RequestInit = {}) {
-  const token = await getToken();
-  if (!token) throw new Error("Not authenticated");
-
+async function localFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  // Local mode: no authentication required
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
       ...options.headers,
     },
   });
@@ -55,7 +43,7 @@ export async function createTest(
 ): Promise<TestItem> {
   const payload: Record<string, unknown> = { target_url: targetUrl, mode };
   if (scenarioYaml) payload.scenario_yaml = scenarioYaml;
-  const res = await authFetch("/api/tests", {
+  const res = await localFetch("/api/tests", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -70,7 +58,7 @@ export async function updateScenarios(
   testId: number,
   scenarioYaml: string
 ): Promise<TestItem> {
-  const res = await authFetch(`/api/tests/${testId}/scenarios`, {
+  const res = await localFetch(`/api/tests/${testId}/scenarios`, {
     method: "PUT",
     body: JSON.stringify({ scenario_yaml: scenarioYaml }),
   });
@@ -82,7 +70,7 @@ export async function updateScenarios(
 }
 
 export async function approveTest(testId: number): Promise<TestItem> {
-  const res = await authFetch(`/api/tests/${testId}/approve`, {
+  const res = await localFetch(`/api/tests/${testId}/approve`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -93,7 +81,7 @@ export async function approveTest(testId: number): Promise<TestItem> {
 }
 
 export async function cancelTest(testId: number): Promise<TestItem> {
-  const res = await authFetch(`/api/tests/${testId}/cancel`, {
+  const res = await localFetch(`/api/tests/${testId}/cancel`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -113,15 +101,11 @@ export async function uploadDocument(
   testId: number,
   file: File
 ): Promise<UploadResult> {
-  const token = await getToken();
-  if (!token) throw new Error("Not authenticated");
-
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await fetch(`${API_URL}/api/tests/${testId}/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
   if (!res.ok) {
@@ -135,7 +119,7 @@ export async function listTests(
   page = 1,
   pageSize = 20
 ): Promise<TestListResponse> {
-  const res = await authFetch(
+  const res = await localFetch(
     `/api/tests?page=${page}&page_size=${pageSize}`
   );
   if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -143,7 +127,7 @@ export async function listTests(
 }
 
 export async function getTest(id: number): Promise<TestItem> {
-  const res = await authFetch(`/api/tests/${id}`);
+  const res = await localFetch(`/api/tests/${id}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -198,7 +182,7 @@ export async function convertScenario(
   };
   if (scanId) payload.scan_id = scanId;
   if (sessionId) payload.session_id = sessionId;
-  const res = await authFetch("/api/tests/convert", {
+  const res = await localFetch("/api/tests/convert", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -291,7 +275,7 @@ export async function startScan(
   maxPages = 5,
   maxDepth = 3
 ): Promise<ScanItem> {
-  const res = await authFetch("/api/scan", {
+  const res = await localFetch("/api/scan", {
     method: "POST",
     body: JSON.stringify({ target_url: targetUrl, max_pages: maxPages, max_depth: maxDepth }),
   });
@@ -303,7 +287,7 @@ export async function startScan(
 }
 
 export async function getScan(scanId: number): Promise<ScanItem> {
-  const res = await authFetch(`/api/scan/${scanId}`);
+  const res = await localFetch(`/api/scan/${scanId}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -341,7 +325,7 @@ export async function generateScanPlan(
   language: "ko" | "en" = "en",
   useAiPlan: boolean = false
 ): Promise<ScanPlanResult> {
-  const res = await authFetch(`/api/scan/${scanId}/plan`, {
+  const res = await localFetch(`/api/scan/${scanId}/plan`, {
     method: "POST",
     body: JSON.stringify({ language, use_ai_plan: useAiPlan }),
   });
@@ -369,7 +353,7 @@ export async function executeScanTests(
   testData: Record<string, string> = {},
   additionalYaml: string = "",
 ): Promise<ExecuteScanResult> {
-  const res = await authFetch(`/api/scan/${scanId}/execute`, {
+  const res = await localFetch(`/api/scan/${scanId}/execute`, {
     method: "POST",
     body: JSON.stringify({
       selected_tests: selectedTests,
@@ -453,7 +437,7 @@ export interface ApiKeyCreatedItem {
 }
 
 export async function createApiKey(name: string): Promise<ApiKeyCreatedItem> {
-  const res = await authFetch("/api/keys", {
+  const res = await localFetch("/api/keys", {
     method: "POST",
     body: JSON.stringify({ name }),
   });
@@ -465,13 +449,13 @@ export async function createApiKey(name: string): Promise<ApiKeyCreatedItem> {
 }
 
 export async function listApiKeys(): Promise<ApiKeyItem[]> {
-  const res = await authFetch("/api/keys");
+  const res = await localFetch("/api/keys");
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
 
 export async function deleteApiKey(id: number): Promise<void> {
-  const res = await authFetch(`/api/keys/${id}`, { method: "DELETE" });
+  const res = await localFetch(`/api/keys/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -496,13 +480,13 @@ export interface BillingInfo {
 }
 
 export async function fetchBilling(): Promise<BillingInfo> {
-  const res = await authFetch("/api/billing/me");
+  const res = await localFetch("/api/billing/me");
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
 
 export async function fetchBillingPortal(): Promise<{ url: string }> {
-  const res = await authFetch("/api/billing/portal");
+  const res = await localFetch("/api/billing/portal");
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -542,21 +526,17 @@ export interface DocumentListResponse {
 }
 
 export async function listDocuments(): Promise<DocumentListResponse> {
-  const res = await authFetch("/api/documents");
+  const res = await localFetch("/api/documents");
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
 
 export async function uploadUserDocument(file: File): Promise<DocumentItem> {
-  const token = await getToken();
-  if (!token) throw new Error("Not authenticated");
-
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await fetch(`${API_URL}/api/documents/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
   if (!res.ok) {
@@ -567,7 +547,7 @@ export async function uploadUserDocument(file: File): Promise<DocumentItem> {
 }
 
 export async function deleteDocument(id: number): Promise<void> {
-  const res = await authFetch(`/api/documents/${id}`, { method: "DELETE" });
+  const res = await localFetch(`/api/documents/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -591,7 +571,7 @@ export interface AIConfigTestResult {
 }
 
 export async function getAIConfig(): Promise<AIConfigInfo> {
-  const res = await authFetch("/api/settings/ai-config");
+  const res = await localFetch("/api/settings/ai-config");
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
@@ -601,7 +581,7 @@ export async function saveAIConfig(
   apiKey: string,
   model: string
 ): Promise<AIConfigInfo> {
-  const res = await authFetch("/api/settings/ai-config", {
+  const res = await localFetch("/api/settings/ai-config", {
     method: "PUT",
     body: JSON.stringify({ provider, api_key: apiKey, model }),
   });
@@ -613,7 +593,7 @@ export async function saveAIConfig(
 }
 
 export async function deleteAIConfig(): Promise<void> {
-  const res = await authFetch("/api/settings/ai-config", { method: "DELETE" });
+  const res = await localFetch("/api/settings/ai-config", { method: "DELETE" });
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -625,7 +605,7 @@ export async function testAIConfig(
   apiKey: string,
   model: string
 ): Promise<AIConfigTestResult> {
-  const res = await authFetch("/api/settings/ai-config/test", {
+  const res = await localFetch("/api/settings/ai-config/test", {
     method: "POST",
     body: JSON.stringify({ provider, api_key: apiKey, model }),
   });
@@ -654,7 +634,7 @@ export interface GitHubVerifyResult {
 }
 
 export async function getGitHubConnection(): Promise<GitHubConnectionInfo> {
-  const res = await authFetch("/api/settings/github");
+  const res = await localFetch("/api/settings/github");
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
@@ -666,7 +646,7 @@ export async function saveGitHubConnection(
   defaultBranch: string = "main"
 ): Promise<GitHubConnectionInfo> {
   // pat="" signals backend to keep the stored PAT
-  const res = await authFetch("/api/settings/github", {
+  const res = await localFetch("/api/settings/github", {
     method: "PUT",
     body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),
   });
@@ -678,7 +658,7 @@ export async function saveGitHubConnection(
 }
 
 export async function deleteGitHubConnection(): Promise<void> {
-  const res = await authFetch("/api/settings/github", { method: "DELETE" });
+  const res = await localFetch("/api/settings/github", { method: "DELETE" });
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || `Error ${res.status}`);
@@ -692,7 +672,7 @@ export async function verifyGitHubConnection(
   defaultBranch: string = "main"
 ): Promise<GitHubVerifyResult> {
   // pat="" signals backend to use the stored PAT
-  const res = await authFetch("/api/settings/github/verify", {
+  const res = await localFetch("/api/settings/github/verify", {
     method: "POST",
     body: JSON.stringify({ pat, owner, repo, default_branch: defaultBranch }),
   });
@@ -734,7 +714,7 @@ export async function generateFixGuide(
   const body: Record<string, unknown> = {};
   if (scenarioId) body.scenario_id = scenarioId;
   if (locale) body.locale = locale;
-  const res = await authFetch(`/api/tests/${testId}/fix-guide`, {
+  const res = await localFetch(`/api/tests/${testId}/fix-guide`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -748,7 +728,7 @@ export async function generateFixGuide(
 export async function listFixGuides(
   testId: number
 ): Promise<FixGuideItem[]> {
-  const res = await authFetch(`/api/tests/${testId}/fix-guides`);
+  const res = await localFetch(`/api/tests/${testId}/fix-guides`);
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
@@ -757,7 +737,7 @@ export async function approveFixGuide(
   testId: number,
   guideId: number
 ): Promise<FixGuideItem> {
-  const res = await authFetch(`/api/tests/${testId}/fix-guides/${guideId}/approve`, {
+  const res = await localFetch(`/api/tests/${testId}/fix-guides/${guideId}/approve`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -771,7 +751,7 @@ export async function rejectFixGuide(
   testId: number,
   guideId: number
 ): Promise<FixGuideItem> {
-  const res = await authFetch(`/api/tests/${testId}/fix-guides/${guideId}/reject`, {
+  const res = await localFetch(`/api/tests/${testId}/fix-guides/${guideId}/reject`, {
     method: "POST",
   });
   if (!res.ok) {

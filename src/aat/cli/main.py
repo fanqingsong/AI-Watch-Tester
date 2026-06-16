@@ -103,6 +103,7 @@ from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
 
 # Visual regression commands
 from aat.cli.commands.baseline_cmd import baseline_app  # noqa: E402
+from aat.cli.commands.cloud_cmd import app as cloud_app  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
 from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
 from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
@@ -130,6 +131,7 @@ app.command(name="doctor")(doctor_command)
 app.command(name="start")(start_command)
 app.command(name="serve")(serve_command)
 app.command(name="dashboard")(dashboard_command)
+app.add_typer(cloud_app, name="cloud")
 app.command(name="init")(init_command)
 app.add_typer(config_app, name="config")
 app.add_typer(cost_app, name="cost")
