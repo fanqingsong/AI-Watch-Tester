@@ -1,0 +1,50 @@
+# AWT Docker Commands (Docker Compose v2)
+
+.PHONY: docker-build docker-run docker-stop docker-clean docker-dashboard docker-shell docker-test
+
+# 构建Docker镜像
+docker-build:
+	docker compose build
+
+# 运行容器（交互式）
+docker-run:
+	docker compose run --rm aat bash
+
+# 停止容器
+docker-stop:
+	docker compose down
+
+# 清理容器和镜像
+docker-clean:
+	docker compose down -v
+	docker system prune -f
+
+# 启动Web Dashboard
+docker-dashboard:
+	docker compose --profile web up --build aat-web
+
+# 进入容器Shell
+docker-shell:
+	docker compose exec aat bash
+
+# 在容器中运行测试
+docker-test:
+	docker compose run --rm aat pytest tests/
+
+# 在容器中运行AAT命令（示例）
+docker-scan:
+	docker compose run --rm aat aat scan --help
+
+docker-validate:
+	docker compose run --rm aat aat validate scenarios/
+
+docker-run-test:
+	docker compose run --rm aat aat run scenarios/
+
+# 查看容器日志
+docker-logs:
+	docker compose logs -f
+
+# 重建并启动
+docker-rebuild:
+	docker compose up --build -d

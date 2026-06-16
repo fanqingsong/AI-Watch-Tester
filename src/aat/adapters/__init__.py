@@ -5,6 +5,7 @@ from aat.adapters.deepseek import DeepSeekAdapter
 from aat.adapters.gemini import GeminiAdapter
 from aat.adapters.ollama import OllamaAdapter
 from aat.adapters.openai_adapter import OpenAIAdapter
+from aat.adapters.zhipuai import ZhipuAIAdapter
 
 ADAPTER_REGISTRY: dict[str, type] = {
     "claude": ClaudeAdapter,
@@ -12,6 +13,7 @@ ADAPTER_REGISTRY: dict[str, type] = {
     "gemini": GeminiAdapter,
     "deepseek": DeepSeekAdapter,
     "ollama": OllamaAdapter,
+    "zhipuai": ZhipuAIAdapter,
 }
 
 __all__ = [
@@ -21,4 +23,5 @@ __all__ = [
     "GeminiAdapter",
     "OllamaAdapter",
     "OpenAIAdapter",
+    "ZhipuAIAdapter",
 ]
