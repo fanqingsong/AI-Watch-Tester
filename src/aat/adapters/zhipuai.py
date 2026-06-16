@@ -112,8 +112,8 @@ class ZhipuAIAdapter(AIAdapter):
         if not config.api_key:
             raise AdapterError("ZhipuAI API key is required")
 
-        # 智谱AI默认配置
-        self.base_url = config.base_url or "https://open.bigmodel.cn/api/paas/v4/"
+        # 智谱AI默认配置（base_url是固定的，不由AIConfig提供）
+        self.base_url = "https://open.bigmodel.cn/api/paas/v4/"
         self.model = config.model or "glm-4-flash"  # 默认使用GLM-4-Flash（性价比高）
         
         # 初始化OpenAI客户端（智谱AI兼容OpenAI API）
