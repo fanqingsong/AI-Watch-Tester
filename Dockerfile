@@ -1,11 +1,12 @@
 # AI Watch Tester Docker Image
-FROM python:3.12-slim
+FROM python:3.10-slim
 
 # 设置工作目录
 WORKDIR /app
 
 # 配置apt使用阿里云镜像源（国内加速）
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources || \
+    sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
 
 # 配置pip使用清华镜像源（国内加速）
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple

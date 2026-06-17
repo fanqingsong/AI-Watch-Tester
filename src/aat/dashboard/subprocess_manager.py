@@ -6,8 +6,15 @@ import asyncio
 import contextlib
 import sys
 from collections import deque
-from enum import StrEnum
+from enum import Enum
 from typing import TYPE_CHECKING
+
+# Python 3.10 compatibility
+try:
+    from enum import StrEnum  # type: ignore
+except ImportError:
+    class StrEnum(str, Enum):  # type: ignore
+        pass
 
 if TYPE_CHECKING:
     from collections.abc import Callable

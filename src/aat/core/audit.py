@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ _AUDIT_FILE = "audit.log"
 class AuditEntry(BaseModel):
     """Single audit log entry."""
 
-    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     action: str = Field(description="run | devqa | snapshot | diff | loop | watch")
     approval_method: str = Field(
         description="interactive | token | watch_token | dashboard | none"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path  # noqa: TC003
 from typing import Any
 
@@ -288,7 +288,7 @@ class LearnedStore:
         confidence: float = 1.0,
     ) -> None:
         """Save or update learned coordinates by target name."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             # Duplicate coordinate check: warn if another target has same coords
             dup_row = self._conn.execute(
@@ -402,7 +402,7 @@ class LearnedStore:
         fix_description: str = "",
     ) -> None:
         """실패 패턴을 기록한다. 동일한 error_type + action이 있으면 hit_count를 증가시킨다."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             cursor = self._conn.execute(
                 "SELECT id FROM failure_patterns WHERE error_type = ? AND action = ? LIMIT 1",
@@ -460,7 +460,7 @@ class LearnedStore:
 
     def mark_fix_applied(self, error_type: str, fix_description: str) -> None:
         """해당 error_type의 실패 패턴에 fix 적용 완료를 표시한다."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             self._conn.execute(
                 "UPDATE failure_patterns"
@@ -637,7 +637,7 @@ class LearnedStore:
         source: str = "user",
     ) -> None:
         """Add a custom platform-specific tip."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
             "INSERT INTO platform_patterns "
             "(platform_key, tip, source, created_at) VALUES (?, ?, ?, ?)",
@@ -681,7 +681,7 @@ class LearnedStore:
         tier: int = 1,
     ) -> None:
         """Record a match attempt result for learning."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             self._conn.execute(
                 """\
@@ -801,7 +801,7 @@ class LearnedStore:
         confidence: float = 1.0,
     ) -> None:
         """Save or update coordinates for target + state combination."""
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             row = self._conn.execute(
                 "SELECT id, correct_x, correct_y FROM state_coords "
@@ -846,7 +846,7 @@ class LearnedStore:
 
         If the same situation+strategy exists, update counts.
         """
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             row = self._conn.execute(
                 "SELECT id, success_count, fail_count FROM test_strategies "

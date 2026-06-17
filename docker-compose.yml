@@ -2,48 +2,47 @@ version: '3.8'
 
 services:
   aat:
-    build: .
+    image: python:3.10-slim
     container_name: ai-watch-tester
-    # 使用宿主机的PID命名空间，允许控制宿主机的浏览器
-    pid: "host"
-    # 共享X11显示（如果需要GUI）
+    working_dir: /app
+
+    volumes:
+      - .:/app
+      - ./scenarios:/app/scenarios
+      - ./.aat:/app/.aat
+      - ~/.cache/ms-playwright:/root/.cache/ms-playwright
+      # 不挂载 .venv，让容器创建自己的虚拟环境
+
     environment:
-      - DISPLAY=${DISPLAY:-:0}
       - PYTHONUNBUFFERED=1
-      # AI API Keys (从宿主机环境变量传入)
+      - PYTHONPATH=/app/src:/app
+      - PATH=/usr/local/bin:/usr/bin:/bin
+      # AI API Keys
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
       - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4-flash}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-    volumes:
-      # 挂载项目目录（实时修改）
-      - .:/app
-      # 挂载测试场景目录
-      - ./scenarios:/app/scenarios
-      # 挂载 .aat 目录（测试结果、基线等）
-      - ./.aat:/app/.aat
-      # 共享X11 socket（Linux GUI）
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    ports:
-      - "8000:8000"  # Web Dashboard
-    network_mode: "host"  # 使用宿主机网络（访问localhost/127.0.0.1）
-    # 启用TTY以支持交互式命令
-    tty: true
-    stdin_open: true
 
-  # 可选：运行Web Dashboard服务
-  aat-web:
-    build: .
-    container_name: ai-watch-tester-web
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - .:/app
-      - ./scenarios:/app/scenarios
-      - ./.aat:/app/.aat
     ports:
-      - "8000:8000"
-    command: ["aat", "dashboard", "--host", "0.0.0.0", "--port", "8000"]
-    profiles:
-      - web
+      - "9500:9500"
+
+    command: >
+      bash -c "
+        echo '=== Installing AWT ===' &&
+        pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple &&
+        pip install -e '.[web]' &&
+        playwright install chromium &&
+        echo '=== Starting Dashboard ===' &&
+        aat dashboard --host 0.0.0.0 --port 9500
+      "
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9500"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

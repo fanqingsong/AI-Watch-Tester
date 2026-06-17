@@ -7,11 +7,19 @@ All Enum and Model definitions live here.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Python 3.10 compatibility: StrEnum was added in Python 3.11
+try:
+    from enum import StrEnum
+except ImportError:
+    # Fallback for Python 3.10
+    class StrEnum(str, Enum):
+        pass
 
 # ============================================================
 # Enums

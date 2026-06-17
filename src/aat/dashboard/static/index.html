@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AAT 대시보드</title>
+<title>AAT Dashboard</title>
 <style>
   :root {
     --bg-primary: #1a1a2e;
@@ -579,9 +579,9 @@
 
 <!-- Header -->
 <div class="header">
-  <h1><span>AAT</span> 대시보드</h1>
+  <h1><span>AAT</span> Dashboard</h1>
   <div class="header-status">
-    <span id="wsStatus">연결 끊김</span>
+    <span id="wsStatus">Disconnected</span>
     <span class="status-dot" id="wsDot"></span>
   </div>
 </div>
@@ -589,9 +589,9 @@
 <!-- One-Click Test Bar -->
 <div class="oneclick-bar">
   <span class="oneclick-label">One-Click Test</span>
-  <input class="input" id="oneclickUrl" placeholder="https://example.com — URL을 입력하고 버튼을 누르면 AI가 테스트를 자동 생성하고 실행합니다" autocomplete="url">
-  <button class="btn-oneclick" id="btnOneclick" onclick="startOneClick()">테스트 시작</button>
-  <button class="btn btn-danger btn-sm" id="btnOneclickStop" onclick="stopRun()" style="display:none">중지</button>
+  <input class="input" id="oneclickUrl" placeholder="https://example.com — Enter URL and AI will auto-generate and run tests" autocomplete="url">
+  <button class="btn-oneclick" id="btnOneclick" onclick="startOneClick()">Start Test</button>
+  <button class="btn btn-danger btn-sm" id="btnOneclickStop" onclick="stopRun()" style="display:none">Stop</button>
   <span class="oneclick-hint" id="oneclickHint">AI Provider: <span id="oneclickProvider">-</span></span>
 </div>
 
@@ -600,29 +600,29 @@
   <div class="guidance-text" id="guidanceText"></div>
   <div class="error-text" id="guidanceError"></div>
   <div style="margin-top:6px">
-    <button class="btn btn-primary btn-sm" id="btnRetry" onclick="retryLastAction()">재시도</button>
-    <button class="btn btn-outline btn-sm" onclick="hideGuidance()" style="margin-left:4px">닫기</button>
+    <button class="btn btn-primary btn-sm" id="btnRetry" onclick="retryLastAction()">Retry</button>
+    <button class="btn btn-outline btn-sm" onclick="hideGuidance()" style="margin-left:4px">Close</button>
   </div>
 </div>
 
 <!-- 3-Step Z-Pattern Layout -->
 <div class="layout">
 
-  <!-- TOP ROW: Step 1 (설정) + Step 2 (준비) -->
+  <!-- TOP ROW: Step 1 (Setup) + Step 2 (Prepare) -->
   <div class="top-row">
 
-    <!-- STEP 1: 설정 -->
+    <!-- STEP 1: Setup -->
     <div class="panel">
       <div class="panel-title">
-        <span class="step-number">1</span> 설정
+        <span class="step-number">1</span> Setup
       </div>
 
-      <!-- 서버 관리 -->
+      <!-- Server Management -->
       <div class="sub-section">
-        <div class="sub-section-title">서버 관리</div>
-        <!-- Row 1: 서버 유형 + 포트 + 시작/중지 + 상태 -->
+        <div class="sub-section-title">Server Management</div>
+        <!-- Row 1: Server type + port + start/stop + status -->
         <div class="field-row">
-          <label>서버 유형</label>
+          <label>Type</label>
           <select class="input" id="serverType" onchange="onServerTypeChange()" style="flex:1.5">
             <option value="python">Python (http.server)</option>
             <option value="nodejs">Node.js (npx serve)</option>
@@ -631,30 +631,30 @@
             <option value="vue">Vue (npm run serve)</option>
             <option value="flask">Flask</option>
             <option value="django">Django</option>
-            <option value="custom">직접 입력</option>
+            <option value="custom">Custom</option>
           </select>
-          <label style="min-width:30px">포트</label>
+          <label style="min-width:30px">Port</label>
           <input class="input" id="serverPort" value="8000" style="width:60px;flex:0" onchange="onPortChange()">
-          <button class="btn btn-primary btn-sm" id="btnServerStart" onclick="startServer()">시작</button>
-          <button class="btn btn-danger btn-sm" id="btnServerStop" onclick="stopServer()" disabled>중지</button>
+          <button class="btn btn-primary btn-sm" id="btnServerStart" onclick="startServer()">Start</button>
+          <button class="btn btn-danger btn-sm" id="btnServerStop" onclick="stopServer()" disabled>Stop</button>
           <div class="server-inline">
             <span class="dot" id="serverDot"></span>
-            <span id="serverStatusText">중지됨</span>
+            <span id="serverStatusText">Stopped</span>
           </div>
         </div>
         <!-- Custom command (hidden by default) -->
         <div class="field-row" id="customCmdRow" style="display:none">
-          <label>명령어</label>
+          <label>Command</label>
           <input class="input" id="serverCmd" placeholder="custom command --port 3000">
         </div>
         <!-- Row 2: CWD path + browse + recent -->
         <div class="field-row">
-          <label>경로</label>
+          <label>Path</label>
           <div style="flex:1;position:relative">
             <div style="display:flex;gap:4px">
               <input class="input" id="serverCwd" placeholder="/path/to/project" style="flex:1">
-              <button class="btn-icon" onclick="openFolderBrowser()" title="폴더 탐색">📁</button>
-              <button class="btn-icon" onclick="toggleRecentPaths()" title="최근 사용">▾</button>
+              <button class="btn-icon" onclick="openFolderBrowser()" title="Browse Folder">📁</button>
+              <button class="btn-icon" onclick="toggleRecentPaths()" title="Recent">▾</button>
             </div>
             <div class="recent-list" id="recentPathsList"></div>
           </div>
@@ -662,19 +662,19 @@
         <div class="mini-log" id="serverMiniLog"></div>
       </div>
 
-      <!-- 테스트 설정 -->
+      <!-- Test Settings -->
       <div class="sub-section">
-        <div class="sub-section-title">테스트 설정</div>
+        <div class="sub-section-title">Test Settings</div>
         <div class="field-grid">
           <div class="field-row">
-            <label>엔진</label>
+            <label>Engine</label>
             <select class="input" id="cfgEngine">
               <option value="web">web</option>
               <option value="desktop">desktop</option>
             </select>
           </div>
           <div class="field-row">
-            <label>브라우저</label>
+            <label>Browser</label>
             <select class="input" id="cfgBrowser">
               <option value="chromium">chromium</option>
               <option value="firefox">firefox</option>
@@ -682,21 +682,21 @@
             </select>
           </div>
           <div class="field-row">
-            <label>헤드리스</label>
+            <label>Headless</label>
             <select class="input" id="cfgHeadless">
               <option value="false">No</option>
               <option value="true">Yes</option>
             </select>
           </div>
           <div class="field-row">
-            <label>창 위치</label>
+            <label>Window Pos</label>
             <div style="display:flex;gap:4px;flex:1">
               <input class="input" id="cfgWindowX" type="number" placeholder="X" style="flex:1">
               <input class="input" id="cfgWindowY" type="number" placeholder="Y" style="flex:1">
             </div>
           </div>
           <div class="field-row">
-            <label>승인 방식</label>
+            <label>Approval</label>
             <select class="input" id="cfgApproval">
               <option value="manual">manual</option>
               <option value="branch">branch</option>
@@ -704,102 +704,103 @@
             </select>
           </div>
           <div class="field-row">
-            <label>AI 제공자</label>
+            <label>AI Provider</label>
             <select class="input" id="cfgProvider" onchange="onProviderChange()">
               <option value="claude">claude</option>
               <option value="openai">openai</option>
               <option value="ollama">ollama</option>
+              <option value="zhipu">zhipu</option>
             </select>
           </div>
           <div class="field-row">
-            <label>모델</label>
+            <label>Model</label>
             <select class="input" id="cfgModel" onchange="onModelSelect()">
             </select>
           </div>
         </div>
         <!-- Custom model input (hidden) -->
         <div class="field-row" id="customModelRow" style="display:none">
-          <label>모델명</label>
-          <input class="input" id="cfgModelCustom" placeholder="모델명 직접 입력">
+          <label>Model Name</label>
+          <input class="input" id="cfgModelCustom" placeholder="Enter custom model name">
         </div>
         <!-- API Key (hidden for ollama) -->
         <div class="field-row" id="apiKeyRow">
-          <label>API 키</label>
+          <label>API Key</label>
           <input class="input" id="cfgApiKey" type="password" placeholder="***">
         </div>
         <div class="field-row">
-          <label>대상 URL</label>
+          <label>Target URL</label>
           <input class="input" id="cfgUrl" value="">
         </div>
         <div style="text-align:right;margin-top:4px">
-          <button class="btn btn-primary btn-sm" onclick="saveConfig()">설정 저장</button>
+          <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save Config</button>
         </div>
       </div>
     </div>
 
-    <!-- STEP 2: 준비 -->
+    <!-- STEP 2: Prepare -->
     <div class="panel">
       <div class="panel-title">
-        <span class="step-number">2</span> 준비
+        <span class="step-number">2</span> Prepare
       </div>
 
-      <!-- 문서 (기획서) -->
+      <!-- Documents (Specs) -->
       <div class="sub-section">
-        <div class="sub-section-title">문서 (기획서)</div>
+        <div class="sub-section-title">Documents (Specs)</div>
         <div class="field-row">
           <textarea id="docTextInput" class="input" rows="3"
-            placeholder="기획서 내용을 붙여넣거나, 테스트할 웹사이트의 기능을 설명하세요."
+            placeholder="Paste your spec content or describe the website features to test."
             style="flex:1; resize:vertical; font-size:12px;"></textarea>
         </div>
         <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" style="margin-top:4px">
-          파일을 드래그하거나 클릭하여 선택
+          Drag & drop files or click to select
           <input type="file" id="fileInput" multiple accept=".md,.txt,.pdf,.html,.rst,.yaml,.yml,.json">
         </div>
         <ul class="doc-list" id="docList"></ul>
         <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
           <span id="genStatus" style="font-size:11px; color:var(--text-secondary);"></span>
           <span style="flex:1"></span>
-          <button class="btn btn-primary btn-sm" onclick="generateFromDocument()" id="btnGenerate">시나리오 생성</button>
+          <button class="btn btn-primary btn-sm" onclick="generateFromDocument()" id="btnGenerate">Generate</button>
         </div>
       </div>
 
-      <!-- 시나리오 -->
+      <!-- Scenarios -->
       <div class="sub-section">
-        <div class="sub-section-title">시나리오 <span id="scenarioCount" style="font-weight:400; color: var(--text-secondary); text-transform: none; letter-spacing: 0;"></span></div>
+        <div class="sub-section-title">Scenarios <span id="scenarioCount" style="font-weight:400; color: var(--text-secondary); text-transform: none; letter-spacing: 0;"></span></div>
         <div class="field-row">
-          <label>경로</label>
+          <label>Path</label>
           <input class="input" id="scenarioPath" placeholder="scenarios/">
-          <button class="btn btn-primary btn-sm" onclick="loadScenariosFromPath()">불러오기</button>
+          <button class="btn btn-primary btn-sm" onclick="loadScenariosFromPath()">Load</button>
         </div>
         <div class="scenario-list" id="scenarioList">
-          <div style="color: var(--text-secondary); font-size: 12px; padding: 8px; text-align: center;">기획서에서 생성하거나, 시나리오 파일을 업로드하세요.</div>
+          <div style="color: var(--text-secondary); font-size: 12px; padding: 8px; text-align: center;">Generate from documents or upload scenario files.</div>
         </div>
         <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="loadScenarios()">새로고침</button>
-          <button class="btn btn-outline btn-sm" onclick="selectAllScenarios()">전체선택</button>
-          <button class="btn btn-outline btn-sm" onclick="clearScenarioSelection()">초기화</button>
+          <button class="btn btn-outline btn-sm" onclick="loadScenarios()">Refresh</button>
+          <button class="btn btn-outline btn-sm" onclick="selectAllScenarios()">Select All</button>
+          <button class="btn btn-outline btn-sm" onclick="clearScenarioSelection()">Clear</button>
           <span style="flex:1"></span>
           <input type="file" id="scenarioFileInput" accept=".yaml,.yml" multiple style="display:none">
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('scenarioFileInput').click()">파일 선택</button>
-          <button class="btn btn-primary btn-sm" onclick="uploadScenario()">업로드</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('scenarioFileInput').click()">Select Files</button>
+          <button class="btn btn-primary btn-sm" onclick="uploadScenario()">Upload</button>
         </div>
       </div>
     </div>
 
   </div><!-- /top-row -->
 
-  <!-- STEP 3: 실행 (full width) -->
+  <!-- STEP 3: Execute (full width) -->
   <div class="bottom-row">
     <div class="panel" style="flex-shrink:0; padding-bottom:4px">
       <div class="panel-title">
-        <span class="step-number">3</span> 실행
+        <span class="step-number">3</span> Execute
       </div>
 
       <!-- Controls -->
       <div style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; align-items: center;">
-        <button class="btn btn-primary" id="btnRun" onclick="startRun()">테스트 실행 (전체)</button>
-        <button class="btn btn-primary" id="btnLoop" onclick="startLoop()">DevQA 반복 (전체)</button>
-        <button class="btn btn-danger" id="btnStop" onclick="stopRun()" disabled>중지</button>
+        <button class="btn btn-primary" id="btnRun" onclick="startRun()">Run Test (All)</button>
+        <button class="btn btn-primary" id="btnLoop" onclick="startLoop()">DevQA Loop (All)</button>
+        <button class="btn btn-danger" id="btnStop" onclick="stopRun()" disabled>Stop</button>
         <div id="summary" style="display: none; margin-left: 8px; padding: 4px 12px; background: var(--bg-secondary); border-radius: var(--radius); font-size: 12px;"></div>
       </div>
 
@@ -816,13 +817,13 @@
     <!-- Bottom split: Screenshot + Log -->
     <div class="exec-bottom">
       <div style="padding:6px;background:var(--bg-primary);display:flex;flex-direction:column;min-height:0">
-        <div class="panel-title" style="margin-bottom:4px">실시간 스크린샷</div>
+        <div class="panel-title" style="margin-bottom:4px">Live Screenshot</div>
         <div class="screenshot-container" id="screenshotBox" style="flex:1;min-height:0">
-          <div class="screenshot-placeholder">스크린샷 대기 중</div>
+          <div class="screenshot-placeholder">Waiting for screenshot</div>
         </div>
       </div>
       <div style="padding:6px;background:var(--bg-primary);display:flex;flex-direction:column;min-height:0">
-        <div class="panel-title" style="margin-bottom:4px">이벤트 로그</div>
+        <div class="panel-title" style="margin-bottom:4px">Event Log</div>
         <div class="log-area" id="logArea" style="flex:1;min-height:0"></div>
       </div>
     </div>
@@ -830,28 +831,28 @@
 
 </div><!-- /layout -->
 
-<!-- 승인 모달 -->
+<!-- Approval Modal -->
 <div class="modal-overlay" id="approvalModal">
   <div class="modal">
-    <h3>AI 수정 승인</h3>
+    <h3>AI Modification Approval</h3>
     <div class="modal-context" id="approvalContext"></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" onclick="resolvePrompt('approve')">승인</button>
-      <button class="btn btn-danger" onclick="resolvePrompt('deny')">거부</button>
-      <button class="btn btn-outline" onclick="resolvePrompt('approve_all')">전체 승인</button>
+      <button class="btn btn-primary" onclick="resolvePrompt('approve')">Approve</button>
+      <button class="btn btn-danger" onclick="resolvePrompt('deny')">Deny</button>
+      <button class="btn btn-outline" onclick="resolvePrompt('approve_all')">Approve All</button>
     </div>
   </div>
 </div>
 
-<!-- 폴더 탐색 모달 -->
+<!-- Folder Browser Modal -->
 <div class="modal-overlay" id="folderModal">
   <div class="folder-modal">
-    <h3>폴더 탐색</h3>
+    <h3>Folder Browser</h3>
     <div class="folder-path" id="folderCurrentPath"></div>
     <div class="folder-list" id="folderList"></div>
     <div class="folder-actions">
-      <button class="btn btn-outline btn-sm" onclick="closeFolderBrowser()">취소</button>
-      <button class="btn btn-primary btn-sm" onclick="selectFolder()">선택</button>
+      <button class="btn btn-outline btn-sm" onclick="closeFolderBrowser()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="selectFolder()">Select</button>
     </div>
   </div>
 </div>
@@ -896,7 +897,15 @@ const MODEL_OPTIONS = {
     { value: 'codellama:7b', label: 'CodeLlama 7B' },
     { value: 'llama3:8b', label: 'Llama 3 8B' },
     { value: 'mistral:7b', label: 'Mistral 7B' },
-    { value: 'custom', label: '직접 입력' },
+    { value: 'custom', label: 'Custom' },
+  ],
+  zhipu: [
+    { value: 'glm-4-flash', label: 'GLM-4 Flash' },
+    { value: 'glm-4-plus', label: 'GLM-4 Plus' },
+    { value: 'glm-4-air', label: 'GLM-4 Air' },
+    { value: 'glm-4', label: 'GLM-4' },
+    { value: 'glm-3-turbo', label: 'GLM-3 Turbo' },
+    { value: 'custom', label: 'Custom' },
   ],
 };
 
@@ -924,7 +933,7 @@ function toggleRecentPaths() {
   }
   list.innerHTML = '';
   if (paths.length === 0) {
-    list.innerHTML = '<div class="recent-item" style="color:var(--text-secondary)">기록 없음</div>';
+    list.innerHTML = '<div class="recent-item" style="color:var(--text-secondary)">No recent paths</div>';
   } else {
     paths.forEach(p => {
       const item = document.createElement('div');
@@ -996,7 +1005,7 @@ function onProviderChange() {
   const apiKeyRow = document.getElementById('apiKeyRow');
   const customModelRow = document.getElementById('customModelRow');
 
-  // Show/hide API key for ollama
+  // Show/hide API key for ollama (only ollama doesn't need API key)
   apiKeyRow.style.display = provider === 'ollama' ? 'none' : 'flex';
 
   // Populate model options
@@ -1092,20 +1101,20 @@ function connectWS() {
   ws = new WebSocket(`${proto}//${location.host}/ws`);
 
   ws.onopen = () => {
-    document.getElementById('wsStatus').textContent = '연결됨';
+    document.getElementById('wsStatus').textContent = 'Connected';
     document.getElementById('wsDot').classList.add('connected');
-    addLog('info', 'WebSocket 연결됨');
+    addLog('info', 'WebSocket connected');
   };
 
   ws.onclose = () => {
-    document.getElementById('wsStatus').textContent = '연결 끊김';
+    document.getElementById('wsStatus').textContent = 'Disconnected';
     document.getElementById('wsDot').classList.remove('connected');
-    addLog('warning', 'WebSocket 연결 끊김, 재연결 중...');
+    addLog('warning', 'WebSocket disconnected, reconnecting...');
     setTimeout(connectWS, 3000);
   };
 
   ws.onerror = () => {
-    addLog('error', 'WebSocket 오류');
+    addLog('error', 'WebSocket error');
   };
 
   ws.onmessage = (event) => {
@@ -1150,7 +1159,7 @@ function handleEvent(data) {
     case 'server_exit':
       setServerRunning(false);
       addLog(data.return_code === 0 ? 'info' : 'warning',
-        `서버 종료 (코드=${data.return_code})`);
+        `Server exited (code=${data.return_code})`);
       break;
     case 'run_start':
     case 'loop_start':
@@ -1172,17 +1181,17 @@ function handleEvent(data) {
     case 'loop_cancelled':
     case 'oneclick_cancelled':
       setRunning(false);
-      addLog('warning', '실행 취소됨');
+      addLog('warning', 'Execution cancelled');
       break;
     case 'run_error':
     case 'loop_error':
       setRunning(false);
-      addLog('error', data.error || '알 수 없는 오류');
+      addLog('error', data.error || 'Unknown error');
       if (data.guidance) showGuidance(data.guidance, data.error);
       break;
     case 'oneclick_error':
       setRunning(false);
-      addLog('error', data.error || '알 수 없는 오류');
+      addLog('error', data.error || 'Unknown error');
       if (data.guidance) showGuidance(data.guidance, data.error);
       else if (data.error) showGuidance('', data.error);
       break;
@@ -1212,7 +1221,7 @@ function addServerLog(line) {
     mini.removeChild(mini.firstChild);
   }
   mini.scrollTop = mini.scrollHeight;
-  addLog('server', `[서버] ${line}`);
+  addLog('server', `[Server] ${line}`);
 }
 
 function setServerRunning(running) {
@@ -1224,12 +1233,12 @@ function setServerRunning(running) {
 
   if (running) {
     dot.classList.add('running');
-    text.textContent = '실행 중';
+    text.textContent = 'Running';
     btnStart.disabled = true;
     btnStop.disabled = false;
   } else {
     dot.classList.remove('running');
-    text.textContent = '중지됨';
+    text.textContent = 'Stopped';
     btnStart.disabled = false;
     btnStop.disabled = true;
   }
@@ -1240,7 +1249,7 @@ async function startServer() {
   const cwd = document.getElementById('serverCwd').value.trim();
 
   if (!command) {
-    addLog('warning', '서버 명령어를 입력하세요');
+    addLog('warning', 'Please enter server command');
     return;
   }
 
@@ -1258,13 +1267,13 @@ async function startServer() {
       addLog('error', data.error);
     } else {
       setServerRunning(true);
-      addLog('success', '서버 시작됨 (PID: ' + (data.pid || '?') + ')');
+      addLog('success', 'Server started (PID: ' + (data.pid || '?') + ')');
       // Auto-fill URL and save config
       const port = document.getElementById('serverPort').value;
       if (port && !urlManuallySet) {
         const autoUrl = `http://localhost:${port}`;
         document.getElementById('cfgUrl').value = autoUrl;
-        addLog('info', `URL 자동 설정: ${autoUrl}`);
+        addLog('info', `URL auto-set: ${autoUrl}`);
         // Auto-save URL to backend config
         try {
           await fetch('/api/config', {
@@ -1272,12 +1281,12 @@ async function startServer() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: autoUrl }),
           });
-          addLog('success', '설정 자동 저장됨');
+          addLog('success', 'Config auto-saved');
         } catch (e) { /* ignore save error */ }
       }
     }
   } catch (e) {
-    addLog('error', `서버 시작 실패: ${e.message}`);
+    addLog('error', `Server start failed: ${e.message}`);
   }
 }
 
@@ -1286,9 +1295,9 @@ async function stopServer() {
     await fetch('/api/server/stop', { method: 'POST' });
     setServerRunning(false);
     document.getElementById('serverMiniLog').innerHTML = '';
-    addLog('info', '서버 중지됨');
+    addLog('info', 'Server stopped');
   } catch (e) {
-    addLog('error', `서버 중지 실패: ${e.message}`);
+    addLog('error', `Server stop failed: ${e.message}`);
   }
 }
 
@@ -1306,7 +1315,7 @@ function clearSteps() {
   document.getElementById('summary').style.display = 'none';
   const pc = document.getElementById('progressContainer');
   pc.style.display = 'block';
-  updateProgress(0, 1, '시작 중...');
+  updateProgress(0, 1, 'Starting...');
 }
 
 function addStepRunning(step, total, description) {
@@ -1320,7 +1329,7 @@ function addStepRunning(step, total, description) {
   li.innerHTML = `
     <span class="step-badge running">${step}</span>
     <span class="step-desc">${escHtml(description)}</span>
-    <span style="color: var(--warning); font-size: 10px;">실행 중...</span>
+    <span style="color: var(--warning); font-size: 10px;">Running...</span>
   `;
   list.appendChild(li);
   li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1373,16 +1382,16 @@ function updateProgress(current, total, label) {
 // -- Screenshot --
 function updateScreenshot(base64Data) {
   const box = document.getElementById('screenshotBox');
-  box.innerHTML = `<img src="data:image/jpeg;base64,${base64Data}" alt="실시간 스크린샷">`;
+  box.innerHTML = `<img src="data:image/jpeg;base64,${base64Data}" alt="Live Screenshot">`;
 }
 
 // -- Summary --
 function showSummary(data) {
   const div = document.getElementById('summary');
-  const status = data.success ? '성공' : '실패';
+  const status = data.success ? 'Success' : 'Failed';
   const color = data.success ? 'var(--success)' : 'var(--danger)';
   let html = `<span style="font-weight:700; color:${color};">${status}</span>`;
-  if (data.iterations) html += ` | ${data.iterations}회`;
+  if (data.iterations) html += ` | ${data.iterations} iterations`;
   if (data.duration_ms) html += ` | ${Math.round(data.duration_ms)}ms`;
   if (data.reason) html += ` | ${escHtml(data.reason)}`;
   div.innerHTML = html;
@@ -1392,7 +1401,7 @@ function showSummary(data) {
 // -- Approval Modal --
 function showApprovalModal(question, options, context) {
   document.getElementById('approvalContext').textContent =
-    context?.analysis || question || '이 수정을 승인하시겠습니까?';
+    context?.analysis || question || 'Do you approve this modification?';
   document.getElementById('approvalModal').classList.add('active');
 }
 
@@ -1451,11 +1460,11 @@ function showPendingFiles() {
   const zone = document.getElementById('dropZone');
   const docList = document.getElementById('docList');
   if (pendingFiles.length === 0) {
-    zone.textContent = '파일을 드래그하거나 클릭하여 선택';
+    zone.textContent = 'Drag & drop files or click to select';
     docList.innerHTML = '';
     return;
   }
-  zone.textContent = `${pendingFiles.length}개 파일 선택됨`;
+  zone.textContent = `${pendingFiles.length} files selected`;
   docList.innerHTML = '';
   for (const f of pendingFiles) {
     const li = document.createElement('li');
@@ -1467,7 +1476,7 @@ function showPendingFiles() {
 
 async function uploadFiles() {
   if (pendingFiles.length === 0) {
-    addLog('warning', '파일을 먼저 선택하세요');
+    addLog('warning', 'Please select files first');
     return;
   }
 
@@ -1482,12 +1491,12 @@ async function uploadFiles() {
     if (data.error) {
       addLog('error', data.error);
     } else {
-      addLog('success', `${data.count}개 파일 업로드 완료`);
+      addLog('success', `${data.count} files uploaded`);
       pendingFiles = [];
       showPendingFiles();
     }
   } catch (e) {
-    addLog('error', `업로드 실패: ${e.message}`);
+    addLog('error', `Upload failed: ${e.message}`);
   }
 }
 
@@ -1509,7 +1518,7 @@ async function loadDocuments() {
 }
 
 async function analyzeAndGenerate() {
-  addLog('info', '분석 및 생성 — CLI 사용: aat analyze / aat generate');
+  addLog('info', 'Analyze & Generate — Use CLI: aat analyze / aat generate');
 }
 
 // -- Config --
@@ -1546,7 +1555,7 @@ async function loadConfig() {
     document.getElementById('cfgUrl').value = data.url || '';
     document.getElementById('cfgApproval').value = data.approval_mode || 'manual';
   } catch (e) {
-    addLog('error', `설정 불러오기 실패: ${e.message}`);
+    addLog('error', `Config load failed: ${e.message}`);
   }
 }
 
@@ -1577,13 +1586,13 @@ async function saveConfig() {
     });
     const data = await res.json();
     if (data.error) {
-      addLog('error', `설정 저장 실패: ${data.error}`);
+      addLog('error', `Config save failed: ${data.error}`);
     } else {
-      addLog('success', '설정 저장 완료');
+      addLog('success', 'Config saved');
       loadConfig();
     }
   } catch (e) {
-    addLog('error', `설정 저장 실패: ${e.message}`);
+    addLog('error', `Config save failed: ${e.message}`);
   }
 }
 
@@ -1598,20 +1607,20 @@ async function generateFromDocument() {
   const hasFiles = pendingFiles.length > 0;
 
   if (!text && !hasFiles) {
-    addLog('warning', '기획서 내용을 입력하거나 파일을 첨부해주세요.');
+    addLog('warning', 'Please enter spec content or attach files.');
     return;
   }
 
   const btn = document.getElementById('btnGenerate');
   const status = document.getElementById('genStatus');
   btn.disabled = true;
-  btn.textContent = '생성 중...';
+  btn.textContent = 'Generating...';
 
   let documentText = text;
 
   // Step 1: Upload files and get content
   if (hasFiles) {
-    status.textContent = '파일 업로드 중...';
+    status.textContent = 'Uploading files...';
     const formData = new FormData();
     for (const f of pendingFiles) {
       formData.append('files', f);
@@ -1622,11 +1631,11 @@ async function generateFromDocument() {
       if (data.error) {
         addLog('error', data.error);
         btn.disabled = false;
-        btn.textContent = '시나리오 생성';
+        btn.textContent = 'Generate';
         status.textContent = '';
         return;
       }
-      addLog('success', `${data.count}개 파일 업로드 완료`);
+      addLog('success', `${data.count} files uploaded`);
       // Append file contents to document text
       if (data.contents) {
         for (const [name, content] of Object.entries(data.contents)) {
@@ -1634,24 +1643,24 @@ async function generateFromDocument() {
         }
       }
     } catch (e) {
-      addLog('error', `파일 업로드 실패: ${e.message}`);
+      addLog('error', `File upload failed: ${e.message}`);
       btn.disabled = false;
-      btn.textContent = '시나리오 생성';
+      btn.textContent = 'Generate';
       status.textContent = '';
       return;
     }
   }
 
   if (!documentText.trim()) {
-    addLog('warning', '기획서 내용이 비어있습니다.');
+    addLog('warning', 'Document content is empty.');
     btn.disabled = false;
-    btn.textContent = '시나리오 생성';
+    btn.textContent = 'Generate';
     status.textContent = '';
     return;
   }
 
   // Step 2: Generate scenarios via AI
-  status.textContent = 'AI가 시나리오를 생성하고 있습니다...';
+  status.textContent = 'AI is generating scenarios...';
   try {
     const resp = await fetch('/api/scenarios/generate', {
       method: 'POST',
@@ -1660,12 +1669,12 @@ async function generateFromDocument() {
     });
     const data = await resp.json();
     if (data.error) {
-      addLog('error', `시나리오 생성 실패: ${data.error}`);
-      status.textContent = '생성 실패';
+      addLog('error', `Scenario generation failed: ${data.error}`);
+      status.textContent = 'Generation failed';
       return;
     }
-    addLog('success', `시나리오 ${data.count}개 생성 완료: ${data.files.join(', ')}`);
-    status.textContent = `${data.count}개 생성 완료`;
+    addLog('success', `${data.count} scenarios generated: ${data.files.join(', ')}`);
+    status.textContent = `${data.count} generated`;
 
     // Set scenario path to temp folder
     if (data.scenarios_path) {
@@ -1686,7 +1695,7 @@ async function generateFromDocument() {
       item.innerHTML = `
         <span class="scenario-id">${escHtml(sc.id)}</span>
         <span class="scenario-name">${escHtml(sc.name)}</span>
-        <span class="scenario-meta">${sc.steps_count}단계${sc.tags && sc.tags.length ? ' | ' + sc.tags.join(', ') : ''}</span>
+        <span class="scenario-meta">${sc.steps_count} steps${sc.tags && sc.tags.length ? ' | ' + sc.tags.join(', ') : ''}</span>
       `;
       item.onclick = () => {
         if (selectedScenarios.has(sc.id)) {
@@ -1706,11 +1715,11 @@ async function generateFromDocument() {
     pendingFiles = [];
     showPendingFiles();
   } catch (e) {
-    addLog('error', `시나리오 생성 오류: ${e.message}`);
-    status.textContent = '생성 오류';
+    addLog('error', `Scenario generation error: ${e.message}`);
+    status.textContent = 'Generation error';
   } finally {
     btn.disabled = false;
-    btn.textContent = '시나리오 생성';
+    btn.textContent = 'Generate';
   }
 }
 
@@ -1734,12 +1743,12 @@ async function loadScenarios(customPath) {
         list.innerHTML = `<div style="color: #ffa726; font-size: 12px; padding: 10px; line-height: 1.6; white-space: pre-wrap;">
           ${lines}
         </div>`;
-        addLog('warning', '시나리오 형식 오류 — 시나리오 목록에서 상세 안내를 확인하세요.');
+        addLog('warning', 'Scenario format error — see scenario list for details.');
       } else if (data.error) {
-        list.innerHTML = '<div style="color: #ffa726; font-size: 12px; padding: 8px;">시나리오를 불러올 수 없습니다. 경로와 파일 형식을 확인해주세요.</div>';
+        list.innerHTML = '<div style="color: #ffa726; font-size: 12px; padding: 8px;">Cannot load scenarios. Check path and file format.</div>';
         addLog('warning', data.error);
       } else {
-        list.innerHTML = '<div style="color: var(--text-secondary); font-size: 12px; padding: 8px; text-align: center;">시나리오 없음</div>';
+        list.innerHTML = '<div style="color: var(--text-secondary); font-size: 12px; padding: 8px; text-align: center;">No scenarios</div>';
       }
       return;
     }
@@ -1753,7 +1762,7 @@ async function loadScenarios(customPath) {
       div.innerHTML = `
         <span class="scenario-id">${escHtml(sc.id)}</span>
         <span class="scenario-name">${escHtml(sc.name)}</span>
-        <span class="scenario-meta">${sc.steps_count}단계${sc.tags.length ? ' | ' + sc.tags.join(', ') : ''}</span>
+        <span class="scenario-meta">${sc.steps_count} steps${sc.tags.length ? ' | ' + sc.tags.join(', ') : ''}</span>
       `;
       div.onclick = () => {
         if (selectedScenarios.has(sc.id)) {
@@ -1773,9 +1782,9 @@ async function loadScenarios(customPath) {
     updateScenarioCount();
 
     if (data.error) addLog('warning', data.error);
-    else addLog('info', `시나리오 ${totalScenarios}개 불러옴`);
+    else addLog('info', `Loaded ${totalScenarios} scenarios`);
   } catch (e) {
-    addLog('error', `시나리오 불러오기 실패: ${e.message}`);
+    addLog('error', `Scenario load failed: ${e.message}`);
   }
 }
 
@@ -1783,12 +1792,12 @@ function updateScenarioCount() {
   const count = selectedScenarios.size;
   const el = document.getElementById('scenarioCount');
   if (totalScenarios > 0) {
-    el.textContent = count > 0 ? `(${totalScenarios}개 중 ${count}개 선택됨)` : `(${totalScenarios}개)`;
+    el.textContent = count > 0 ? `(${count} of ${totalScenarios} selected)` : `(${totalScenarios} total)`;
   } else {
     el.textContent = '';
   }
-  const runLabel = count > 0 ? `테스트 실행 (${count}개)` : '테스트 실행 (전체)';
-  const loopLabel = count > 0 ? `DevQA 반복 (${count}개)` : 'DevQA 반복 (전체)';
+  const runLabel = count > 0 ? `Run Test (${count})` : 'Run Test (All)';
+  const loopLabel = count > 0 ? `DevQA Loop (${count})` : 'DevQA Loop (All)';
   document.getElementById('btnRun').textContent = runLabel;
   document.getElementById('btnLoop').textContent = loopLabel;
 }
@@ -1808,7 +1817,7 @@ function clearScenarioSelection() {
 async function uploadScenario() {
   const input = document.getElementById('scenarioFileInput');
   if (!input.files || input.files.length === 0) {
-    addLog('warning', '시나리오 파일을 먼저 선택하세요');
+    addLog('warning', 'Please select scenario files first');
     return;
   }
 
@@ -1827,16 +1836,16 @@ async function uploadScenario() {
         addLog('error', `${file.name}: ${data.error}`);
       } else {
         successCount++;
-        addLog('success', `시나리오 업로드 완료: ${data.uploaded}`);
+        addLog('success', `Scenario uploaded: ${data.uploaded}`);
       }
     } catch (e) {
-      addLog('error', `시나리오 업로드 실패 (${file.name}): ${e.message}`);
+      addLog('error', `Scenario upload failed (${file.name}): ${e.message}`);
     }
   }
 
   input.value = '';
   if (successCount > 0) {
-    // 업로드된 파일의 시나리오를 불러오기 위해 현재 경로로 로드
+    // Load scenarios from current path to refresh the list
     const path = document.getElementById('scenarioPath').value.trim();
     if (path) loadScenarios(path);
   }
@@ -1844,7 +1853,7 @@ async function uploadScenario() {
 
 // -- Preflight Check --
 async function runPreflight(mode) {
-  addLog('info', '사전검사 실행 중...');
+  addLog('info', 'Running preflight checks...');
   try {
     const res = await fetch('/api/preflight', {
       method: 'POST',
@@ -1872,18 +1881,18 @@ async function runPreflight(mode) {
     }
 
     if (hasBlockingFail) {
-      addLog('error', '사전검사 실패 — 위의 오류를 해결한 후 다시 시도하세요.');
+      addLog('error', 'Preflight failed — Fix errors above and retry.');
       return false;
     }
 
     if (hasWarning) {
-      addLog('info', '사전검사 경고 있음 — 실행을 계속합니다.');
+      addLog('info', 'Preflight warnings — Continuing execution.');
     } else {
-      addLog('success', '모든 사전검사 통과');
+      addLog('success', 'All preflight checks passed');
     }
     return true;
   } catch (e) {
-    addLog('warning', `사전검사 건너뜀: ${e.message}`);
+    addLog('warning', `Preflight skipped: ${e.message}`);
     return true; // Don't block on preflight failure itself
   }
 }
@@ -1911,11 +1920,11 @@ async function startRun() {
     if (data.error) {
       addLog('error', data.error);
     } else {
-      const label = ids.length > 0 ? `${ids.length}개 시나리오` : '전체 시나리오';
-      addLog('info', `테스트 실행 시작 (${label})`);
+      const label = ids.length > 0 ? `${ids.length} scenarios` : 'all scenarios';
+      addLog('info', `Test run started (${label})`);
     }
   } catch (e) {
-    addLog('error', `테스트 실행 실패: ${e.message}`);
+    addLog('error', `Test run failed: ${e.message}`);
   }
 }
 
@@ -1943,20 +1952,20 @@ async function startLoop() {
     if (data.error) {
       addLog('error', data.error);
     } else {
-      const label = ids.length > 0 ? `${ids.length}개 시나리오` : '전체 시나리오';
-      addLog('info', `DevQA 반복 시작 (${label})`);
+      const label = ids.length > 0 ? `${ids.length} scenarios` : 'all scenarios';
+      addLog('info', `DevQA Loop started (${label})`);
     }
   } catch (e) {
-    addLog('error', `DevQA 반복 실패: ${e.message}`);
+    addLog('error', `DevQA Loop failed: ${e.message}`);
   }
 }
 
 async function stopRun() {
   try {
     await fetch('/api/stop', { method: 'POST' });
-    addLog('warning', '중지 요청됨');
+    addLog('warning', 'Stop requested');
   } catch (e) {
-    addLog('error', `중지 실패: ${e.message}`);
+    addLog('error', `Stop failed: ${e.message}`);
   }
 }
 
@@ -1970,7 +1979,7 @@ function escHtml(text) {
 async function startOneClick() {
   const url = document.getElementById('oneclickUrl').value.trim();
   if (!url) {
-    addLog('warning', 'URL을 입력하세요');
+    addLog('warning', 'Please enter URL');
     document.getElementById('oneclickUrl').focus();
     return;
   }
@@ -1995,12 +2004,12 @@ async function startOneClick() {
       addLog('error', data.error);
       showGuidance('', data.error);
     } else {
-      addLog('info', `One-Click 테스트 시작: ${finalUrl}`);
+      addLog('info', `One-Click test started: ${finalUrl}`);
       // Sync URL to config field
       document.getElementById('cfgUrl').value = finalUrl;
     }
   } catch (e) {
-    addLog('error', `One-Click 테스트 실패: ${e.message}`);
+    addLog('error', `One-Click test failed: ${e.message}`);
   }
 }
 
@@ -2011,8 +2020,8 @@ function showOneclickSummary(data) {
   const status = allPassed ? 'ALL PASSED' : `${data.failed} FAILED`;
   div.innerHTML = `
     <span style="font-weight:700; color:${color};">${status}</span>
-    | ${data.passed}/${data.total_steps} 통과
-    | ${data.scenarios_count}개 시나리오
+    | ${data.passed}/${data.total_steps} passed
+    | ${data.scenarios_count} scenarios
   `;
   div.style.display = 'inline-block';
 }
