@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   aat:
-    image: python:3.10-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-watch-tester:latest
     container_name: ai-watch-tester
     working_dir: /app
 
