@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     # Playwright 浏览器依赖
     wget \
     gnupg \
+    # X11 for headed browser mode (xvfb)
+    xvfb \
     # Tesseract OCR
     tesseract-ocr \
     tesseract-ocr-kor \
