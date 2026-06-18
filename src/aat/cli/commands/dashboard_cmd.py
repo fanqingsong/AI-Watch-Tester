@@ -22,6 +22,12 @@ def dashboard_command(
         "--no-open",
         help="Don't open browser automatically.",
     ),
+    reload: bool = typer.Option(
+        False,
+        "--reload",
+        "-r",
+        help="Enable auto-reload on code changes (development mode).",
+    ),
 ) -> None:
     """Launch the AAT web dashboard."""
     try:
@@ -40,8 +46,10 @@ def dashboard_command(
 
     url = f"http://{host}:{port}"
     typer.echo(f"AAT Dashboard: {url}")
+    if reload:
+        typer.echo("Hot reload enabled - dashboard will restart on code changes")
 
     if not no_open:
         webbrowser.open(url)
 
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    uvicorn.run(app, host=host, port=port, log_level="info", reload=reload)

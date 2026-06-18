@@ -33,7 +33,7 @@ services:
     command: >
       bash -c "
         echo '=== Starting Dashboard ===' &&
-        aat dashboard --host 0.0.0.0 --port 9500
+        aat dashboard --host 0.0.0.0 --port 9500 --reload
       "
 
     stdin_open: true
