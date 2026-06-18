@@ -262,43 +262,43 @@ async def _update_config(request: Request) -> JSONResponse:
 
 
 def _get_scenario_guidance(error_str: str) -> str:
-    """Parse Pydantic validation errors and return user-friendly Korean guidance."""
+    """Parse Pydantic validation errors and return user-friendly English guidance."""
     hints: list[str] = []
 
     lower = error_str.lower()
 
     if "step" in lower and ("field required" in lower or "missing" in lower):
-        hints.append("각 스텝에 'step' 번호(정수)가 필요합니다 (예: step: 1)")
+        hints.append("Each step needs a 'step' number (integer) (e.g., step: 1)")
 
     if "'click'" in lower or "'type'" in lower or "action" in lower:
         hints.append(
-            "action은 다음 중 하나여야 합니다: "
+            "action must be one of: "
             "navigate, find_and_click, find_and_type, scroll, wait, "
             "screenshot, assert, hover, press_key, select_option, drag_and_drop"
         )
 
     if "target" in lower and ("role" in lower or "url" in lower):
-        hints.append("target에는 'text' 필드만 사용하세요 (role, url은 지원하지 않음)")
+        hints.append("Use only 'text' field in target (role, url are not supported)")
 
     if "assert_type" in lower or "expected" in lower:
         hints.append(
-            "assert 스텝에는 assert_type과 expected 리스트가 필요합니다\n"
-            "  예: assert_type: text_visible\n"
+            "assert step requires assert_type and expected list\n"
+            "  Example: assert_type: text_visible\n"
             "      expected:\n"
             "        - type: text_visible\n"
-            '          value: "확인할 텍스트"'
+            '          value: "text to verify"'
         )
 
     if "variables" in lower:
         hints.append(
-            "시나리오 파일에 'variables' 섹션은 지원하지 않습니다. "
-            "URL은 설정의 {{url}} 변수를 사용하세요"
+            "Scenario files do not support 'variables' section. "
+            "Use {{url}} variable in Settings for URL"
         )
 
     if not hints:
-        hints.append("시나리오 YAML 파일의 형식이 올바르지 않습니다")
+        hints.append("Scenario YAML file format is invalid")
 
-    return "시나리오 형식 오류가 있습니다. 아래 사항을 확인해주세요:\n\n" + "\n".join(
+    return "Scenario format error. Please check the following:\n\n" + "\n".join(
         f"• {h}" for h in hints
     )
 
@@ -419,16 +419,16 @@ async def _upload_scenario(request: Request) -> JSONResponse:
 async def _generate_scenarios(request: Request) -> JSONResponse:
     """Generate scenarios from document text using AI adapter."""
     if _current_config is None:
-        return JSONResponse(content={"error": "설정이 없습니다"}, status_code=400)
+        return JSONResponse(content={"error": "No configuration"}, status_code=400)
 
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
-        return JSONResponse(content={"error": "잘못된 요청"}, status_code=400)
+        return JSONResponse(content={"error": "Invalid request"}, status_code=400)
 
     document_text = body.get("document_text", "")
     if not document_text.strip():
-        return JSONResponse(content={"error": "문서 내용이 비어있습니다"}, status_code=400)
+        return JSONResponse(content={"error": "Document content is empty"}, status_code=400)
 
     # Create AI adapter
     from aat.adapters import ADAPTER_REGISTRY
@@ -437,7 +437,7 @@ async def _generate_scenarios(request: Request) -> JSONResponse:
     adapter_cls = ADAPTER_REGISTRY.get(provider)
     if adapter_cls is None:
         return JSONResponse(
-            content={"error": f"AI 어댑터 없음: {provider}"},
+            content={"error": f"AI adapter not found: {provider}"},
             status_code=400,
         )
 
@@ -446,9 +446,9 @@ async def _generate_scenarios(request: Request) -> JSONResponse:
         return JSONResponse(
             content={
                 "error": (
-                    f"API 키가 설정되지 않았습니다. "
-                    f"설정 > API 키에 {provider} API 키를 입력하고 "
-                    f"'설정 저장'을 클릭하세요."
+                    f"API key not configured. "
+                    f"Enter {provider} API key in Settings > API Key and "
+                    f"click 'Save Settings'."
                 ),
             },
             status_code=400,
@@ -459,12 +459,12 @@ async def _generate_scenarios(request: Request) -> JSONResponse:
         scenarios = await adapter.generate_scenarios(document_text)
     except Exception as e:  # noqa: BLE001
         return JSONResponse(
-            content={"error": f"시나리오 생성 실패: {e}"},
+            content={"error": f"Scenario generation failed: {e}"},
             status_code=500,
         )
 
     if not scenarios:
-        return JSONResponse(content={"error": "생성된 시나리오가 없습니다"}, status_code=400)
+        return JSONResponse(content={"error": "No scenarios generated"}, status_code=400)
 
     # Save to temp directory (not mixed with project files)
     import tempfile
@@ -507,7 +507,7 @@ async def _generate_scenarios(request: Request) -> JSONResponse:
     await _manager.broadcast(
         {
             "type": "success",
-            "message": f"시나리오 {len(scenarios)}개 생성 완료",
+            "message": f"{len(scenarios)} scenario(s) generated",
         }
     )
 
@@ -973,12 +973,12 @@ async def _preflight(request: Request) -> JSONResponse:
         {
             "id": "server_running",
             "status": "pass" if _server_subprocess.is_running else "warn",
-            "message": "서버 실행 중"
+            "message": "Server running"
             if _server_subprocess.is_running
-            else "서버가 실행되지 않았습니다",
+            else "Server not running",
             "guidance": ""
             if _server_subprocess.is_running
-            else "Step 1에서 서버를 시작하세요. 외부 서버를 사용하는 경우 무시해도 됩니다.",
+            else "Start server in Step 1. Can ignore if using external server.",
             "blocking": False,
         }
     )
@@ -990,10 +990,10 @@ async def _preflight(request: Request) -> JSONResponse:
         {
             "id": "url_configured",
             "status": "pass" if url_ok else "fail",
-            "message": f"URL 설정됨: {url}" if url_ok else "테스트 대상 URL이 설정되지 않았습니다",
+            "message": f"URL configured: {url}" if url_ok else "Target URL not configured",
             "guidance": ""
             if url_ok
-            else "설정 > 대상 URL에 테스트할 주소를 입력하고 '설정 저장'을 클릭하세요.",
+            else "Enter test URL in Settings > Target URL and click 'Save Settings'.",
             "blocking": True,
         }
     )
@@ -1012,8 +1012,8 @@ async def _preflight(request: Request) -> JSONResponse:
                     "guidance": (
                         ""
                         if reachable
-                        else "URL에 접속할 수 없습니다. "
-                        "서버가 실행 중인지, URL이 정확한지 확인하세요."
+                        else "Cannot connect to URL. "
+                        "Check if server is running and URL is correct."
                     ),
                     "blocking": False,
                 }
@@ -1023,8 +1023,8 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "url_reachable",
                     "status": "warn",
-                    "message": f"URL 접속 확인 실패: {exc}",
-                    "guidance": "URL 접속 확인 중 오류가 발생했습니다. 서버 상태를 확인하세요.",
+                    "message": f"URL connectivity check failed: {exc}",
+                    "guidance": "Error occurred while checking URL connectivity. Check server status.",
                     "blocking": False,
                 }
             )
@@ -1033,7 +1033,7 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "url_reachable",
                 "status": "skip",
-                "message": "URL 미설정으로 접속 확인 건너뜀",
+                "message": "Skipped URL connectivity check (URL not set)",
                 "guidance": "",
                 "blocking": False,
             }
@@ -1051,11 +1051,11 @@ async def _preflight(request: Request) -> JSONResponse:
                     {
                         "id": "port_mismatch",
                         "status": "warn",
-                        "message": f"포트 불일치: 서버={_last_server_port}, URL={url_port}",
+                        "message": f"Port mismatch: server={_last_server_port}, URL={url_port}",
                         "guidance": (
-                            f"서버는 포트 {_last_server_port}에서 실행 중이지만, "
-                            f"URL은 포트 {url_port}을 사용합니다. "
-                            f"URL을 http://localhost:{_last_server_port} 으로 변경하세요."
+                            f"Server is running on port {_last_server_port} but "
+                            f"URL uses port {url_port}. "
+                            f"Change URL to http://localhost:{_last_server_port}"
                         ),
                         "blocking": False,
                     }
@@ -1065,7 +1065,7 @@ async def _preflight(request: Request) -> JSONResponse:
                     {
                         "id": "port_mismatch",
                         "status": "pass",
-                        "message": f"포트 일치: {url_port}",
+                        "message": f"Port match: {url_port}",
                         "guidance": "",
                         "blocking": False,
                     }
@@ -1075,7 +1075,7 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "port_mismatch",
                     "status": "skip",
-                    "message": "포트 비교 불가",
+                    "message": "Cannot compare ports",
                     "guidance": "",
                     "blocking": False,
                 }
@@ -1085,7 +1085,7 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "port_mismatch",
                 "status": "skip",
-                "message": "포트 비교 건너뜀",
+                "message": "Port comparison skipped",
                 "guidance": "",
                 "blocking": False,
             }
@@ -1103,10 +1103,10 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "scenarios_loaded",
                 "status": "pass" if scenarios else "fail",
-                "message": f"시나리오 {len(scenarios)}개 로드됨"
+                "message": f"{len(scenarios)} scenario(s) loaded"
                 if scenarios
-                else "시나리오를 찾을 수 없습니다",
-                "guidance": "" if scenarios else "Step 2에서 시나리오를 불러오거나 업로드하세요.",
+                else "No scenarios found",
+                "guidance": "" if scenarios else "Load or upload scenarios in Step 2.",
                 "blocking": True,
             }
         )
@@ -1115,8 +1115,8 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "scenarios_loaded",
                 "status": "fail",
-                "message": f"시나리오 로드 실패: {exc}",
-                "guidance": "시나리오 경로와 YAML 형식을 확인하세요.",
+                "message": f"Scenario load failed: {exc}",
+                "guidance": "Check scenario path and YAML format.",
                 "blocking": True,
             }
         )
@@ -1135,7 +1135,7 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "ai_provider",
                     "status": "pass",
-                    "message": f"AI 제공자: {provider}",
+                    "message": f"AI provider: {provider}",
                     "guidance": "",
                     "blocking": True,
                 }
@@ -1145,10 +1145,10 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "ai_provider",
                     "status": "fail",
-                    "message": f"알 수 없는 AI 제공자: {provider}",
+                    "message": f"Unknown AI provider: {provider}",
                     "guidance": (
-                        "설정에서 AI 제공자를 선택하세요. "
-                        f"지원: {', '.join(ADAPTER_REGISTRY.keys())}"
+                        "Select AI provider in Settings. "
+                        f"Supported: {', '.join(ADAPTER_REGISTRY.keys())}"
                     ),
                     "blocking": True,
                 }
@@ -1160,7 +1160,7 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "ai_api_key",
                     "status": "skip",
-                    "message": "Ollama는 API 키 불필요",
+                    "message": "Ollama does not require API key",
                     "guidance": "",
                     "blocking": False,
                 }
@@ -1170,7 +1170,7 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "ai_api_key",
                     "status": "pass",
-                    "message": "API 키 설정됨",
+                    "message": "API key configured",
                     "guidance": "",
                     "blocking": True,
                 }
@@ -1180,9 +1180,9 @@ async def _preflight(request: Request) -> JSONResponse:
                 {
                     "id": "ai_api_key",
                     "status": "fail",
-                    "message": "API 키가 설정되지 않았습니다",
+                    "message": "API key not configured",
                     "guidance": (
-                        f"설정 > API 키에 {provider} API 키를 입력하고 '설정 저장'을 클릭하세요."
+                        f"Enter {provider} API key in Settings > API Key and click 'Save Settings'."
                     ),
                     "blocking": True,
                 }
@@ -1192,7 +1192,7 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "ai_provider",
                 "status": "skip",
-                "message": "단일 실행 모드 — AI 검사 건너뜀",
+                "message": "Single run mode — AI checks skipped",
                 "guidance": "",
                 "blocking": False,
             }
@@ -1201,7 +1201,7 @@ async def _preflight(request: Request) -> JSONResponse:
             {
                 "id": "ai_api_key",
                 "status": "skip",
-                "message": "단일 실행 모드 — AI 검사 건너뜀",
+                "message": "Single run mode — AI checks skipped",
                 "guidance": "",
                 "blocking": False,
             }
@@ -1218,37 +1218,37 @@ async def _preflight(request: Request) -> JSONResponse:
 _ERROR_GUIDANCE: list[tuple[str, str]] = [
     (
         "ERR_CONNECTION_REFUSED",
-        "서버에 연결할 수 없습니다. Step 1에서 서버를 시작했는지 확인하세요.",
+        "Cannot connect to server. Check if server started in Step 1.",
     ),
-    ("ERR_CONNECTION_RESET", "서버 연결이 끊어졌습니다. 서버가 정상 실행 중인지 확인하세요."),
-    ("ERR_NAME_NOT_RESOLVED", "도메인을 찾을 수 없습니다. URL이 정확한지 확인하세요."),
+    ("ERR_CONNECTION_RESET", "Server connection lost. Check if server is running normally."),
+    ("ERR_NAME_NOT_RESOLVED", "Cannot find domain. Check if URL is correct."),
     (
         "404",
-        "페이지를 찾을 수 없습니다 (404). 서버 유형이 맞는지, URL 경로가 정확한지 확인하세요.",
+        "Page not found (404). Check if server type matches and URL path is correct.",
     ),
-    ("403", "접근이 거부되었습니다 (403). 인증 설정을 확인하세요."),
-    ("500", "서버 내부 오류 (500). 서버 로그를 확인하세요."),
-    ("Timeout", "연결 시간 초과. 서버 상태와 네트워크를 확인하세요."),
-    ("timed out", "연결 시간 초과. 서버 상태와 네트워크를 확인하세요."),
-    ("api_key", "API 키를 확인하세요. 설정 > API 키에서 올바른 키를 입력했는지 확인하세요."),
-    ("API key", "API 키를 확인하세요. 설정 > API 키에서 올바른 키를 입력했는지 확인하세요."),
-    ("authentication", "인증 오류. API 키가 올바른지 확인하세요."),
-    ("Ollama", "Ollama가 실행 중인지 확인하세요 (ollama serve)."),
-    ("ollama", "Ollama가 실행 중인지 확인하세요 (ollama serve)."),
+    ("403", "Access denied (403). Check authentication settings."),
+    ("500", "Server internal error (500). Check server logs."),
+    ("Timeout", "Connection timeout. Check server status and network."),
+    ("timed out", "Connection timeout. Check server status and network."),
+    ("api_key", "Check API key. Verify correct key entered in Settings > API Key."),
+    ("API key", "Check API key. Verify correct key entered in Settings > API Key."),
+    ("authentication", "Authentication error. Check if API key is correct."),
+    ("Ollama", "Check if Ollama is running (ollama serve)."),
+    ("ollama", "Check if Ollama is running (ollama serve)."),
 ]
 
 # AAT exception type → guidance
 _EXCEPTION_GUIDANCE: dict[str, str] = {
     "EngineError": (
-        "브라우저 엔진 오류. Playwright가 설치되어 있는지 확인하세요 (playwright install)."
+        "Browser engine error. Check if Playwright is installed (playwright install)."
     ),
-    "AdapterError": "AI 어댑터 오류. API 키와 모델 설정을 확인하세요.",
-    "ScenarioError": "시나리오 오류. YAML 형식과 필수 필드를 확인하세요.",
-    "MatchError": "이미지 매칭 오류. 참조 이미지 경로와 화면 상태를 확인하세요.",
-    "ConfigError": "설정 오류. 설정 파일의 형식과 필수 값을 확인하세요.",
-    "StepExecutionError": "스텝 실행 오류. 해당 스텝의 액션과 대상 요소를 확인하세요.",
-    "LoopError": "DevQA 루프 오류. AI 설정과 소스 코드 경로를 확인하세요.",
-    "GitOpsError": "Git 작업 오류. Git 저장소 상태와 권한을 확인하세요.",
+    "AdapterError": "AI adapter error. Check API key and model settings.",
+    "ScenarioError": "Scenario error. Check YAML format and required fields.",
+    "MatchError": "Image matching error. Check reference image path and screen state.",
+    "ConfigError": "Configuration error. Check config file format and required values.",
+    "StepExecutionError": "Step execution error. Check action and target element of the step.",
+    "LoopError": "DevQA loop error. Check AI settings and source code path.",
+    "GitOpsError": "Git operation error. Check Git repository status and permissions.",
 }
 
 
@@ -1427,7 +1427,7 @@ async def _execute_run(
         await _manager.broadcast({"type": "run_cancelled"})
     except Exception as exc:  # noqa: BLE001
         guidance = _get_error_guidance(exc)
-        error_text = str(exc) or f"{type(exc).__name__}: (상세 메시지 없음)"
+        error_text = str(exc) or f"{type(exc).__name__}: (no detail message)"
         _ws_handler.error(f"Test run failed: {error_text}")
         msg: dict[str, Any] = {"type": "run_error", "error": error_text}
         if guidance:
@@ -1565,7 +1565,7 @@ async def _execute_loop(
         await _manager.broadcast({"type": "loop_cancelled"})
     except Exception as exc:  # noqa: BLE001
         guidance = _get_error_guidance(exc)
-        error_text = str(exc) or f"{type(exc).__name__}: (상세 메시지 없음)"
+        error_text = str(exc) or f"{type(exc).__name__}: (no detail message)"
         _ws_handler.error(f"DevQA Loop failed: {error_text}")
         msg: dict[str, Any] = {"type": "loop_error", "error": error_text}
         if guidance:
@@ -1842,7 +1842,7 @@ async def _execute_oneclick(url: str) -> None:
         await _manager.broadcast({"type": "oneclick_cancelled"})
     except Exception as exc:  # noqa: BLE001
         guidance = _get_error_guidance(exc)
-        error_text = str(exc) or f"{type(exc).__name__}: (상세 메시지 없음)"
+        error_text = str(exc) or f"{type(exc).__name__}: (no detail message)"
         _ws_handler.error(f"One-click test failed: {error_text}")
         msg_data: dict[str, Any] = {"type": "oneclick_error", "error": error_text}
         if guidance:
