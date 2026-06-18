@@ -1,44 +1,43 @@
 # AWT MCP Server
 
-AWT를 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 서버로 사용하면,
-Claude Code, Claude Desktop, Cursor, Windsurf 등 MCP 지원 도구에서 AWT를 직접 호출할 수 있습니다.
+Using AWT as a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server allows you to call AWT directly from MCP-supported tools like Claude Code, Claude Desktop, Cursor, Windsurf, and more.
 
-## 사전 요구사항
+## Prerequisites
 
 ```bash
-# AWT 설치 (아직 안 했다면)
+# Install AWT (if not already done)
 pip install aat-devqa
 playwright install chromium
 
-# MCP SDK 설치
+# Install MCP SDK
 pip install mcp[cli]
 ```
 
-## 제공 도구 (Tools)
+## Provided Tools
 
-| Tool | 설명 |
-|------|------|
-| `aat_devqa` | **All-in-one**: 스캔→시나리오생성→승인대기→실행→자동수정 전체 루프 |
-| `aat_scan` | **Step 1**: URL 스캔, 인터랙티브 요소 수집 (scan_result.json 생성) |
-| `aat_run` | **Step 3**: 시나리오 파일 실행 (사용자 승인 후에만 호출) |
-| `aat_run_skill_mode` | **Step 3**: 스킬 모드 실행 (구조화된 실패 진단 포함) |
-| `aat_doctor` | 환경 진단 (Python, Playwright, Tesseract, AI 연결) |
-| `aat_list_scenarios` | 현재 디렉토리의 시나리오 파일 목록 |
-| `aat_validate` | YAML 시나리오 스키마 검증 |
-| `aat_cost` | AI API 비용 조회 |
+| Tool | Description |
+|------|-------------|
+| `aat_devqa` | **All-in-one**: scan→scenario generation→await approval→execute→auto-fix full loop |
+| `aat_scan` | **Step 1**: URL scan, collect interactive elements (generates scan_result.json) |
+| `aat_run` | **Step 3**: Execute scenario file (only call after user approval) |
+| `aat_run_skill_mode` | **Step 3**: Execute in skill mode (includes structured failure diagnosis) |
+| `aat_doctor` | Environment diagnostics (Python, Playwright, Tesseract, AI connection) |
+| `aat_list_scenarios` | List scenario files in current directory |
+| `aat_validate` | YAML scenario schema validation |
+| `aat_cost` | Query AI API costs |
 
-## ⛔ 필수 사용 순서 (AI 에이전트 필독)
+## ⛔ Required Usage Order (AI Agents Must Read)
 
-AWT 도구를 사용할 때 반드시 아래 순서를 지켜야 합니다:
+When using AWT tools, you must follow this order:
 
-1. **`aat_scan`** → 결과를 사용자에게 요약 보고 → **승인 대기**
-2. 시나리오 YAML 작성 → 사용자에게 보여주기 → **승인 대기**
-3. **`aat_run` 또는 `aat_run_skill_mode`** → 승인 후에만 실행 → 실패 시 보고 → **지시 대기**
-4. 결과 보고
+1. **`aat_scan`** → Summarize results to user → **Wait for approval**
+2. Write scenario YAML → Show to user → **Wait for approval**
+3. **`aat_run` or `aat_run_skill_mode`** → Execute only after approval → Report failure → **Wait for instructions**
+4. Report results
 
-**금지:** `-y`/`--auto-approve` (해당 플래그 없음), 사용자 승인 없이 실행, 자동 코드 수정
+**Prohibited:** `-y`/`--auto-approve` (flag doesn't exist), execute without user approval, auto code modification
 
-## 설치 방법
+## Installation
 
 ### Claude Code
 
@@ -46,14 +45,14 @@ AWT 도구를 사용할 때 반드시 아래 순서를 지켜야 합니다:
 claude mcp add awt -- python /path/to/AI-Watch-Tester/mcp/server.py
 ```
 
-확인:
+Verify:
 ```bash
 claude mcp list
 ```
 
 ### Claude Desktop
 
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) 또는
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or
 `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
@@ -69,7 +68,7 @@ claude mcp list
 
 ### Cursor
 
-프로젝트 루트에 `.cursor/mcp.json` 생성:
+Create `.cursor/mcp.json` in project root:
 
 ```json
 {
@@ -97,43 +96,43 @@ claude mcp list
 }
 ```
 
-> `/path/to/AI-Watch-Tester`를 실제 경로로 변경하세요.
+> Replace `/path/to/AI-Watch-Tester` with the actual path.
 
-## 사용 예시
+## Usage Examples
 
-MCP 등록 후 AI 도구에서:
+After MCP registration, in AI tools:
 
 ```
-"로그인 테스트해줘"              → aat_devqa("로그인 테스트", url="http://localhost:3000")
-"시나리오 목록 보여줘"           → aat_list_scenarios 호출
-"login 시나리오 실행해줘"        → aat_run("scenarios/login.yaml")
-"환경 진단해줘"                 → aat_doctor 호출
-"비용 얼마 썼어?"               → aat_cost 호출
-"스킬 모드로 테스트 돌려줘"      → aat_run_skill_mode("scenarios/login.yaml")
+"Test the login"               → aat_devqa("login test", url="http://localhost:3000")
+"Show scenario list"          → aat_list_scenarios call
+"Execute login scenario"       → aat_run("scenarios/login.yaml")
+"Diagnose environment"         → aat_doctor call
+"How much cost incurred?"      → aat_cost call
+"Run test in skill mode"       → aat_run_skill_mode("scenarios/login.yaml")
 ```
 
-### verbosity / screenshots 옵션
+### verbosity / screenshots options
 
 ```
 aat_run("scenarios/login.yaml", verbosity="concise", screenshots="on-failure")
 aat_run("scenarios/login.yaml", verbosity="detailed", screenshots="all")
-aat_devqa("회원가입 테스트", url="http://localhost:3000", screenshots="before-after")
+aat_devqa("signup test", url="http://localhost:3000", screenshots="before-after")
 ```
 
-| verbosity | 설명 |
-|-----------|------|
-| `concise` | wait/screenshot 스텝 스킵, 빠름 (기본값) |
-| `detailed` | 모든 스텝 실행 |
+| verbosity | Description |
+|-----------|-------------|
+| `concise` | Skip wait/screenshot steps, fast (default) |
+| `detailed` | Execute all steps |
 
-| screenshots | 설명 |
-|-------------|------|
-| `before-after` | 액션 전후만 저장, ~70% 파일 감소 (기본값) |
-| `all` | 매 스텝마다 저장 |
-| `on-failure` | 실패 시에만 저장 (CI/CD 최적) |
+| screenshots | Description |
+|-------------|-------------|
+| `before-after` | Only before/after actions, ~70% file reduction (default) |
+| `all` | Save every step |
+| `on-failure` | Only on failure (CI/CD optimized) |
 
-### DevQA Loop (스킬 모드)
+### DevQA Loop (Skill Mode)
 
-`aat_run_skill_mode`는 실패 시 구조화된 블록을 반환합니다:
+`aat_run_skill_mode` returns a structured block on failure:
 
 ```
 === AWT SKILL DEVQA ===
@@ -147,14 +146,14 @@ ATTEMPTS: 1/5
 =======================
 ```
 
-AI 도구가 이 블록을 파싱해서 시나리오를 수정하고 재실행하는 자동 루프를 수행합니다.
+AI tools parse this block to modify scenarios and re-execute in an automatic loop.
 
-## 직접 테스트
+## Direct Testing
 
 ```bash
-# MCP Inspector로 서버 테스트
+# Test server with MCP Inspector
 mcp dev mcp/server.py
 
-# 또는 직접 실행 (stdio 모드)
+# Or run directly (stdio mode)
 python mcp/server.py
 ```

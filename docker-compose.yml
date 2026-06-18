@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # AAT Dashboard Service
   aat:
     build:
       context: .
@@ -14,7 +13,6 @@ services:
       - ./scenarios:/app/scenarios
       - ./.aat:/app/.aat
       - ~/.cache/ms-playwright:/root/.cache/ms-playwright
-      # 不挂载 .venv，让容器创建自己的虚拟环境
 
     environment:
       - PYTHONUNBUFFERED=1
@@ -32,7 +30,7 @@ services:
 
     command: >
       bash -c "
-        echo '=== Starting Dashboard ===' &&
+        echo '=== Starting AAT Dashboard ===' &&
         aat dashboard --host 0.0.0.0 --port 9500 --reload
       "
 
@@ -45,3 +43,86 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # Cloud Backend Service
+  cloud-backend:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    image: awt-cloud-backend:latest
+    container_name: awt-cloud-backend
+    working_dir: /app
+
+    volumes:
+      - ./cloud:/app/cloud
+      - cloud_screenshots:/app/screenshots
+      - cloud_uploads:/app/uploads
+      - cloud_db:/app/cloud_data
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/src:/app/cloud/app
+      # Cloud backend config
+      - AWT_SUPABASE_JWT_SECRET=${AWT_SUPABASE_JWT_SECRET:-dev-secret-key-change-in-production}
+      - AWT_SUPABASE_URL=${AWT_SUPABASE_URL:-}
+      - AWT_SUPABASE_ANON_KEY=${AWT_SUPABASE_ANON_KEY:-}
+      - AWT_DATABASE_URL=${AWT_DATABASE_URL:-sqlite+aiosqlite:///./cloud_data/awt_cloud.db}
+      - AWT_RATE_LIMIT_FREE=${AWT_RATE_LIMIT_FREE:-5}
+      - AWT_RATE_LIMIT_PRO=${AWT_RATE_LIMIT_PRO:--1}
+      - AWT_DEBUG=${AWT_DEBUG:-false}
+
+    ports:
+      - "8000:8000"
+
+    command: >
+      bash -c "
+        echo '=== Starting Cloud Backend ===' &&
+        mkdir -p screenshots uploads cloud_data &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Cloud Frontend Service
+  cloud-frontend:
+    build:
+      context: ./cloud/frontend
+      dockerfile: Dockerfile
+    image: awt-cloud-frontend:latest
+    container_name: awt-cloud-frontend
+
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+
+    ports:
+      - "3000:3000"
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    depends_on:
+      cloud-backend:
+        condition: service_healthy
+
+volumes:
+  cloud_screenshots:
+    driver: local
+  cloud_uploads:
+    driver: local
+  cloud_db:
+    driver: local

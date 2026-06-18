@@ -709,7 +709,7 @@
               <option value="claude">claude</option>
               <option value="openai">openai</option>
               <option value="ollama">ollama</option>
-              <option value="zhipu">zhipu</option>
+              <option value="zhipuai">zhipuai</option>
             </select>
           </div>
           <div class="field-row">
@@ -1552,7 +1552,25 @@ async function loadConfig() {
         modelSelect.appendChild(customOpt);
         modelSelect.value = savedModel;
       }
-      document.getElementById('cfgApiKey').placeholder = data.ai.api_key || '***';
+      // Handle API key display (masked from server)
+      const apiKey = data.ai.api_key || '';
+      const apiKeyField = document.getElementById('cfgApiKey');
+      if (apiKey && apiKey.includes('...')) {
+        // Key is masked: show placeholder and indicate it's configured
+        apiKeyField.value = '';
+        apiKeyField.placeholder = '✓ API key已配置 (' + apiKey + ')';
+        apiKeyField.style.borderColor = 'var(--success)';
+      } else if (apiKey) {
+        // Full key returned (shouldn't happen normally, but handle it)
+        apiKeyField.value = apiKey;
+        apiKeyField.placeholder = '';
+        apiKeyField.style.borderColor = 'var(--border)';
+      } else {
+        // No key configured
+        apiKeyField.value = '';
+        apiKeyField.placeholder = '输入API Key';
+        apiKeyField.style.borderColor = 'var(--border)';
+      }
     }
     document.getElementById('cfgUrl').value = data.url || '';
     document.getElementById('cfgApproval').value = data.approval_mode || 'manual';

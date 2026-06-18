@@ -213,9 +213,22 @@ async def _index() -> HTMLResponse:
 
 
 async def _get_config() -> JSONResponse:
-    """Return current config as JSON."""
+    """Return current config as JSON.
+
+    Always reloads from file to get fresh config.
+    """
+    global _current_config  # noqa: PLW0603
+
+    try:
+        # Reload config from file to get fresh data
+        _current_config = load_config(config_path=_config_path)
+    except Exception:  # noqa: BLE001
+        # Keep existing config if reload fails
+        pass
+
     if _current_config is None:
         return JSONResponse(content={}, status_code=200)
+
     data = _current_config.model_dump(mode="json")
     # Mask API key
     if data.get("ai", {}).get("api_key"):
@@ -960,6 +973,14 @@ async def _preflight(request: Request) -> JSONResponse:
 
     Returns check results with pass/warn/fail status and guidance messages.
     """
+    global _current_config  # noqa: PLW0603
+
+    # Reload config to ensure we have the latest settings
+    try:
+        _current_config = load_config(config_path=_config_path)
+    except Exception:  # noqa: BLE001
+        pass  # Keep existing config if reload fails
+
     try:
         body = await request.json()
     except Exception:

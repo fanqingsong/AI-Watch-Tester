@@ -166,11 +166,28 @@ class ZhipuAIAdapter(AIAdapter):
         Returns:
             AnalysisResult with cause, suggestion, severity.
         """
+        # Find failed step
+        failed_step_result = next(
+            (s for s in test_result.steps if s.status.value == "failed"),
+            None
+        )
+
+        if failed_step_result:
+            failed_step_num = failed_step_result.step
+            failed_action = failed_step_result.action.value
+            failed_desc = failed_step_result.description
+            failed_error = failed_step_result.error_message or "Unknown error"
+        else:
+            failed_step_num = 0
+            failed_action = "unknown"
+            failed_desc = "Unknown step"
+            failed_error = test_result.steps[0].error_message if test_result.steps else "No error details"
+
         # 构建失败分析消息
         content = f"""Test failed:
 Scenario: {test_result.scenario_name}
-Step {test_result.failed_step}: {test_result.step_description}
-Error: {test_result.error_message}
+Step {failed_step_num} ({failed_action}): {failed_desc}
+Error: {failed_error}
 
 Please analyze this failure."""
 

@@ -146,7 +146,13 @@ steps:
     action: screenshot
     description: "Confirm terms agreement state (all 3 checked)"
 
-  # 9. Click sign up button (after 450px scroll, viewport coordinates)
+  # 9. Wait for sign up button to be ready (Flutter app needs time)
+  - step: 27.5
+    action: wait
+    value: "3000"
+    description: "Wait for sign up button to be ready and clickable"
+
+  # 10. Click sign up button (after 450px scroll, viewport coordinates)
   - step: 28
     action: click_at
     value: "640,582"
