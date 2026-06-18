@@ -1536,7 +1536,7 @@ async function loadConfig() {
       document.getElementById('cfgWindowY').value = data.engine.window_y ?? '';
     }
     if (data.ai) {
-      document.getElementById('cfgProvider').value = data.ai.provider || 'zhipu';
+      document.getElementById('cfgProvider').value = data.ai.provider || 'zhipuai';
       onProviderChange(); // populate model options
       // Try to set model to saved value
       const savedModel = data.ai.model || 'glm-4.7';

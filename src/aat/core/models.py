@@ -147,7 +147,7 @@ class StepStatus(StrEnum):
 class AIConfig(BaseModel):
     """AI Adapter configuration."""
 
-    provider: str = Field(default="zhipu", description="AI provider name")
+    provider: str = Field(default="zhipuai", description="AI provider name")
     api_key: str = Field(default="", description="API key (env: AAT_AI__API_KEY)")
     model: str = Field(
         default="glm-4.7",
