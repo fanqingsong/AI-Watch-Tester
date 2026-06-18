@@ -131,6 +131,8 @@ docker compose run --rm aat bash
 - `glm-4` - 标准模型，平衡性能和成本
 - `glm-4-plus` - 增强版模型，性能更强
 - `glm-4-0520` - 特定版本
+- `glm-4.7` - GLM-4.7最新版本
+- `glm-5.1` - GLM-5.1高性能版本
 
 查看[智谱AI文档](https://open.bigmodel.cn/dev/api)了解更多。
 
