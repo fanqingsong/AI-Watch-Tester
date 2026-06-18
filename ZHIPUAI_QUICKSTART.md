@@ -164,7 +164,7 @@ ai:
   provider: zhipuai
   api_key: ${ZHIPUAI_API_KEY}
   model: glm-4-flash
-  base_url: https://open.bigmodel.cn/api/paas/v4/
+  base_url: https://open.bigmodel.cn/api/coding/paas/v4/
   max_tokens: 4096
   temperature: 0.7
 
