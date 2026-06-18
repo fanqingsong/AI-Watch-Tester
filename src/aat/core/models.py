@@ -147,10 +147,10 @@ class StepStatus(StrEnum):
 class AIConfig(BaseModel):
     """AI Adapter configuration."""
 
-    provider: str = Field(default="claude", description="AI provider name")
+    provider: str = Field(default="zhipu", description="AI provider name")
     api_key: str = Field(default="", description="API key (env: AAT_AI__API_KEY)")
     model: str = Field(
-        default="claude-sonnet-4-20250514",
+        default="glm-4.7",
         description="Model ID",
     )
     max_tokens: int = Field(default=4000, ge=100, le=32000)

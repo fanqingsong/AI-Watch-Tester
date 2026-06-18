@@ -1536,10 +1536,10 @@ async function loadConfig() {
       document.getElementById('cfgWindowY').value = data.engine.window_y ?? '';
     }
     if (data.ai) {
-      document.getElementById('cfgProvider').value = data.ai.provider || 'claude';
+      document.getElementById('cfgProvider').value = data.ai.provider || 'zhipu';
       onProviderChange(); // populate model options
       // Try to set model to saved value
-      const savedModel = data.ai.model || '';
+      const savedModel = data.ai.model || 'glm-4.7';
       const modelSelect = document.getElementById('cfgModel');
       const matchingOption = Array.from(modelSelect.options).find(o => o.value === savedModel);
       if (matchingOption) {
