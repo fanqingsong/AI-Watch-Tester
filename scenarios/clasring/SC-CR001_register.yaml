@@ -1,171 +1,171 @@
 id: "SC-200"
-name: "ClasRing 회원가입"
-description: "ClasRing 개발 사이트 회원가입 (동적 이메일 + teardown 정리)"
+name: "ClasRing Registration"
+description: "ClasRing dev site registration (dynamic email + teardown cleanup)"
 tags: [clasring, register]
 
 steps:
-  # 1. 회원가입 페이지 접근
+  # 1. Access registration page
   - step: 1
     action: navigate
     value: "https://clasring-dev.web.app/app/?register=true"
-    description: "ClasRing 회원가입 페이지 접근"
+    description: "Access ClasRing registration page"
 
   - step: 2
     action: wait
     value: "3000"
-    description: "Flutter 앱 로딩 대기"
+    description: "Wait for Flutter app loading"
 
   - step: 3
     action: screenshot
-    description: "회원가입 폼 초기 상태 확인"
+    description: "Check registration form initial state"
 
-  # 2. 이메일 — OCR로 placeholder 텍스트 "이메일" 찾아 클릭
+  # 2. Email — click by OCR placeholder text "Email"
   - step: 4
     action: find_and_click
     target:
-      text: "이메일"
+      text: "Email"
     region: center
-    description: "이메일 필드 클릭 (OCR)"
+    description: "Click email field (OCR)"
 
   - step: 5
     action: type_text
     value: "test+{{timestamp}}@ailooplab.com"
-    description: "이메일 입력 (동적 — 매 실행마다 고유)"
+    description: "Enter email (dynamic — unique per run)"
     critical: true
 
   - step: 6
     action: wait
     value: "1500"
-    description: "이메일 유효성 검사 대기"
+    description: "Wait for email validation"
 
   - step: 7
     action: screenshot
-    description: "이메일 입력 확인"
+    description: "Confirm email entry"
 
-  # 3. 비밀번호 — click_at으로 직접 (Learned Store에 Naver #pw 패턴 충돌 방지)
-  #    실제 좌표: scan y=532 + AWT bar 31px = 563
+  # 3. Password — click directly with click_at (avoid Naver #pw pattern conflict in Learned Store)
+  #    Actual coordinates: scan y=532 + AWT bar 31px = 563
   - step: 8
     action: click_at
     value: "640,563"
-    description: "비밀번호 필드 클릭 (좌표 직접 지정)"
+    description: "Click password field (direct coordinates)"
 
   - step: 9
     action: type_text
     value: "Rla3623!@"
-    description: "비밀번호 입력"
+    description: "Enter password"
     critical: true
 
-  # 4. 비밀번호 확인 — click_at (scan y=596 + 31px = 627)
+  # 4. Confirm password — click_at (scan y=596 + 31px = 627)
   - step: 10
     action: click_at
     value: "640,627"
-    description: "비밀번호 확인 필드 클릭 (좌표 직접 지정)"
+    description: "Click confirm password field (direct coordinates)"
 
   - step: 11
     action: type_text
     value: "Rla3623!@"
-    description: "비밀번호 확인 입력"
+    description: "Enter confirm password"
 
-  # 5. 이름(대표자명) — 50px 스크롤 후 click_at (scan y=660 + 31 - 50scroll = 641)
+  # 5. Name (representative name) — 50px scroll then click_at (scan y=660 + 31 - 50scroll = 641)
   - step: 12
     action: scroll
     value: "640,400,50"
-    description: "이름 필드 노출을 위한 스크롤"
+    description: "Scroll to reveal name field"
 
   - step: 13
     action: wait
     value: "500"
-    description: "스크롤 안정화"
+    description: "Wait for scroll stabilization"
 
   - step: 14
     action: click_at
     value: "640,641"
-    description: "이름(대표자명) 필드 클릭 (scan y=660+31-50=641)"
+    description: "Click name (representative) field (scan y=660+31-50=641)"
 
   - step: 15
     action: type_text
-    value: "테스트대표"
-    description: "대표자명 입력"
+    value: "Test Representative"
+    description: "Enter representative name"
 
   - step: 16
     action: screenshot
-    description: "이름 입력 확인"
+    description: "Confirm name entry"
 
-  # 6. 학원명 — 130px 추가 스크롤 (총 180px) 후 click_at (scan y=712+31-180=563)
+  # 6. Academy name — 130px additional scroll (total 180px) then click_at (scan y=712+31-180=563)
   - step: 17
     action: scroll
     value: "640,400,130"
-    description: "학원명 필드 노출을 위한 추가 스크롤"
+    description: "Additional scroll to reveal academy name field"
 
   - step: 18
     action: wait
     value: "500"
-    description: "스크롤 안정화"
+    description: "Wait for scroll stabilization"
 
   - step: 19
     action: click_at
     value: "640,563"
-    description: "학원명(과외명) 필드 클릭 (scan y=712+31-180=563)"
+    description: "Click academy name (tutor name) field (scan y=712+31-180=563)"
 
   - step: 20
     action: type_text
-    value: "테스트학원_{{random}}"
-    description: "학원명 입력 (동적 — 매 실행마다 고유)"
+    value: "Test Academy_{{random}}"
+    description: "Enter academy name (dynamic — unique per run)"
 
   - step: 21
     action: screenshot
-    description: "전체 필드 입력 완료 확인"
+    description: "Confirm all fields entered"
 
-  # 7. 약관 동의 영역으로 스크롤 (추가 270px → 총 450px)
+  # 7. Scroll to terms agreement area (additional 270px → total 450px)
   - step: 22
     action: scroll
     value: "640,400,270"
-    description: "약관 동의 + 가입하기 버튼 영역으로 스크롤"
+    description: "Scroll to terms agreement + sign up button area"
 
   - step: 23
     action: wait
     value: "500"
-    description: "스크롤 안정화"
+    description: "Wait for scroll stabilization"
 
   - step: 24
     action: screenshot
-    description: "약관 + 가입하기 버튼 위치 확인"
+    description: "Confirm terms + sign up button position"
 
-  # 8. 전체 동의 체크박스 클릭 (450px 스크롤 후 viewport 좌표)
+  # 8. Click agree all checkbox (after 450px scroll, viewport coordinates)
   - step: 25
     action: click_at
     value: "493,495"
-    description: "전체 동의 체크박스 클릭"
+    description: "Click agree all checkbox"
 
   - step: 26
     action: wait
     value: "500"
-    description: "체크 반응 대기"
+    description: "Wait for check response"
 
   - step: 27
     action: screenshot
-    description: "약관 동의 상태 확인 (3개 모두 체크)"
+    description: "Confirm terms agreement state (all 3 checked)"
 
-  # 9. 가입하기 버튼 클릭 (450px 스크롤 후 viewport 좌표)
+  # 9. Click sign up button (after 450px scroll, viewport coordinates)
   - step: 28
     action: click_at
     value: "640,582"
-    description: "가입하기 버튼 클릭"
+    description: "Click sign up button"
     critical: true
     change_threshold: 0.03
 
   - step: 29
     action: wait
     value: "4000"
-    description: "회원가입 처리 대기"
+    description: "Wait for registration processing"
 
   - step: 30
     action: screenshot
-    description: "회원가입 결과 최종 확인"
+    description: "Final confirmation of registration result"
 
 # ---------------------------------------------------------------------------
-# Teardown — 테스트 사용자 삭제 (Firebase Auth)
-# TeardownExecutor: 실패해도 로그만 남기고 무시
+# Teardown — Delete test user (Firebase Auth)
+# TeardownExecutor: Failure only logs, does not affect test result
 # ---------------------------------------------------------------------------
 teardown:
   - type: shell

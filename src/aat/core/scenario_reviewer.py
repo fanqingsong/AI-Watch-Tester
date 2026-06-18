@@ -46,7 +46,7 @@ _ACTION_MAP: dict[str, tuple[str, str]] = {
     "load_session": ("💾", "Load session"),
 }
 
-_PASSWORD_HINTS = frozenset({"password", "비밀번호", "passwd", "pw", "pass"})
+_PASSWORD_HINTS = frozenset({"password", "passwd", "pw", "pass"})
 
 _WIDTH = 56
 

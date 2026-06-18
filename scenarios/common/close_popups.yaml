@@ -11,14 +11,14 @@ steps:
   - step: 2
     action: find_and_click
     target:
-      text: "닫기"
+      text: "Close"
     if_visible: true
     description: "Close popup (if visible)"
 
   - step: 3
     action: find_and_click
     target:
-      text: "동의"
+      text: "Agree"
     if_visible: true
     description: "Accept cookie consent (if visible)"
 

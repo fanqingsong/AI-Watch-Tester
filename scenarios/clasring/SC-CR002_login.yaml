@@ -1,69 +1,69 @@
 id: "SC-201"
-name: "ClasRing 로그인"
-description: "ClasRing 개발 사이트 로그인 → 대시보드 확인 (Flutter CanvasKit)"
+name: "ClasRing Login"
+description: "ClasRing dev site login → dashboard verification (Flutter CanvasKit)"
 tags: [clasring, login]
 
 steps:
-  # 1. 로그인 페이지 접근
+  # 1. Access login page
   - step: 1
     action: navigate
     value: "https://clasring-dev.web.app/app/"
-    description: "ClasRing 로그인 페이지 접근"
+    description: "Access ClasRing login page"
 
   - step: 2
     action: wait
     value: "3000"
-    description: "Flutter 앱 로딩 대기"
+    description: "Wait for Flutter app loading"
 
   - step: 3
     action: screenshot
-    description: "로그인 폼 초기 상태 확인"
+    description: "Check login form initial state"
 
-  # 2. 이메일 — click_at (scan 직접 좌표 사용, x=644, y=327)
+  # 2. Email — click_at (using direct scan coordinates, x=644, y=327)
   - step: 4
     action: click_at
     value: "644,327"
-    description: "이메일 필드 클릭 (scan x=644, y=327)"
+    description: "Click email field (scan x=644, y=327)"
 
   - step: 5
     action: type_text
     value: "ceo@ailooplab.com"
-    description: "이메일 입력"
+    description: "Enter email"
     critical: true
 
   - step: 6
     action: screenshot
-    description: "이메일 입력 확인 (커서 위치 확인용)"
+    description: "Confirm email entry (check cursor position)"
 
-  # 3. 비밀번호 — click_at (scan x=644, y=391)
+  # 3. Password — click_at (scan x=644, y=391)
   - step: 7
     action: click_at
     value: "644,391"
-    description: "비밀번호 필드 클릭 (scan x=644, y=391)"
+    description: "Click password field (scan x=644, y=391)"
 
   - step: 8
     action: type_text
     value: "Rla3623!@"
-    description: "비밀번호 입력"
+    description: "Enter password"
     critical: true
 
   - step: 9
     action: screenshot
-    description: "이메일/비밀번호 입력 확인"
+    description: "Confirm email/password entry"
 
-  # 4. 로그인 버튼 — click_at (scan x=640, y=460)
+  # 4. Login button — click_at (scan x=640, y=460)
   - step: 10
     action: click_at
     value: "640,460"
-    description: "로그인 버튼 클릭 (scan x=640, y=460)"
+    description: "Click login button (scan x=640, y=460)"
     critical: true
     change_threshold: 0.03
 
   - step: 11
     action: wait
     value: "4000"
-    description: "로그인 처리 및 대시보드 로딩 대기"
+    description: "Wait for login processing and dashboard loading"
 
   - step: 12
     action: screenshot
-    description: "로그인 결과 및 대시보드 확인"
+    description: "Verify login result and dashboard"

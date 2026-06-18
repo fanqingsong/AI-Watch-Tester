@@ -55,13 +55,13 @@ class Humanizer:
         step_delay = duration / steps
         for i in range(1, steps + 1):
             t_linear = i / steps
-            # 이징: 시작/도착 느리고 중간 빠름 (smoothstep ease-in/out)
+            # Easing: slow at start/end, fast in middle (smoothstep ease-in/out)
             t = t_linear * t_linear * (3.0 - 2.0 * t_linear)
             px, py = self._bezier_point(t, points)
             await engine.move_mouse(int(px), int(py))
             await asyncio.sleep(step_delay)
 
-        # 15% 확률: 목표 지점을 살짝 지나쳤다가 돌아오는 오버슈트
+        # 15% chance: slightly overshoot target then return (human error simulation)
         if random.random() < 0.15:
             overshoot_x = x + random.randint(-8, 8)
             overshoot_y = y + random.randint(-8, 8)
@@ -108,13 +108,13 @@ class Humanizer:
         step_delay = duration / steps
         for i in range(1, steps + 1):
             t_linear = i / steps
-            # 이징: 시작/도착 느리고 중간 빠름 (smoothstep ease-in/out)
+            # Easing: slow at start/end, fast in middle (smoothstep ease-in/out)
             t = t_linear * t_linear * (3.0 - 2.0 * t_linear)
             px, py = self._bezier_point(t, points)
             await move_fn(int(px), int(py))
             await asyncio.sleep(step_delay)
 
-        # 15% 확률: 목표 지점을 살짝 지나쳤다가 돌아오는 오버슈트
+        # 15% chance: slightly overshoot target then return (human error simulation)
         if random.random() < 0.15:
             overshoot_x = x + random.randint(-8, 8)
             overshoot_y = y + random.randint(-8, 8)
@@ -138,27 +138,27 @@ class Humanizer:
 
         for char in text:
             await engine.type_text(char)
-            # 버스트 타이핑: 문자 종류에 따라 딜레이 차등 적용
+            # Burst typing: variable delay based on character type
             if char in "!@#$%^&*()_+-=[]{}|;':\",./<>?":
-                # 특수문자: Shift 키 누름 + 더 긴 딜레이
+                # Special chars: Shift key press + longer delay
                 delay = random.uniform(
                     self._config.typing_delay_max * 1.5,
                     self._config.typing_delay_max * 2.5,
                 )
             elif char == " ":
-                # 스페이스: 단어 경계 미세 휴지
+                # Space: micro-pause at word boundary
                 delay = random.uniform(
                     self._config.typing_delay_min * 0.5,
                     self._config.typing_delay_min * 1.5,
                 )
             elif char.isupper():
-                # 대문자: Shift 키 누름으로 인한 약간의 지연
+                # Uppercase: slight delay from Shift key press
                 delay = random.uniform(
                     self._config.typing_delay_max,
                     self._config.typing_delay_max * 1.5,
                 )
             else:
-                # 일반 소문자: 빠른 버스트 타이핑
+                # Normal lowercase: fast burst typing
                 delay = random.uniform(
                     self._config.typing_delay_min,
                     self._config.typing_delay_max,

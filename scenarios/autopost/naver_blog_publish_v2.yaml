@@ -1,6 +1,6 @@
 id: SC-100
-name: 네이버 블로그 자동 발행 v2
-description: AutoPost output/latest.json을 읽어서 네이버 블로그에 자동 발행
+name: Naver Blog Auto Publish v2
+description: Read AutoPost output/latest.json and auto-publish to Naver Blog
 tags: [autopost, naver, blog, publish]
 
 vars:
@@ -11,159 +11,159 @@ vars:
   image_2: "{{env.IMAGE_2}}"
 
 steps:
-  # 1. 세션 로드
+  # 1. Load session
   - step: 1
     action: load_session
     name: "naver_login"
-    description: "네이버 로그인 세션 로드"
+    description: "Load Naver login session"
     critical: true
     on_fail: "stop"
 
-  # 2. 글쓰기 페이지 이동
+  # 2. Navigate to write page
   - step: 2
     action: navigate
     value: "https://blog.naver.com/GoBlogWrite.naver"
-    description: "네이버 블로그 글쓰기 페이지 이동"
+    description: "Navigate to Naver Blog write page"
     timeout_ms: 15000
 
   - step: 3
     action: wait
     value: "5000"
-    description: "에디터 로딩 대기"
+    description: "Wait for editor loading"
 
-  # 3. 작성중 글 팝업 처리
+  # 3. Handle draft popup
   - step: 4
     action: if_visible
     target:
-      text: "작성 중인 글이 있습니다"
+      text: "You have a draft"
     region: center
     then:
       - action: find_and_click
         target:
           selector: ".se-popup-alert-confirm button:first-child"
-          text: "취소"
-        description: "팝업 취소 버튼 클릭"
+          text: "Cancel"
+        description: "Click popup cancel button"
       - action: wait
         value: "2000"
-        description: "팝업 닫힘 대기"
-    description: "작성중 글 팝업 처리"
+        description: "Wait for popup close"
+    description: "Handle draft popup"
 
-  # 4. 도움말 패널 닫기
+  # 4. Close help panel
   - step: 5
     action: if_visible
     target:
-      text: "간결해진 에디터 화면"
+      text: "Simplified editor screen"
     region: right
     then:
       - action: click_at
         value: "1221,40"
         expect:
-          text_hidden: "간결해진 에디터 화면"
-        description: "도움말 X 클릭 → 패널 사라짐 확인"
+          text_hidden: "Simplified editor screen"
+        description: "Click help X → confirm panel disappears"
       - action: wait
         value: "1000"
-        description: "도움말 닫힘 대기"
-    description: "도움말 패널 닫기"
+        description: "Wait for help close"
+    description: "Close help panel"
 
-  # 5. 제목 입력
+  # 5. Enter title
   - step: 6
     action: click_at
     value: "530,248"
-    description: "제목 영역 클릭"
+    description: "Click title area"
 
   - step: 7
     action: key_combo
     value: "Meta+a"
-    description: "제목 전체 선택"
+    description: "Select all title"
 
   - step: 8
     action: type_text
     value: "{{title}}"
     humanize: true
-    description: "제목 입력"
+    description: "Enter title"
 
-  # 6. 본문 입력
+  # 6. Enter content
   - step: 9
     action: click_at
     value: "530,363"
-    description: "본문 영역 클릭"
+    description: "Click content area"
 
   - step: 10
     action: key_combo
     value: "Meta+a"
-    description: "본문 전체 선택"
+    description: "Select all content"
 
   - step: 11
     action: type_text
     value: "{{content}}"
     humanize: true
-    description: "본문 입력"
+    description: "Enter content"
 
-  # 7. 이미지 업로드
+  # 7. Upload images
   - step: 12
     action: upload_file
     file_path: "{{image_0}}"
     optional: true
-    description: "이미지 1 업로드"
+    description: "Upload image 1"
 
   - step: 13
     action: upload_file
     file_path: "{{image_1}}"
     optional: true
-    description: "이미지 2 업로드"
+    description: "Upload image 2"
 
   - step: 14
     action: upload_file
     file_path: "{{image_2}}"
     optional: true
-    description: "이미지 3 업로드"
+    description: "Upload image 3"
 
   - step: 15
     action: wait
     value: "2000"
-    description: "이미지 업로드 대기"
+    description: "Wait for image upload"
 
-  # 8. 발행
+  # 8. Publish
   - step: 16
     action: scroll
     value: "up"
-    description: "최상단 스크롤"
+    description: "Scroll to top"
 
   - step: 17
     action: wait
     value: "1000"
-    description: "스크롤 대기"
+    description: "Wait for scroll"
 
   - step: 18
     action: click_at
     value: "1207,22"
-    description: "에디터 발행 버튼 클릭"
+    description: "Click editor publish button"
 
   - step: 19
     action: wait
     value: "2000"
-    description: "발행 옵션 팝업 대기"
+    description: "Wait for publish option popup"
 
   - step: 20
     action: screenshot
-    description: "발행 옵션 팝업 확인"
+    description: "Confirm publish option popup"
 
   - step: 21
     action: click_at
     value: "1177,555"
-    description: "최종 발행 버튼 클릭"
+    description: "Click final publish button"
 
   - step: 22
     action: wait
     value: "5000"
-    description: "발행 완료 대기"
+    description: "Wait for publish completion"
 
-  # 9. 완료
+  # 9. Complete
   - step: 23
     action: screenshot
-    description: "발행 완료 스크린샷"
+    description: "Publish completion screenshot"
 
   - step: 24
     action: save_session
     name: "naver_login"
-    description: "세션 갱신 저장"
+    description: "Save refreshed session"

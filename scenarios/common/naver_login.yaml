@@ -45,7 +45,7 @@ steps:
     action: screenshot
     description: "Login result screenshot"
 
-  # 로그인 성공 검증 — 로그인 성공 시 www.naver.com으로 리다이렉트됨 (nid.naver.com 아님)
+  # Login success verification — redirects to www.naver.com on success (not nid.naver.com)
   - step: 8
     action: assert_url
     value: "www.naver.com"
