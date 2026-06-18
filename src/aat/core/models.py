@@ -195,7 +195,7 @@ class EngineConfig(BaseModel):
         default="chromium",
         description="Browser: chromium | firefox | webkit",
     )
-    headless: bool = Field(default=False)
+    headless: bool = Field(default=True)
     viewport_width: int = Field(default=1280, ge=320, le=3840)
     viewport_height: int = Field(default=720, ge=240, le=2160)
     timeout_ms: int = Field(default=30000, ge=1000, le=120000)
