@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import webbrowser
 from pathlib import Path
 
@@ -39,17 +40,30 @@ def dashboard_command(
         )
         raise typer.Exit(code=1) from None
 
-    from aat.dashboard.app import create_app
-
-    cfg_path = Path(config_path) if config_path else None
-    app = create_app(config_path=cfg_path)
-
     url = f"http://{host}:{port}"
     typer.echo(f"AAT Dashboard: {url}")
+
     if reload:
         typer.echo("Hot reload enabled - dashboard will restart on code changes")
+        # Set config path via environment variable for web.py module
+        if config_path:
+            os.environ["AAT_DASHBOARD_CONFIG_PATH"] = str(Path(config_path).resolve())
+        # Use import string format for reload mode
+        uvicorn.run(
+            "aat.dashboard.web:app",
+            host=host,
+            port=port,
+            log_level="info",
+            reload=True,
+        )
+    else:
+        # Direct app mode (no reload)
+        from aat.dashboard.app import create_app
 
-    if not no_open:
-        webbrowser.open(url)
+        cfg_path = Path(config_path) if config_path else None
+        app = create_app(config_path=cfg_path)
 
-    uvicorn.run(app, host=host, port=port, log_level="info", reload=reload)
+        if not no_open:
+            webbrowser.open(url)
+
+        uvicorn.run(app, host=host, port=port, log_level="info", reload=False)
