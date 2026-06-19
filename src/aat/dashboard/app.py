@@ -250,8 +250,16 @@ async def _update_config(request: Request) -> JSONResponse:
         )
 
     try:
-        # Merge with existing config
+        # Merge with existing config (deep merge to preserve nested fields like api_key)
         existing = _current_config.model_dump(mode="json") if _current_config else {}
+
+        # Deep merge for nested objects (ai, engine, vision, etc.)
+        for key in ["ai", "engine", "vision", "matching", "humanizer"]:
+            if key in existing and key in body:
+                # Merge nested objects instead of replacing
+                existing[key].update(body[key])
+                body[key] = existing[key]  # Preserve merged version
+
         existing.update(body)
         _current_config = Config(**existing)
 
