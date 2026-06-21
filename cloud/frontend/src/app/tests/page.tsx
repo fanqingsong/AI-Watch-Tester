@@ -66,10 +66,7 @@ export default function TestsPage() {
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-      return;
-    }
+    // Local mode: user is always present (AuthProvider guarantees it).
     if (user) fetchTests();
   }, [user, authLoading, page]);
 
@@ -82,10 +79,6 @@ export default function TestsPage() {
       setTotal(data.total);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load tests";
-      if (msg.includes("401") || msg.includes("Not authenticated")) {
-        router.push("/login");
-        return;
-      }
       setError(msg);
     } finally {
       setLoading(false);

@@ -113,13 +113,8 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
-  }, [authLoading, user, router]);
-
+  // Local mode: user is always present (AuthProvider guarantees it).
+  // No login redirect needed.
   if (authLoading || !user) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">

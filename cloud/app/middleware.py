@@ -75,6 +75,15 @@ async def check_rate_limit(
     now = datetime.now(UTC)
     limit = get_monthly_limit(user.tier)
 
+    # Negative limit means unlimited (e.g. AWT_RATE_LIMIT_PRO=-1).
+    # The X-RateLimit-* response headers already skip rendering when limit < 0
+    # (see main.add_rate_limit_headers); mirror that semantics here so a -1
+    # quota does not permanently 429 the tier.
+    if limit < 0:
+        request.state.rate_limit = limit
+        request.state.rate_remaining = -1
+        return user
+
     # -- Monthly limit --
     used = await get_monthly_used(user.id, db)
 

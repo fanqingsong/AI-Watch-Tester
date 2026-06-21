@@ -461,10 +461,7 @@ export default function TestDetailPage() {
   const testId = Number(params.id);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-      return;
-    }
+    // Local mode: user is always present (AuthProvider guarantees it).
     if (user && testId) fetchTest();
   }, [user, authLoading, testId]);
 

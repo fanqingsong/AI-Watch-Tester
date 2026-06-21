@@ -8,9 +8,11 @@ import { getCheckoutUrl } from "@/lib/api";
 export default function PricingPage() {
   const t = useTranslations("pricing");
   const { user } = useAuth();
+  // Local mode: user is always present (AuthProvider guarantees it).
+  const userId = user?.id ?? "local-user";
 
-  const proUrl = user ? getCheckoutUrl("pro", user.id) : "/signup";
-  const teamUrl = user ? getCheckoutUrl("team", user.id) : "/signup";
+  const proUrl = getCheckoutUrl("pro", userId);
+  const teamUrl = getCheckoutUrl("team", userId);
 
   const plans = [
     {
@@ -20,7 +22,7 @@ export default function PricingPage() {
       desc: t("freeDesc"),
       features: [t("freeFeat1"), t("freeFeat2"), t("freeFeat3"), t("freeFeat4")],
       cta: t("freeCta"),
-      href: user ? "/dashboard" : "/signup",
+      href: "/dashboard",
       highlighted: false,
       disabled: false,
     },
