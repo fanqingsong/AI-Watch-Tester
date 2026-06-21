@@ -98,7 +98,6 @@ def format_cost_estimate(est: dict[str, Any]) -> str:
 
 # -- Cost logging ----------------------------------------------------------
 
-_LOG_DIR = Path(".aat")
 _LOG_FILE = "cost_log.jsonl"
 
 

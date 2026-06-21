@@ -832,26 +832,6 @@ def _run_aat(args: list[str], env: dict[str, str] | None = None) -> int:
     return result.returncode
 
 
-def _wait_for_approval(seconds: int) -> bool:
-    """Wait N seconds, return False if user types 'n'."""
-    import select
-
-    try:
-        for _remaining in range(seconds, 0, -1):
-            # Check stdin for 'n'
-            if select.select([sys.stdin], [], [], 1.0)[0]:
-                line = sys.stdin.readline().strip().lower()
-                if line == "n":
-                    return False
-        return True
-    except Exception:
-        # Non-interactive (CI, piped) — auto-proceed
-        import time as _time
-
-        _time.sleep(min(seconds, 3))
-        return True
-
-
 def _report_failure(data_dir: Path) -> None:
     """Report failure summary."""
     fail = _read_last_failure(data_dir)

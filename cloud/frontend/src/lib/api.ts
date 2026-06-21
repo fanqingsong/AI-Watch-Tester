@@ -91,30 +91,6 @@ export async function cancelTest(testId: number): Promise<TestItem> {
   return res.json();
 }
 
-export interface UploadResult {
-  filename: string;
-  size: number;
-  extracted_chars: number;
-}
-
-export async function uploadDocument(
-  testId: number,
-  file: File
-): Promise<UploadResult> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const res = await fetch(`${API_URL}/api/tests/${testId}/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || `Error ${res.status}`);
-  }
-  return res.json();
-}
-
 export async function listTests(
   page = 1,
   pageSize = 20

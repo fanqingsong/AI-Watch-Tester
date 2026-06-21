@@ -24,19 +24,6 @@ DEFAULT_AI_MODELS: dict[str, str] = {
     "ollama": "codellama:7b",
 }
 
-FORM_SUBMIT_RULE = """\
-**FORM SUBMIT BUTTON — CRITICAL**:
-   After filling form fields (find_and_type steps), the NEXT click MUST be the
-   form's own submit button — look for SUBMIT[form] in the PAGE/MODAL FIELDS.
-   - SUBMIT[form] = button INSIDE the form → USE THIS for form submission
-   - SUBMIT[nav] = navigation menu link → NEVER use this after form input
-   - SUBMIT[body] = button outside form/nav → only use if no [form] button exists
-   Example: PAGE FIELDS shows SUBMIT[form](button.btn, '다음') and \
-SUBMIT[nav](a.nav, '가입')
-   → After filling email/password, click '다음' (SUBMIT[form]), \
-NOT '가입' (SUBMIT[nav])
-   - The nav link '가입' is for PAGE NAVIGATION, NOT for form submission"""
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -585,8 +572,6 @@ async def validate_and_retry(
         )
 
         try:
-            import json as _json
-
             fix_data = await adapter._call_api(
                 _DELTA_SYSTEM,
                 [{"type": "text", "text": delta_prompt}],

@@ -429,8 +429,3 @@ async def _try_aria_label(
     except Exception:
         pass
     return None
-
-
-def _escape_css(text: str) -> str:
-    """Escape special characters for CSS attribute selectors."""
-    return text.replace("\\", "\\\\").replace('"', '\\"')

@@ -119,28 +119,12 @@ class TestListResponse(BaseModel):
     page_size: int
 
 
-class UserResponse(BaseModel):
-    """Current user info."""
-
-    id: str
-    email: str
-    tier: UserTier
-
-    model_config = {"from_attributes": True}
-
-
 class UploadResponse(BaseModel):
     """POST /api/tests/{id}/upload response."""
 
     filename: str
     size: int
     extracted_chars: int
-
-
-class ErrorResponse(BaseModel):
-    """Error response body."""
-
-    detail: str
 
 
 # -- API Keys --

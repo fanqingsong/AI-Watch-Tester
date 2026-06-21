@@ -7,10 +7,7 @@ when site structure hasn't changed between scans.
 from __future__ import annotations
 
 import hashlib
-import logging
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 def compute_scan_fingerprint(
@@ -122,76 +119,3 @@ def compute_tests_hash(selected_test_ids: list[str]) -> str:
 def compute_single_test_hash(test_id: str) -> str:
     """Hash a single test ID for per-test caching."""
     return hashlib.sha256(test_id.encode()).hexdigest()[:16]
-
-
-def compute_scan_diff(
-    prev_pages: list[dict[str, Any]],
-    prev_observations: list[dict[str, Any]],
-    curr_pages: list[dict[str, Any]],
-    curr_observations: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Compare two scans and return a structured diff summary.
-
-    Returns:
-        {
-            "changed": bool,
-            "summary": str,
-            "details": {
-                "pages_added": [...],
-                "pages_removed": [...],
-                "forms_changed": [...],
-                "observations_diff": int,
-            },
-        }
-    """
-    prev_urls = {p.get("url", "") for p in prev_pages}
-    curr_urls = {p.get("url", "") for p in curr_pages}
-
-    pages_added = sorted(curr_urls - prev_urls)
-    pages_removed = sorted(prev_urls - curr_urls)
-
-    # Compare form structure per page
-    def _form_sig(page: dict) -> str:
-        sigs = []
-        for form in page.get("forms", []):
-            fields = sorted(
-                f"{f.get('name', '')}:{f.get('type', '')}"
-                for f in form.get("fields", [])
-            )
-            sigs.append(",".join(fields))
-        return "|".join(sorted(sigs))
-
-    prev_forms = {p.get("url", ""): _form_sig(p) for p in prev_pages}
-    curr_forms = {p.get("url", ""): _form_sig(p) for p in curr_pages}
-
-    forms_changed = [
-        url for url in curr_urls & prev_urls
-        if curr_forms.get(url) != prev_forms.get(url)
-    ]
-
-    obs_diff = len(curr_observations) - len(prev_observations)
-
-    changed = bool(pages_added or pages_removed or forms_changed or abs(obs_diff) > 2)
-
-    parts = []
-    if pages_added:
-        parts.append(f"+{len(pages_added)} pages")
-    if pages_removed:
-        parts.append(f"-{len(pages_removed)} pages")
-    if forms_changed:
-        parts.append(f"{len(forms_changed)} forms changed")
-    if abs(obs_diff) > 2:
-        parts.append(f"observations {obs_diff:+d}")
-
-    summary = ", ".join(parts) if parts else "no changes"
-
-    return {
-        "changed": changed,
-        "summary": summary,
-        "details": {
-            "pages_added": pages_added,
-            "pages_removed": pages_removed,
-            "forms_changed": forms_changed,
-            "observations_diff": obs_diff,
-        },
-    }

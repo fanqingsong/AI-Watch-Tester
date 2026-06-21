@@ -14,16 +14,6 @@
     "status": "Status",
     "builtBy": "Built by AILoopLab"
   },
-  "metadata": {
-    "title": "AWT — AI-Powered E2E Testing",
-    "description": "Just enter a URL. AI generates test scenarios, executes them with Playwright, and reports results. No code required.",
-    "loginTitle": "Sign In",
-    "signupTitle": "Sign Up",
-    "dashboardTitle": "Dashboard",
-    "testsTitle": "Test Results",
-    "statusTitle": "System Status",
-    "settingsTitle": "Settings"
-  },
   "header": {
     "dashboard": "Dashboard",
     "history": "History",
@@ -394,35 +384,6 @@
     "stepsOverview": "Step Details",
     "failureReason": "Failure Reason"
   },
-  "scenarioEditor": {
-    "title": "Test Scenarios",
-    "review": "Review",
-    "editYaml": "Edit YAML",
-    "visualView": "Visual View",
-    "saving": "Saving...",
-    "saved": "Saved",
-    "save": "Save",
-    "starting": "Starting...",
-    "runTest": "Run Test"
-  },
-  "scenarioViewer": {
-    "summary": "AI generated {count} test scenario(s)",
-    "stepsCount": "{count} steps",
-    "expectedResults": "Expected Results",
-    "showCode": "View Code",
-    "hideCode": "Hide Code",
-    "actionNavigate": "Navigate to {url}",
-    "actionClick": "Click ''{target}''",
-    "actionType": "Type ''{value}'' in ''{target}''",
-    "actionTypeText": "Type ''{value}''",
-    "actionPressKey": "Press {key}",
-    "actionAssertVisible": "Verify ''{text}'' is visible on screen",
-    "actionAssertUrl": "Verify URL contains ''{text}''",
-    "actionAssert": "Verify: {description}",
-    "actionWait": "Wait {seconds}s",
-    "actionScreenshot": "Capture screenshot",
-    "actionDefault": "{description}"
-  },
   "status": {
     "title": "System Status",
     "subtitle": "Real-time status of AWT Cloud services",
@@ -507,12 +468,6 @@
     "useAiPlanDesc": "When enabled, test plans are generated using AI instead of the default pattern-based approach. Costs more credits but may produce more contextual results.",
     "enabled": "Enabled",
     "disabled": "Disabled"
-  },
-  "fileUpload": {
-    "dropHint": "Drop spec documents here or click to browse",
-    "formats": "PDF, DOCX, MD, TXT (max 10MB)",
-    "unsupportedFile": "Unsupported file: {name}. Allowed: .md, .txt, .pdf, .docx",
-    "fileTooLarge": "File too large: {name}. Max 10MB."
   },
   "pricing": {
     "title": "Choose Your Plan",
@@ -657,10 +612,6 @@
     "validationUnverified": "Unverified",
     "validationLowQuality": "Scenario quality is low. Consider writing custom scenarios instead.",
     "scanLogTitle": "Scan Detail Log"
-  },
-  "metadata_extra": {
-    "pricingTitle": "Pricing",
-    "billingTitle": "Billing"
   },
   "terms": {
     "pageTitle": "Terms of Service",

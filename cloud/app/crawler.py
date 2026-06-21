@@ -375,11 +375,6 @@ def _normalize_url(url: str) -> str:
     return urlunparse((parsed.scheme, parsed.netloc, path, parsed.params, parsed.query, ""))
 
 
-def _same_domain(url1: str, url2: str) -> bool:
-    """Check if two URLs belong to the same domain."""
-    return urlparse(url1).netloc == urlparse(url2).netloc
-
-
 async def _extract_page_data(page: Any, url: str, *, take_screenshot: bool = True) -> dict:
     """Extract all interactive elements from a page."""
     data: dict[str, Any] = {

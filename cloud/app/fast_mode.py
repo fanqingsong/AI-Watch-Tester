@@ -8,7 +8,6 @@ If a selector breaks (element changed), we ask AI to find an alternative.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
