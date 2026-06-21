@@ -1,22 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useAuth } from "./AuthProvider";
 
 export default function Header() {
-  const { user, signOut } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations("header");
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    await signOut();
-    router.push("/");
-  };
 
   const isActive = (href: string) => pathname === href;
   const linkClass = (href: string) =>
@@ -57,19 +49,6 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Right side */}
-        <div className="hidden items-center gap-3 md:flex">
-          <span className="text-xs text-gray-400 max-w-[140px] truncate">
-            {user?.email}
-          </span>
-          <button
-            onClick={handleSignOut}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-          >
-            {t("signOut")}
-          </button>
-        </div>
-
         {/* Mobile hamburger */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -107,14 +86,6 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          <div className="mt-3 flex items-center gap-3 border-t border-gray-200 pt-3">
-            <button
-              onClick={() => { handleSignOut(); setMobileOpen(false); }}
-              className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              {t("signOut")}
-            </button>
-          </div>
         </div>
       )}
     </header>

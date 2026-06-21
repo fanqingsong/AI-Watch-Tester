@@ -8,30 +8,24 @@ interface LocalUser {
 }
 
 interface AuthCtx {
-  user: LocalUser | null;
+  user: LocalUser;
   loading: boolean;
-  signOut: () => Promise<void>;
 }
-
-const AuthContext = createContext<AuthCtx>({
-  user: { id: "local-user", email: "local@awt.dev" },
-  loading: false,
-  signOut: async () => {},
-});
 
 const LOCAL_USER: LocalUser = {
   id: "local-user",
   email: "local@awt.dev",
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  // Local mode: no authentication, always return the default local user
-  const signOut = async () => {
-    // No-op in local mode
-  };
+const AuthContext = createContext<AuthCtx>({
+  user: LOCAL_USER,
+  loading: false,
+});
 
+/** Local mode: no authentication. Always provides the single built-in local user. */
+export function AuthProvider({ children }: { children: ReactNode }) {
   return (
-    <AuthContext.Provider value={{ user: LOCAL_USER, loading: false, signOut }}>
+    <AuthContext.Provider value={{ user: LOCAL_USER, loading: false }}>
       {children}
     </AuthContext.Provider>
   );

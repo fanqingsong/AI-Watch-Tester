@@ -32,14 +32,6 @@ export default function BillingPage() {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <p className="text-gray-500">{t("loginRequired")}</p>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">

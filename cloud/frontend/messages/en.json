@@ -25,16 +25,10 @@
     "settingsTitle": "Settings"
   },
   "header": {
-    "brand": "AWT Cloud",
     "dashboard": "Dashboard",
     "history": "History",
     "status": "Status",
-    "signOut": "Sign Out",
-    "login": "Login",
-    "signUp": "Sign Up",
-    "settings": "Settings",
-    "pricing": "Pricing",
-    "billing": "Billing"
+    "settings": "Settings"
   },
   "landing": {
     "heroTitle": "Test Smarter, Fix Faster",
@@ -186,54 +180,6 @@
     "cliModeFeat3": "5 AI providers supported",
     "cliModeFeat4": "Cost tracking with aat cost",
     "cliModeFeat5": "Requires AI API key"
-  },
-  "login": {
-    "title": "Login",
-    "email": "Email",
-    "password": "Password",
-    "emailPlaceholder": "you@example.com",
-    "passwordPlaceholder": "Password",
-    "submitting": "Logging in...",
-    "submit": "Login",
-    "noAccount": "Don't have an account?",
-    "signUpLink": "Sign up",
-    "forgotPassword": "Forgot password?",
-    "continueWithGithub": "Continue with GitHub",
-    "continueWithGoogle": "Continue with Google",
-    "socialLoading": "Connecting...",
-    "orEmail": "or continue with email"
-  },
-  "forgotPassword": {
-    "title": "Reset Password",
-    "description": "Enter your email and we'll send you a reset link.",
-    "email": "Email",
-    "emailPlaceholder": "you@example.com",
-    "sending": "Sending...",
-    "submit": "Send Reset Link",
-    "emailSent": "Check your email! We've sent a password reset link.",
-    "backToLogin": "Back to Login"
-  },
-  "signup": {
-    "title": "Sign Up",
-    "email": "Email",
-    "password": "Password",
-    "confirmPassword": "Confirm Password",
-    "emailPlaceholder": "you@example.com",
-    "passwordPlaceholder": "At least 6 characters",
-    "confirmPasswordPlaceholder": "Re-enter password",
-    "submitting": "Creating account...",
-    "submit": "Sign Up",
-    "hasAccount": "Already have an account?",
-    "loginLink": "Login",
-    "accountCreated": "Account created. Please login.",
-    "orEmail": "or continue with email",
-    "passwordMismatch": "Passwords do not match.",
-    "mustAgreeTerms": "You must agree to the Terms of Service.",
-    "agreePrefix": "I agree to the",
-    "termsLink": "Terms of Service",
-    "agreeAnd": "and",
-    "privacyLink": "Privacy Policy",
-    "agreeSuffix": "."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -513,7 +459,6 @@
     "lastUsed": "Last used",
     "revoke": "Revoke",
     "revokeConfirm": "Are you sure you want to revoke this API key? This cannot be undone.",
-    "loginRequired": "Please log in to access settings.",
     "apiKeysProOnly": "API keys require a Pro or Team subscription.",
     "upgradeToPro": "Upgrade to Pro",
     "aiConfigTitle": "AI Provider",
@@ -614,8 +559,7 @@
     "manageSub": "Manage Subscription",
     "upgrade": "Upgrade Plan",
     "noSubscription": "You are on the Free plan.",
-    "upgradePrompt": "Upgrade to Pro or Team for more tests and features.",
-    "loginRequired": "Please log in to view billing."
+    "upgradePrompt": "Upgrade to Pro or Team for more tests and features."
   },
   "errors": {
     "concurrentLimit": "Concurrent test limit reached ({limit}). Wait for running tests to finish.",

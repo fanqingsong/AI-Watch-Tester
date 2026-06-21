@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import TestProgress from "@/components/TestProgress";
-import ScenarioEditor from "@/components/ScenarioEditor";
 import StepIndicator from "@/components/StepIndicator";
 import ScenarioReview from "@/components/ScenarioReview";
 import {
@@ -386,10 +385,8 @@ export default function DashboardPage() {
   const handleGeneratePlan = async (scanId: number) => {
     setPlanLoading(true);
     try {
-      const locale = (typeof window !== "undefined" && document.documentElement.lang) || "en";
-      const lang = locale.startsWith("ko") ? "ko" : "en";
       const useAiPlan = typeof window !== "undefined" && localStorage.getItem("awt_use_ai_plan") === "true";
-      const result = await generateScanPlan(scanId, lang as "ko" | "en", useAiPlan);
+      const result = await generateScanPlan(scanId, "en", useAiPlan);
       setPlanCategories(result.categories);
 
       // Auto-select tests marked as selected or in auto_selected categories
