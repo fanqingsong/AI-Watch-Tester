@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 
 export const metadata = {
   title: "Terms of Service — AWT Cloud",
 };
 
 export default async function TermsPage() {
-  const locale = await getLocale();
   const t = await getTranslations("terms");
 
   return (
@@ -14,7 +13,7 @@ export default async function TermsPage() {
       <h1 className="mb-2 text-3xl font-bold text-gray-900">{t("pageTitle")}</h1>
       <p className="mb-8 text-sm text-gray-500">{t("lastUpdated")}</p>
       <div className="prose prose-gray max-w-none text-gray-700 [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-gray-800 [&_p]:mb-3 [&_p]:leading-relaxed [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:mb-1">
-        {locale === "ko" ? <TermsContentKo /> : <TermsContentEn />}
+        <TermsContentEn />
       </div>
     </div>
   );
@@ -135,125 +134,6 @@ function TermsContentEn() {
       <p>
         For questions about these Terms, contact us at{" "}
         <a href="mailto:awt.dev.team@gmail.com" className="text-blue-600 hover:underline">awt.dev.team@gmail.com</a>.
-      </p>
-    </>
-  );
-}
-
-function TermsContentKo() {
-  return (
-    <>
-      <h2>1. 약관의 동의</h2>
-      <p>
-        AWT가 운영하는 AWT Cloud(&quot;본 서비스&quot;)에 접속하거나 이용함으로써, 귀하는 본 이용약관에 동의하는 것으로 간주됩니다.
-        동의하지 않으시는 경우, 본 서비스를 이용하지 마십시오.
-      </p>
-
-      <h2>2. 서비스 설명</h2>
-      <p>
-        AWT Cloud는 웹사이트를 대상으로 자동화된 테스트 시나리오를 생성, 실행 및 관리하는 AI 기반 엔드투엔드(E2E) 테스트 플랫폼입니다.
-        본 서비스는 다음을 포함합니다:
-      </p>
-      <ul>
-        <li>URL 및 문서 기반 AI 테스트 시나리오 자동 생성</li>
-        <li>Playwright를 활용한 자동화 브라우저 테스트 실행</li>
-        <li>실시간 스크린샷을 통한 테스트 모니터링</li>
-        <li>테스트 결과 리포트 및 이력 관리</li>
-        <li>CI/CD 연동을 위한 API 접근</li>
-      </ul>
-
-      <h2>3. 계정 및 회원가입</h2>
-      <p>
-        본 서비스를 이용하려면 계정을 생성해야 합니다. 귀하는 자신의 로그인 자격 증명을 기밀로 유지하고,
-        해당 계정에서 발생하는 모든 활동에 대해 책임을 집니다.
-        귀하는 정확한 정보를 제공해야 하며, 변경 사항이 발생한 경우 즉시 업데이트해야 합니다.
-      </p>
-
-      <h2>4. 구독 플랜</h2>
-      <h3>4.1 무료 플랜 (Free)</h3>
-      <p>
-        무료 플랜은 월 최대 5회 테스트 및 동시 1개 테스트를 포함합니다.
-        신용카드 등록은 필요하지 않습니다. 당사는 무료 플랜의 한도를 언제든지 변경할 권리를 보유합니다.
-      </p>
-      <h3>4.2 유료 플랜 (Pro, Team)</h3>
-      <p>
-        유료 플랜은 월 단위로 청구됩니다. 결제는 당사의 결제 파트너(Lemon Squeezy)를 통해 처리됩니다.
-        언제든지 구독을 취소할 수 있으며, 취소 후에도 결제 기간이 종료될 때까지 서비스 이용이 가능합니다.
-        환불은 결제 파트너의 환불 정책에 따라 처리됩니다.
-      </p>
-      <h3>4.3 사용량 한도</h3>
-      <p>
-        각 플랜에는 월별 테스트 횟수 및 동시 실행 한도가 설정되어 있습니다.
-        한도를 초과하는 경우, 다음 결제 주기가 시작되거나 상위 플랜으로 업그레이드하기 전까지 요청이 거부됩니다.
-      </p>
-
-      <h2>5. 자체 API 키 사용 (BYOK)</h2>
-      <p>
-        귀하는 설정 페이지를 통해 자신의 AI API 키(예: OpenAI, Anthropic)를 선택적으로 제공할 수 있습니다.
-        제공된 API 키는 당사 데이터베이스에 저장되기 전 Fernet 대칭 암호화 방식으로 암호화됩니다.
-        암호화 키는 서버 측에서 관리되며 클라이언트에 노출되지 않습니다.
-      </p>
-      <p>
-        당사는 귀하의 API 키를 귀하를 대신한 테스트 시나리오 생성 이외의 목적으로 사용하지 않습니다.
-        저장된 키는 언제든지 삭제할 수 있으며, 삭제 시 서버 기본 AI 프로바이더로 복원됩니다.
-        귀하의 API 키를 통해 발생하는 모든 비용에 대한 책임은 귀하에게 있습니다.
-      </p>
-
-      <h2>6. 허용 가능한 이용</h2>
-      <p>귀하는 다음 행위를 해서는 안 됩니다:</p>
-      <ul>
-        <li>본 서비스를 이용하여 귀하가 소유하거나 테스트 권한을 보유하지 않은 웹사이트를 테스트하는 행위</li>
-        <li>본 서비스 인프라에 과부하를 주거나, 방해하거나, 악용하려는 시도</li>
-        <li>무단 침투 테스트를 포함한 불법 활동에 본 서비스를 이용하는 행위</li>
-        <li>사용량 한도, 속도 제한 또는 인증 메커니즘을 우회하는 행위</li>
-        <li>서면 허가 없이 본 서비스를 재판매하거나 재배포하는 행위</li>
-      </ul>
-
-      <h2>7. 지식재산권</h2>
-      <p>
-        소스 코드(MIT 라이선스), 문서 및 브랜딩을 포함한 본 서비스는 당사의 재산입니다.
-        AI가 생성한 테스트 시나리오는 귀하의 사용을 위해 제공되며 자유롭게 수정할 수 있습니다.
-        귀하의 테스트 데이터, 문서 및 설정에 대한 소유권은 귀하에게 있습니다.
-      </p>
-
-      <h2>8. 데이터 및 개인정보</h2>
-      <p>
-        본 서비스 이용은 당사의{" "}
-        <Link href="/privacy" className="text-blue-600 hover:underline">개인정보 처리방침</Link>의 적용도 받습니다.
-        당사는 본 서비스 제공만을 목적으로 스크린샷, 테스트 결과 및 업로드된 문서를 처리합니다.
-      </p>
-
-      <h2>9. 서비스 가용성</h2>
-      <p>
-        당사는 높은 가용성을 위해 노력하지만, 서비스의 무중단을 보장하지 않습니다.
-        본 서비스는 명시적 또는 묵시적 보증 없이 &quot;있는 그대로&quot; 제공됩니다.
-        당사는 서비스 중단, 데이터 손실 또는 테스트 부정확으로 인한 손해에 대해 책임을 지지 않습니다.
-      </p>
-
-      <h2>10. 책임의 제한</h2>
-      <p>
-        법률이 허용하는 최대 범위 내에서, 본 서비스와 관련된 청구에 대한 당사의 총 책임은
-        청구 발생 전 12개월 동안 귀하가 당사에 지불한 금액으로 제한됩니다.
-        당사는 간접적, 부수적, 특별 또는 결과적 손해에 대해 책임을 지지 않습니다.
-      </p>
-
-      <h2>11. 계정 해지</h2>
-      <p>
-        귀하가 본 약관을 위반하는 경우, 당사는 귀하의 계정을 정지하거나 해지할 수 있습니다.
-        귀하는 언제든지 계정을 삭제할 수 있습니다. 계정 해지 시, 법률이 요구하는 경우를 제외하고
-        귀하의 데이터는 30일 이내에 삭제됩니다.
-      </p>
-
-      <h2>12. 약관의 변경</h2>
-      <p>
-        당사는 수시로 본 약관을 업데이트할 수 있습니다. 중요한 변경 사항은 이메일 또는 앱 내 알림을 통해 고지됩니다.
-        변경 후 서비스를 계속 이용하는 경우, 변경된 약관에 동의한 것으로 간주됩니다.
-      </p>
-
-      <h2>13. 문의</h2>
-      <p>
-        본 약관에 관한 문의 사항은{" "}
-        <a href="mailto:awt.dev.team@gmail.com" className="text-blue-600 hover:underline">awt.dev.team@gmail.com</a>으로 연락해 주십시오.
       </p>
     </>
   );

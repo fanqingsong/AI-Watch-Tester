@@ -53,9 +53,7 @@ const TECH_STACK = [
   { name: "Ollama", desc: "Local LLM" },
   { name: "FastAPI", desc: "Cloud backend" },
   { name: "Next.js", desc: "Frontend" },
-  { name: "Supabase", desc: "Auth & DB" },
-  { name: "PostgreSQL", desc: "Cloud storage" },
-  { name: "SQLite", desc: "Learning DB" },
+  { name: "SQLite", desc: "Local database" },
 ];
 
 export default async function LandingPage() {
@@ -91,7 +89,7 @@ export default async function LandingPage() {
               </p>
               <div className="flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
                 <Link
-                  href="/signup"
+                  href="/dashboard"
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-blue-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {t("heroCta1")}
@@ -614,7 +612,7 @@ export default async function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/signup"
+                href="/dashboard"
                 className="block rounded-lg border border-gray-300 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
                 {t("pricingFreeCta")}
@@ -687,7 +685,7 @@ export default async function LandingPage() {
           <p className="mb-8 text-base text-gray-500">{t("ctaDesc")}</p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/signup"
+              href="/dashboard"
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {t("ctaBtn1")}

@@ -257,7 +257,7 @@ export default function ScenarioReview({ testId, initialYaml, onApprove }: Props
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState("");
 
-  // YAML 파싱: 배열 또는 단일 오브젝트 모두 처리
+  // YAML parsing: handle both array and single object
   const scenarios: ParsedScenario[] = useMemo(() => {
     try {
       const parsed = yaml.load(currentYaml);
@@ -269,7 +269,7 @@ export default function ScenarioReview({ testId, initialYaml, onApprove }: Props
     }
   }, [currentYaml]);
 
-  // 시나리오 삭제 후 YAML 재생성
+  // Rebuild YAML after deleting a scenario
   const handleDelete = (index: number) => {
     const updated = scenarios.filter((_, i) => i !== index);
     try {

@@ -16,13 +16,13 @@ npm install
 
 ## Environment
 
-Create `.env.local` (already included for dev):
+Create `.env.local` (optional — defaults work for local dev):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
+> The frontend runs in **local mode**: no authentication, no Supabase. Every visitor is treated as the built-in local user.
 
 ## Run
 
@@ -37,11 +37,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | Route | Description |
 |-------|-------------|
 | `/` | Landing page with pricing |
-| `/signup` | Email signup (Supabase Auth) |
-| `/login` | Email login |
 | `/dashboard` | URL input + real-time test progress |
 | `/tests` | Test history list with filter |
 | `/tests/{id}` | Test detail with screenshots |
+| `/status` | Backend status |
+| `/settings` | Settings |
 
 ## Backend
 

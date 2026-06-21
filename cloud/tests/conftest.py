@@ -36,7 +36,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 # ---------------------------------------------------------------------------
-# Mock user (skip real Supabase auth)
+# Mock user (local mode — no authentication)
 # ---------------------------------------------------------------------------
 
 _MOCK_USER = User(id="test-uid-001", email="test@example.com", tier=UserTier.FREE)

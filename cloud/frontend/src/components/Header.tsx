@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "./AuthProvider";
-import LanguageToggle from "./LanguageToggle";
 
 export default function Header() {
   const { user, signOut } = useAuth();
@@ -27,14 +26,12 @@ export default function Header() {
         : "text-gray-600 hover:text-gray-900"
     }`;
 
-  const navLinks = user
-    ? [
-        { href: "/dashboard", label: t("dashboard") },
-        { href: "/tests", label: t("history") },
-        { href: "/status", label: t("status") },
-        { href: "/settings", label: t("settings") },
-      ]
-    : [{ href: "/pricing", label: t("pricing") }];
+  const navLinks = [
+    { href: "/dashboard", label: t("dashboard") },
+    { href: "/tests", label: t("history") },
+    { href: "/status", label: t("status") },
+    { href: "/settings", label: t("settings") },
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-xl">
@@ -62,35 +59,15 @@ export default function Header() {
 
         {/* Right side */}
         <div className="hidden items-center gap-3 md:flex">
-          <LanguageToggle />
-          {user ? (
-            <>
-              <span className="text-xs text-gray-400 max-w-[140px] truncate">
-                {user.email}
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                {t("signOut")}
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="px-3 py-1.5 text-sm text-gray-600 transition hover:text-gray-900"
-              >
-                {t("login")}
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-              >
-                {t("signUp")}
-              </Link>
-            </>
-          )}
+          <span className="text-xs text-gray-400 max-w-[140px] truncate">
+            {user?.email}
+          </span>
+          <button
+            onClick={handleSignOut}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          >
+            {t("signOut")}
+          </button>
         </div>
 
         {/* Mobile hamburger */}
@@ -131,32 +108,12 @@ export default function Header() {
             ))}
           </nav>
           <div className="mt-3 flex items-center gap-3 border-t border-gray-200 pt-3">
-            <LanguageToggle />
-            {user ? (
-              <button
-                onClick={() => { handleSignOut(); setMobileOpen(false); }}
-                className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                {t("signOut")}
-              </button>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-center text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                >
-                  {t("login")}
-                </Link>
-                <Link
-                  href="/signup"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                >
-                  {t("signUp")}
-                </Link>
-              </>
-            )}
+            <button
+              onClick={() => { handleSignOut(); setMobileOpen(false); }}
+              className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {t("signOut")}
+            </button>
           </div>
         </div>
       )}

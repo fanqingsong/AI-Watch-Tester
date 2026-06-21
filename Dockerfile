@@ -1,21 +1,19 @@
 # AI Watch Tester Docker Image
-FROM python:3.10-slim
+# 使用微软官方 Playwright 镜像：Chromium 已预装，省去 ~150MB 浏览器下载
+# （国内镜像源均不镜像 mcr.microsoft.com，但 mcr 走 Azure CDN 国内直连可用）
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
 
 # 设置工作目录
 WORKDIR /app
 
-# 配置apt使用阿里云镜像源（国内加速）
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources || \
-    sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+# 配置apt使用阿里云镜像源（国内加速，Ubuntu noble）
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g; s|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
 
 # 配置pip使用清华镜像源（国内加速）
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装系统依赖
+# 安装系统依赖（Chromium 及其系统依赖已由基础镜像提供）
 RUN apt-get update && apt-get install -y \
-    # Playwright 浏览器依赖
-    wget \
-    gnupg \
     # X11 for headed browser mode (xvfb)
     xvfb \
     # Tesseract OCR
@@ -41,11 +39,8 @@ COPY src/ ./src/
 RUN pip install --no-cache-dir --upgrade pip
 
 # 安装Python依赖
+# 基础镜像已含 playwright==1.50.0（满足 >=1.40,<2.0），pip 不会重装/升级，直接复用预装 Chromium
 RUN pip install --no-cache-dir -e .[web,watch]
-
-# 安装Playwright浏览器
-RUN playwright install chromium
-RUN playwright install-deps chromium
 
 # 创建必要的目录
 RUN mkdir -p .aat scenarios
@@ -55,7 +50,8 @@ EXPOSE 8000
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+# 预装 Chromium 位于 /ms-playwright（基础镜像默认路径）
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # 智谱AI配置（可选）
 # ENV ZHIPUAI_API_KEY=your_zhipuai_key_here

@@ -68,9 +68,9 @@ async def test_api_key_invalid(auth_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_no_auth_header(auth_client: AsyncClient) -> None:
-    """No auth header at all returns 401."""
+    """No auth header at all returns 200 (local mode — built-in local user)."""
     resp = await auth_client.get("/api/tests")
-    assert resp.status_code == 401
+    assert resp.status_code == 200
 
 
 @pytest.mark.asyncio

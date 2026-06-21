@@ -78,7 +78,7 @@ The restore script:
 
 ## PostgreSQL (Production)
 
-For production deployments using PostgreSQL (Supabase):
+For production deployments using PostgreSQL (optional — the default is local SQLite):
 
 ```bash
 # Backup

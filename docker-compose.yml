@@ -62,10 +62,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/src:/app/cloud/app
-      # Cloud backend config
-      - AWT_SUPABASE_JWT_SECRET=${AWT_SUPABASE_JWT_SECRET:-dev-secret-key-change-in-production}
-      - AWT_SUPABASE_URL=${AWT_SUPABASE_URL:-}
-      - AWT_SUPABASE_ANON_KEY=${AWT_SUPABASE_ANON_KEY:-}
+      # Cloud backend config (fully local — SQLite, no external auth/DB service)
       - AWT_DATABASE_URL=${AWT_DATABASE_URL:-sqlite+aiosqlite:///./cloud_data/awt_cloud.db}
       - AWT_RATE_LIMIT_FREE=${AWT_RATE_LIMIT_FREE:-5}
       - AWT_RATE_LIMIT_PRO=${AWT_RATE_LIMIT_PRO:--1}

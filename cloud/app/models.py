@@ -69,7 +69,7 @@ class Test(Base):
 
 
 class User(Base):
-    """User profile (local mode, no Supabase sync)."""
+    """User profile (local mode — single local user, no external auth)."""
 
     __tablename__ = "users"
 

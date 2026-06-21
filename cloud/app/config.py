@@ -17,15 +17,10 @@ class Settings(BaseSettings):
     app_name: str = "AWT Cloud"
     debug: bool = False
 
-    # Database — SQLite for dev, Supabase PostgreSQL for prod
-    # SQLite:     sqlite+aiosqlite:///./awt_cloud.db
-    # PostgreSQL: postgresql+asyncpg://postgres.[ref]:[password]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
+    # Database — SQLite by default (fully local). Any SQLAlchemy async URL works,
+    # e.g. postgresql+asyncpg://user:password@host:5432/dbname for your own Postgres.
+    # SQLite: sqlite+aiosqlite:///./awt_cloud.db
     database_url: str = "sqlite+aiosqlite:///./awt_cloud.db"
-
-    # Supabase (removed for local mode - no authentication required)
-    # supabase_url: str = ""
-    # supabase_anon_key: str = ""
-    # supabase_jwt_secret: str = ""
 
     # Rate limits (monthly POST /api/tests)
     rate_limit_free: int = 5

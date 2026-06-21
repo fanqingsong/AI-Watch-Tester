@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Deploy AWT Cloud for free using **Vercel** (frontend) + **Render** (backend) + **Supabase** (auth & database).
+Deploy AWT Cloud using **Vercel** (frontend) + **Render** (backend). The backend is fully self-contained — it uses a local SQLite database and a built-in local user, so **no external auth or database service (e.g. Supabase) is required**.
 
 ---
 
@@ -8,51 +8,33 @@ Deploy AWT Cloud for free using **Vercel** (frontend) + **Render** (backend) + *
 
 ```
 User Browser
-  ├── Vercel (Next.js frontend)
-  │     └── Supabase Auth (login/signup)
+  ├── Vercel (Next.js frontend) — local mode, always "logged in"
   └── Render (FastAPI backend)
-        ├── Supabase (PostgreSQL DB)
+        ├── SQLite (local database, persisted to disk)
         ├── Playwright (headless Chromium)
-        └── OpenAI / Claude (AI provider)
+        └── OpenAI / Claude / Ollama (AI provider)
 ```
 
 ---
 
 ## Prerequisites
 
-- [Supabase](https://supabase.com) account (free tier: 500MB DB)
 - [Render](https://render.com) account (free tier: 512MB RAM)
 - [Vercel](https://vercel.com) account (free tier: hobby plan)
 - AI API key: OpenAI or Anthropic (Ollama cannot run on Render)
 
----
-
-## Step 1: Supabase Setup
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Note these values from **Settings > API**:
-
-| Value | Where to Find | Used By |
-|-------|---------------|---------|
-| Project URL | `https://xxxx.supabase.co` | Frontend + Backend |
-| Anon Public Key | Project API Keys section | Frontend |
-| JWT Secret | JWT Settings (bottom of page) | Backend |
-
-3. Under **Authentication > Providers**, ensure Email is enabled
-4. For development, disable "Confirm email" (enable for production)
-
-See [cloud/README.md](../README.md) for detailed Supabase setup.
+> No Supabase or any other auth/DB account is needed.
 
 ---
 
-## Step 2: Deploy Backend on Render
+## Step 1: Deploy Backend on Render
 
 ### Option A: One-Click (render.yaml)
 
 1. Push your repo to GitHub
 2. Go to [Render Dashboard](https://dashboard.render.com) > **New > Blueprint**
 3. Connect your repo — Render reads `render.yaml` automatically
-4. Set the secret environment variables (see table below)
+4. Set the environment variables (see table below)
 5. Click **Apply**
 
 ### Option B: Manual Setup
@@ -72,10 +54,7 @@ See [cloud/README.md](../README.md) for detailed Supabase setup.
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| `AWT_DATABASE_URL` | Yes | `postgresql+asyncpg://...` | Supabase PostgreSQL connection string |
-| `AWT_SUPABASE_URL` | Yes | `https://xxxx.supabase.co` | Supabase project URL |
-| `AWT_SUPABASE_ANON_KEY` | Yes | `eyJhbG...` | Supabase anon public key |
-| `AWT_SUPABASE_JWT_SECRET` | Yes | `your-jwt-secret` | JWT signing secret |
+| `AWT_DATABASE_URL` | No | `sqlite+aiosqlite:///./data/awt_cloud.db` | DB connection string. Defaults to local SQLite. Any SQLAlchemy async URL works (e.g. your own Postgres). |
 | `AWT_AI_PROVIDER` | Yes | `openai` | AI provider: `openai` or `claude` |
 | `AWT_AI_API_KEY` | Yes | `sk-...` | AI provider API key |
 | `AWT_AI_MODEL` | No | `gpt-4o-mini` | Model override (auto-selects if empty) |
@@ -86,23 +65,19 @@ See [cloud/README.md](../README.md) for detailed Supabase setup.
 | `AWT_UPLOAD_DIR` | No | `uploads` | Upload storage path |
 | `AWT_SENTRY_DSN` | No | `https://...@sentry.io/...` | Sentry error tracking (optional) |
 
-### Database Connection String
+### Persisting the SQLite database
 
-From Supabase **Settings > Database > Connection string > URI**:
-
-```
-postgresql://postgres.[ref]:[password]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
-```
-
-Change the prefix to `postgresql+asyncpg://` for SQLAlchemy async:
+SQLite stores data in a single file. On Render, attach a **Disk** to the backend service and point `AWT_DATABASE_URL` at a path on that disk so data survives deploys/restarts:
 
 ```
-postgresql+asyncpg://postgres.[ref]:[password]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
+AWT_DATABASE_URL=sqlite+aiosqlite:///./data/awt_cloud.db
 ```
+
+(If you prefer PostgreSQL, set `AWT_DATABASE_URL` to your own `postgresql+asyncpg://...` connection string — any standard Postgres host works.)
 
 ---
 
-## Step 3: Deploy Frontend on Vercel
+## Step 2: Deploy Frontend on Vercel
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard) > **Add New > Project**
 2. Import your GitHub repo
@@ -114,10 +89,10 @@ postgresql+asyncpg://postgres.[ref]:[password]@aws-0-ap-northeast-2.pooler.supab
 | Variable | Value |
 |----------|-------|
 | `NEXT_PUBLIC_API_URL` | `https://awt-api.onrender.com` (your Render URL) |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
 
 5. Click **Deploy**
+
+> The frontend runs in local mode (no auth). No Supabase variables are needed.
 
 ### CORS Configuration
 
@@ -129,13 +104,12 @@ https://your-app.vercel.app,https://your-custom-domain.com
 
 ---
 
-## Step 4: Verify
+## Step 3: Verify
 
 1. Visit your Vercel URL — landing page should load
 2. Check backend health: `curl https://awt-api.onrender.com/health`
-3. Sign up with email/password
-4. Create a test with a URL
-5. Verify AI generates scenarios and tests execute
+3. Create a test with a URL (no signup/login step — local mode)
+4. Verify AI generates scenarios and tests execute
 
 ---
 
@@ -145,7 +119,6 @@ https://your-app.vercel.app,https://your-custom-domain.com
 |---------|-------|--------|
 | **Render Free** | 512MB RAM, sleeps after 15min idle | First request after sleep takes 30-60s; max 1 concurrent Playwright test |
 | **Vercel Hobby** | 100GB bandwidth/month | Sufficient for development and demos |
-| **Supabase Free** | 500MB DB, 2 projects | Plenty for development |
 
 ### Render Sleep Behavior
 
@@ -162,10 +135,6 @@ The free tier spins down after 15 minutes of inactivity. The first request after
 ---
 
 ## Troubleshooting
-
-### Backend returns 503 "Supabase not configured"
-
-Set all three Supabase variables: `AWT_SUPABASE_URL`, `AWT_SUPABASE_ANON_KEY`, `AWT_SUPABASE_JWT_SECRET`.
 
 ### CORS errors in browser console
 
@@ -185,11 +154,10 @@ AWT_CORS_ORIGINS=https://your-app.vercel.app
 
 Reduce `AWT_MAX_CONCURRENT` to `1`. Chromium uses ~200-300MB RAM, leaving limited headroom on the 512MB free tier.
 
-### Database connection errors
+### Database issues
 
-- Ensure `AWT_DATABASE_URL` uses `postgresql+asyncpg://` prefix
-- Check Supabase connection pooler settings (port 6543 for pooled connections)
-- Verify the password doesn't contain special characters that need URL encoding
+- For SQLite: ensure the path in `AWT_DATABASE_URL` lives on a persistent Render Disk, or data resets on redeploy
+- For Postgres: ensure `AWT_DATABASE_URL` uses the `postgresql+asyncpg://` prefix and that the password is URL-encoded if it contains special characters
 
 ### WebSocket connection fails
 
