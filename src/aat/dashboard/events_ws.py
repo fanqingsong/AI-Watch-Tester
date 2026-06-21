@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 from io import BytesIO
 from typing import Any
 
@@ -185,7 +184,3 @@ class WebSocketEventHandler(EventEmitter):
             loop.create_task(self._manager.broadcast(data))
         except RuntimeError:
             pass  # no event loop — skip (e.g. during testing)
-
-    def to_json(self, data: dict[str, Any]) -> str:
-        """Serialize event data to JSON string."""
-        return json.dumps(data, ensure_ascii=False)

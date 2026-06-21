@@ -139,10 +139,6 @@ class OCRMatcher(BaseMatcher):
             elapsed_ms=elapsed,
         )
 
-    def set_match_index(self, index: int) -> None:
-        """Set which match to return when multiple found."""
-        self._match_index = index
-
     def _find_all_candidates(
         self,
         data: dict[str, list[Any]],
@@ -181,46 +177,6 @@ class OCRMatcher(BaseMatcher):
         # Sort by confidence descending
         candidates.sort(key=lambda c: c[4], reverse=True)
         return candidates
-
-    def _find_single_token(
-        self,
-        data: dict[str, list[Any]],
-        search_text: str,
-        threshold: float,
-    ) -> tuple[int, int, int, int, float] | None:
-        """Look for search_text as a substring of individual OCR tokens."""
-        n = len(data.get("text", []))
-        if n == 0:
-            return None
-
-        best: tuple[int, int, int, int, float] | None = None
-        best_conf = -1.0
-
-        for i in range(n):
-            conf_val = data["conf"][i]
-            if not isinstance(conf_val, (int, float)) or conf_val <= 0:
-                continue
-
-            text = str(data["text"][i]).strip().lower()
-            if not text or search_text not in text:
-                continue
-
-            conf = float(conf_val) / 100.0
-            if conf < threshold:
-                continue
-
-            if conf > best_conf:
-                # 2x upscale coordinates → original resolution
-                left = int(data["left"][i]) // 2
-                top = int(data["top"][i]) // 2
-                w = int(data["width"][i]) // 2
-                h = int(data["height"][i]) // 2
-                cx = left + w // 2
-                cy = top + h // 2
-                best = (cx, cy, w, h, conf)
-                best_conf = conf
-
-        return best
 
     def _find_phrase(
         self,

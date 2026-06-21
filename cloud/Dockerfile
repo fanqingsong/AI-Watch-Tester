@@ -2,7 +2,7 @@
 # 不使用 mcr.microsoft.com 镜像（国内直连不稳定，769MB Chromium 层会超时），
 # 改用 Docker Hub python 镜像（国内源可加速）+ playwright 1.50.0（经典 chromium build，
 # npmmirror 镜像有完整文件）。
-FROM python:3.10-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 # apt 阿里云镜像（Debian）
 RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \

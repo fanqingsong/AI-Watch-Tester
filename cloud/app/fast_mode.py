@@ -78,26 +78,6 @@ async def save_execution_path(
 
 
 # ---------------------------------------------------------------------------
-# Retrieve execution paths for fast-mode replay
-# ---------------------------------------------------------------------------
-
-
-async def get_execution_paths(
-    db: AsyncSession,
-    user_id: str,
-    target_url: str,
-) -> list[ExecutionPath]:
-    """Fetch all saved execution paths for a URL."""
-    result = await db.execute(
-        select(ExecutionPath).where(
-            ExecutionPath.user_id == user_id,
-            ExecutionPath.target_url == target_url,
-        ).order_by(ExecutionPath.last_passed_at.desc())
-    )
-    return list(result.scalars().all())
-
-
-# ---------------------------------------------------------------------------
 # Save execution paths after test completion
 # ---------------------------------------------------------------------------
 
@@ -156,73 +136,3 @@ async def save_passed_scenarios(
             )
 
 
-# ---------------------------------------------------------------------------
-# Self-healing: fix broken selectors via AI
-# ---------------------------------------------------------------------------
-
-_HEAL_SYSTEM = (
-    "You are a CSS selector expert. Given a broken CSS selector and the "
-    "current page DOM snippet, return ONLY a JSON object with:\n"
-    '{"selector": "new_css_selector", "confidence": 0.9}\n'
-    "Return ONLY valid JSON, no markdown."
-)
-
-
-async def heal_selector(
-    adapter: Any,
-    broken_selector: str,
-    step_description: str,
-    dom_snippet: str,
-) -> str | None:
-    """Ask AI to find an alternative selector for a broken one.
-
-    Returns the new selector string or None if healing failed.
-    """
-    user_content = [{
-        "type": "text",
-        "text": (
-            f"The CSS selector `{broken_selector}` no longer works.\n"
-            f"Step description: {step_description}\n\n"
-            f"Current page DOM (relevant snippet):\n```\n{dom_snippet[:3000]}\n```\n\n"
-            "Find the replacement CSS selector for the same element."
-        ),
-    }]
-
-    try:
-        data = await adapter._call_api(_HEAL_SYSTEM, user_content)
-        new_selector = data.get("selector")
-        confidence = data.get("confidence", 0)
-        if new_selector and confidence >= 0.5:
-            logger.info(
-                "Self-healed: %s → %s (confidence=%.2f)",
-                broken_selector, new_selector, confidence,
-            )
-            return new_selector
-        logger.warning("Self-heal low confidence: %s → %s (%.2f)", broken_selector, new_selector, confidence)
-        return None
-    except Exception as exc:
-        logger.warning("Self-heal failed for %s: %s", broken_selector, exc)
-        return None
-
-
-async def update_healed_selector(
-    db: AsyncSession,
-    path_id: int,
-    old_selector: str,
-    new_selector: str,
-) -> None:
-    """Update a healed selector in the stored execution path."""
-    path = (await db.execute(
-        select(ExecutionPath).where(ExecutionPath.id == path_id)
-    )).scalar_one_or_none()
-
-    if not path:
-        return
-
-    # Replace selector in the YAML
-    updated_yaml = path.scenario_yaml.replace(old_selector, new_selector)
-    path.scenario_yaml = updated_yaml
-    path.healed_count += 1
-    path.last_passed_at = datetime.now(UTC)
-    await db.commit()
-    logger.info("Fast Mode: healed selector in path %d (%s → %s)", path_id, old_selector, new_selector)

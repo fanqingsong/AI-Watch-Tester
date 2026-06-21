@@ -127,7 +127,7 @@ export interface ValidationSummary {
   percent: number;
 }
 
-export interface RelevanceValidation {
+interface RelevanceValidation {
   valid: boolean;
   confidence: number;
   reason: string;
@@ -215,13 +215,13 @@ export function connectConvertWS(
 
 // -- Smart Scan API --
 
-export interface SiteType {
+interface SiteType {
   type: string;
   confidence: number;
   indicators: string[];
 }
 
-export interface ScanSummary {
+interface ScanSummary {
   total_pages: number;
   total_links: number;
   total_forms: number;
@@ -278,7 +278,7 @@ export interface TestPlanCategory {
   tests: TestPlanItem[];
 }
 
-export interface TestPlanItem {
+interface TestPlanItem {
   id: string;
   name: string;
   description: string;
@@ -368,7 +368,7 @@ export function connectScanWS(
 
 // -- Health API (no auth required) --
 
-export interface HealthCheck {
+interface HealthCheck {
   status: string;
   error?: string;
   provider?: string;
@@ -440,7 +440,7 @@ export async function deleteApiKey(id: number): Promise<void> {
 
 // -- Billing --
 
-export interface BillingUsage {
+interface BillingUsage {
   monthly_used: number;
   monthly_limit: number;
   active_count: number;
@@ -661,7 +661,7 @@ export async function verifyGitHubConnection(
 
 // -- Fix Guide --
 
-export interface FixGuideFileChange {
+interface FixGuideFileChange {
   path: string;
   action: "modify" | "create" | "delete";
   original: string;
