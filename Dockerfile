@@ -1,19 +1,23 @@
 # AI Watch Tester Docker Image
-# 使用微软官方 Playwright 镜像：Chromium 已预装，省去 ~150MB 浏览器下载
-# （国内镜像源均不镜像 mcr.microsoft.com，但 mcr 走 Azure CDN 国内直连可用）
-FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
+# 不使用 mcr.microsoft.com 镜像（国内直连不稳定，769MB Chromium 层会超时），
+# 改用 Docker Hub python 镜像（国内源可加速）+ playwright 1.50.0（经典 chromium build，
+# npmmirror 镜像有完整文件）。
+FROM python:3.10-slim-bookworm
 
 # 设置工作目录
 WORKDIR /app
 
-# 配置apt使用阿里云镜像源（国内加速，Ubuntu noble）
-RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g; s|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
+# 配置apt使用阿里云镜像源（国内加速，Debian）
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true
 
 # 配置pip使用清华镜像源（国内加速）
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装系统依赖（Chromium 及其系统依赖已由基础镜像提供）
-RUN apt-get update && apt-get install -y \
+# 安装系统依赖（Playwright 浏览器系统依赖由 playwright install-deps 安装）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gnupg \
     # X11 for headed browser mode (xvfb)
     xvfb \
     # Tesseract OCR
@@ -21,7 +25,7 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-kor \
     tesseract-ocr-eng \
     libtesseract-dev \
-    # 图像处理（使用新包名）
+    # 图像处理
     libgl1 \
     libglib2.0-0 \
     libstdc++6 \
@@ -38,9 +42,17 @@ COPY src/ ./src/
 # 升级pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# 安装Python依赖
-# 基础镜像已含 playwright==1.50.0（满足 >=1.40,<2.0），pip 不会重装/升级，直接复用预装 Chromium
+# 钉死 playwright==1.50.0：用经典 chromium build 1148（npmmirror 镜像完整可用），
+# 避免最新版走 cft 路径（国内镜像无该文件）
+RUN pip install --no-cache-dir playwright==1.50.0
+
+# 安装Python依赖（playwright>=1.40,<2.0 已被 1.50.0 满足，pip 不会升级）
 RUN pip install --no-cache-dir -e .[web,watch]
+
+# 安装Playwright浏览器（npmmirror 国内加速，build 1148）
+ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
+RUN playwright install chromium
+RUN playwright install-deps chromium
 
 # 创建必要的目录
 RUN mkdir -p .aat scenarios
@@ -50,8 +62,7 @@ EXPOSE 8000
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
-# 预装 Chromium 位于 /ms-playwright（基础镜像默认路径）
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 
 # 智谱AI配置（可选）
 # ENV ZHIPUAI_API_KEY=your_zhipuai_key_here

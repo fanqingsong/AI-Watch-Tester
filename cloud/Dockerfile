@@ -2,7 +2,7 @@
 # 不使用 mcr.microsoft.com 镜像（国内直连不稳定，769MB Chromium 层会超时），
 # 改用 Docker Hub python 镜像（国内源可加速）+ playwright 1.50.0（经典 chromium build，
 # npmmirror 镜像有完整文件）。
-FROM python:3.10-slim
+FROM python:3.10-slim-bookworm
 
 # apt 阿里云镜像（Debian）
 RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
@@ -34,10 +34,10 @@ COPY pyproject.toml README.md ./
 COPY src/ ./src/
 RUN pip install --no-cache-dir -e .
 
-# Chromium 浏览器 + 系统依赖（npmmirror 国内加速，build 1148）
+# Chromium 浏览器 + 系统依赖（npmmirror 国内加速）
 ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
-RUN playwright install --with-deps chromium && chmod -R a+rX /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install --with-deps chromium && chmod -R a+rX /ms-playwright
 
 # 复制 cloud 应用
 COPY cloud/app/ ./app/
