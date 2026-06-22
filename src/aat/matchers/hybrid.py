@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,6 +21,7 @@ import numpy as np
 from aat.core import MatchingConfig, MatchMethod
 from aat.matchers.base import BaseMatcher
 from aat.matchers.image_utils import ImageUtils
+from aat.matchers.timing import TimedOperation
 
 if TYPE_CHECKING:
     from aat.core import MatchResult, TargetSpec
@@ -85,13 +85,13 @@ class HybridMatcher(BaseMatcher):
         screenshot: bytes,
     ) -> MatchResult | None:
         """Orchestrate matching across all registered matchers."""
-        start = time.perf_counter()
         try:
-            result = await self._run_chain(target, screenshot)
+            with TimedOperation() as timer:
+                result = await self._run_chain(target, screenshot)
+            # Timer elapsed_ms is set after __exit__
             if result is not None:
                 # Override elapsed_ms to reflect total chain time
-                elapsed = (time.perf_counter() - start) * 1000.0
-                result = result.model_copy(update={"elapsed_ms": elapsed})
+                result = result.model_copy(update={"elapsed_ms": timer.elapsed_ms})
 
                 # Auto-save template on successful match
                 self._auto_save_template(target, screenshot, result)
@@ -121,38 +121,38 @@ class HybridMatcher(BaseMatcher):
             fallback: Allow tier fallback when specific method fails.
             learn: Record match history to pattern DB.
         """
-        start = time.perf_counter()
         target_name = target.text or target.image or "unknown"
         result: MatchResult | None = None
 
-        # Check learned best method first (adaptive)
-        best_method = None
-        if method == "auto" and self._learned_store is not None:
-            best_method = self._learned_store.get_best_method(target_name)
-            if best_method:
-                logger.info(
-                    "HybridMatcher: learned best method for '%s' → %s",
-                    target_name,
-                    best_method,
-                )
+        with TimedOperation() as timer:
+            # Check learned best method first (adaptive)
+            best_method = None
+            if method == "auto" and self._learned_store is not None:
+                best_method = self._learned_store.get_best_method(target_name)
+                if best_method:
+                    logger.info(
+                        "HybridMatcher: learned best method for '%s' → %s",
+                        target_name,
+                        best_method,
+                    )
 
-        if method == "auto":
-            # Full 3-tier chain, optionally starting with learned best method
-            result = await self._run_3tier(target, screenshot, best_method)
-        else:
-            # Specific method requested
-            result = await self._run_specific(target, screenshot, method)
-            if result is None and fallback:
-                logger.info(
-                    "HybridMatcher: method=%s failed, falling back to full chain",
-                    method,
-                )
-                result = await self._run_3tier(target, screenshot, None)
+            if method == "auto":
+                # Full 3-tier chain, optionally starting with learned best method
+                result = await self._run_3tier(target, screenshot, best_method)
+            else:
+                # Specific method requested
+                result = await self._run_specific(target, screenshot, method)
+                if result is None and fallback:
+                    logger.info(
+                        "HybridMatcher: method=%s failed, falling back to full chain",
+                        method,
+                    )
+                    result = await self._run_3tier(target, screenshot, None)
 
-        elapsed = (time.perf_counter() - start) * 1000.0
-
+        # Timer elapsed_ms is set after __exit__
+        elapsed_ms = timer.elapsed_ms
         if result is not None:
-            result = result.model_copy(update={"elapsed_ms": elapsed})
+            result = result.model_copy(update={"elapsed_ms": elapsed_ms})
             self._auto_save_template(target, screenshot, result)
 
             # Record success to learning DB
@@ -163,7 +163,7 @@ class HybridMatcher(BaseMatcher):
                     method=result.method.value,
                     success=True,
                     confidence=result.confidence,
-                    elapsed_ms=elapsed,
+                    elapsed_ms=elapsed_ms,
                     tier=tier,
                 )
                 logger.info(
@@ -171,7 +171,7 @@ class HybridMatcher(BaseMatcher):
                     target_name,
                     result.method.value,
                     tier,
-                    elapsed,
+                    elapsed_ms,
                     result.confidence,
                 )
 

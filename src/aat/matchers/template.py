@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING
 
 import cv2
@@ -12,6 +11,7 @@ import numpy as np
 from aat.core import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 from aat.matchers.image_utils import ImageUtils
+from aat.matchers.timing import TimedOperation
 
 if TYPE_CHECKING:
     from aat.core import TargetSpec
@@ -47,9 +47,13 @@ class TemplateMatcher(BaseMatcher):
         screenshot: bytes,
     ) -> MatchResult | None:
         """Find *target.image* inside *screenshot* using template matching."""
-        start = time.perf_counter()
         try:
-            return self._match(target, screenshot, start)
+            with TimedOperation() as timer:
+                result = self._match(target, screenshot)
+            # Timer elapsed_ms is set after __exit__
+            if result is not None:
+                result = result.model_copy(update={"elapsed_ms": timer.elapsed_ms})
+            return result
         except Exception:
             logger.exception("TemplateMatcher.find failed")
             return None
@@ -60,7 +64,6 @@ class TemplateMatcher(BaseMatcher):
         self,
         target: TargetSpec,
         screenshot: bytes,
-        start: float,
     ) -> MatchResult | None:
         if target.image is None:
             msg = "target.image must not be None (guaranteed by can_handle)"
@@ -88,8 +91,6 @@ class TemplateMatcher(BaseMatcher):
         else:
             result = self._single_scale_match(screen, tmpl, tmpl_bgr, threshold)
 
-        elapsed = (time.perf_counter() - start) * 1000.0
-
         if result is None:
             return None
 
@@ -102,7 +103,7 @@ class TemplateMatcher(BaseMatcher):
             height=h,
             confidence=confidence,
             method=MatchMethod.TEMPLATE,
-            elapsed_ms=elapsed,
+            elapsed_ms=0.0,  # Will be set by find()
         )
 
     def _single_scale_match(

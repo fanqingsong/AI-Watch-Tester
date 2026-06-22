@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING, Any
 
 import cv2
@@ -13,6 +12,7 @@ import pytesseract  # type: ignore[import-untyped]
 from aat.core import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 from aat.matchers.image_utils import ImageUtils
+from aat.matchers.timing import TimedOperation
 
 if TYPE_CHECKING:
     from aat.core import TargetSpec
@@ -49,82 +49,80 @@ class OCRMatcher(BaseMatcher):
         if target.text is None:
             return None
 
-        start = time.monotonic()
+        with TimedOperation() as timer:
+            try:
+                screen_bgr = ImageUtils.decode_image(screenshot)
+            except ValueError:
+                logger.debug("Failed to decode screenshot for OCR")
+                return None
 
-        try:
-            screen_bgr = ImageUtils.decode_image(screenshot)
-        except ValueError:
-            logger.debug("Failed to decode screenshot for OCR")
-            return None
+            # Preprocessing — enhanced for Canvas/CanvasKit rendered text
+            gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
 
-        # Preprocessing — enhanced for Canvas/CanvasKit rendered text
-        gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
+            # 1. CLAHE with stronger contrast (clipLimit=3.0 for Canvas text)
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            gray = clahe.apply(gray)
 
-        # 1. CLAHE with stronger contrast (clipLimit=3.0 for Canvas text)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
+            # 2. Sharpening filter (enhances edges of pixel-rendered text)
+            sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
+            gray = cv2.filter2D(gray, -1, sharpen_kernel)
 
-        # 2. Sharpening filter (enhances edges of pixel-rendered text)
-        sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
-        gray = cv2.filter2D(gray, -1, sharpen_kernel)
+            # 3. Upscale 2x for small text
+            h_img, w_img = gray.shape
+            gray = cv2.resize(gray, (w_img * 2, h_img * 2), interpolation=cv2.INTER_CUBIC)
 
-        # 3. Upscale 2x for small text
-        h_img, w_img = gray.shape
-        gray = cv2.resize(gray, (w_img * 2, h_img * 2), interpolation=cv2.INTER_CUBIC)
+            lang = "+".join(self._config.ocr_languages)
 
-        lang = "+".join(self._config.ocr_languages)
-
-        try:
-            data: dict[str, list[Any]] = pytesseract.image_to_data(
-                gray,
-                lang=lang,
-                config="--oem 3",
-                output_type=pytesseract.Output.DICT,
-            )
-        except Exception as e:
-            logger.warning("pytesseract OCR failed: %s", e)
-            return None
-
-        search_text = target.text.strip().lower()
-        threshold = (
-            target.confidence
-            if target.confidence is not None
-            else self._config.confidence_threshold
-        )
-
-        # Collect all candidates (for debug log + match_index)
-        candidates = self._find_all_candidates(data, search_text, threshold)
-
-        # Debug log: show all candidates
-        if candidates:
-            for i, (cx, cy, _cw, _ch, cc) in enumerate(candidates):
-                logger.debug(
-                    "[OCR] candidate %d: '%s' x=%d y=%d conf=%.2f",
-                    i,
-                    target.text,
-                    cx,
-                    cy,
-                    cc,
+            try:
+                data: dict[str, list[Any]] = pytesseract.image_to_data(
+                    gray,
+                    lang=lang,
+                    config="--oem 3",
+                    output_type=pytesseract.Output.DICT,
                 )
+            except Exception as e:
+                logger.warning("pytesseract OCR failed: %s", e)
+                return None
 
-        # Select by match_index (stored in self._match_index)
-        idx = getattr(self, "_match_index", 0)
-        if candidates:
-            if idx == -1:
-                result = candidates[-1]
-            elif 0 <= idx < len(candidates):
-                result = candidates[idx]
+            search_text = target.text.strip().lower()
+            threshold = (
+                target.confidence
+                if target.confidence is not None
+                else self._config.confidence_threshold
+            )
+
+            # Collect all candidates (for debug log + match_index)
+            candidates = self._find_all_candidates(data, search_text, threshold)
+
+            # Debug log: show all candidates
+            if candidates:
+                for i, (cx, cy, _cw, _ch, cc) in enumerate(candidates):
+                    logger.debug(
+                        "[OCR] candidate %d: '%s' x=%d y=%d conf=%.2f",
+                        i,
+                        target.text,
+                        cx,
+                        cy,
+                        cc,
+                    )
+
+            # Select by match_index (stored in self._match_index)
+            idx = getattr(self, "_match_index", 0)
+            if candidates:
+                if idx == -1:
+                    result = candidates[-1]
+                elif 0 <= idx < len(candidates):
+                    result = candidates[idx]
+                else:
+                    result = candidates[0]
             else:
-                result = candidates[0]
-        else:
-            result = None
+                result = None
 
-        if result is None:
-            return None
+            if result is None:
+                return None
 
-        x, y, w, h, conf = result
-        elapsed = (time.monotonic() - start) * 1000
-
+            x, y, w, h, conf = result
+        # Timer elapsed_ms is set after __exit__
         return MatchResult(
             found=True,
             x=x,
@@ -133,7 +131,7 @@ class OCRMatcher(BaseMatcher):
             height=h,
             confidence=conf,
             method=MatchMethod.OCR,
-            elapsed_ms=elapsed,
+            elapsed_ms=timer.elapsed_ms,
         )
 
     def _find_all_candidates(

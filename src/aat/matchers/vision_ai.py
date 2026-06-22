@@ -12,11 +12,11 @@ import base64
 import json
 import logging
 import re
-import time
 from typing import TYPE_CHECKING, Any
 
 from aat.core import MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
+from aat.matchers.timing import TimedOperation
 
 if TYPE_CHECKING:
     from aat.core import MatchingConfig, TargetSpec, VisionConfig
@@ -136,60 +136,60 @@ class VisionAIMatcher(BaseMatcher):
         if client is None:
             return None
 
-        start = time.monotonic()
-        b64_image = base64.b64encode(screenshot).decode("ascii")
-        model = self._get_model()
+        with TimedOperation() as timer:
+            b64_image = base64.b64encode(screenshot).decode("ascii")
+            model = self._get_model()
 
-        try:
-            response = await asyncio.wait_for(
-                client.messages.create(
-                    model=model,
-                    max_tokens=200,
-                    temperature=0.0,
-                    system=_SYSTEM_PROMPT,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": "image/png",
-                                        "data": b64_image,
+            try:
+                response = await asyncio.wait_for(
+                    client.messages.create(
+                        model=model,
+                        max_tokens=200,
+                        temperature=0.0,
+                        system=_SYSTEM_PROMPT,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": "image/png",
+                                            "data": b64_image,
+                                        },
                                     },
-                                },
-                                {
-                                    "type": "text",
-                                    "text": (
-                                        f'Find the UI element: "{target.text}"\n'
-                                        f"Return center coordinates as JSON."
-                                    ),
-                                },
-                            ],
-                        }
-                    ],
-                ),
-                timeout=30.0,
+                                    {
+                                        "type": "text",
+                                        "text": (
+                                            f'Find the UI element: "{target.text}"\n'
+                                            f"Return center coordinates as JSON."
+                                        ),
+                                    },
+                                ],
+                            }
+                        ],
+                    ),
+                    timeout=30.0,
+                )
+            except TimeoutError:
+                logger.warning("VisionAIMatcher[claude]: timed out")
+                return None
+            except Exception:
+                logger.exception("VisionAIMatcher[claude]: API failed")
+                return None
+
+            if not response.content:
+                return None
+
+            raw_text = response.content[0].text  # type: ignore[union-attr]
+            self._log_cost(
+                "claude",
+                model,
+                getattr(response.usage, "input_tokens", 0),
+                getattr(response.usage, "output_tokens", 0),
             )
-        except TimeoutError:
-            logger.warning("VisionAIMatcher[claude]: timed out")
-            return None
-        except Exception:
-            logger.exception("VisionAIMatcher[claude]: API failed")
-            return None
-
-        if not response.content:
-            return None
-
-        raw_text = response.content[0].text  # type: ignore[union-attr]
-        self._log_cost(
-            "claude",
-            model,
-            getattr(response.usage, "input_tokens", 0),
-            getattr(response.usage, "output_tokens", 0),
-        )
-        return self._parse_result(raw_text, target.text or "", start)
+            return self._parse_result(raw_text, target.text or "", timer.elapsed_ms)
 
     def _ensure_claude_client(self) -> Any:
         if self._client is None:
@@ -216,56 +216,56 @@ class VisionAIMatcher(BaseMatcher):
         if client is None:
             return None
 
-        start = time.monotonic()
-        b64_image = base64.b64encode(screenshot).decode("ascii")
-        model = self._get_model()
-        provider = self._get_provider()
+        with TimedOperation() as timer:
+            b64_image = base64.b64encode(screenshot).decode("ascii")
+            model = self._get_model()
+            provider = self._get_provider()
 
-        try:
-            response = await asyncio.wait_for(
-                client.chat.completions.create(
-                    model=model,
-                    max_tokens=200,
-                    temperature=0.0,
-                    messages=[
-                        {"role": "system", "content": _SYSTEM_PROMPT},
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{b64_image}",
+            try:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=model,
+                        max_tokens=200,
+                        temperature=0.0,
+                        messages=[
+                            {"role": "system", "content": _SYSTEM_PROMPT},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:image/png;base64,{b64_image}",
+                                        },
                                     },
-                                },
-                                {
-                                    "type": "text",
-                                    "text": (
-                                        f'Find the UI element: "{target.text}"\n'
-                                        f"Return center coordinates as JSON."
-                                    ),
-                                },
-                            ],
-                        },
-                    ],
-                ),
-                timeout=30.0,
-            )
-        except TimeoutError:
-            logger.warning("VisionAIMatcher[%s]: timed out", provider)
-            return None
-        except Exception:
-            logger.exception("VisionAIMatcher[%s]: API failed", provider)
-            return None
+                                    {
+                                        "type": "text",
+                                        "text": (
+                                            f'Find the UI element: "{target.text}"\n'
+                                            f"Return center coordinates as JSON."
+                                        ),
+                                    },
+                                ],
+                            },
+                        ],
+                    ),
+                    timeout=30.0,
+                )
+            except TimeoutError:
+                logger.warning("VisionAIMatcher[%s]: timed out", provider)
+                return None
+            except Exception:
+                logger.exception("VisionAIMatcher[%s]: API failed", provider)
+                return None
 
-        if not response.choices:
-            return None
+            if not response.choices:
+                return None
 
-        raw_text = response.choices[0].message.content or ""
-        input_tokens = getattr(response.usage, "prompt_tokens", 0)
-        output_tokens = getattr(response.usage, "completion_tokens", 0)
-        self._log_cost(provider, model, input_tokens, output_tokens)
-        return self._parse_result(raw_text, target.text or "", start)
+            raw_text = response.choices[0].message.content or ""
+            input_tokens = getattr(response.usage, "prompt_tokens", 0)
+            output_tokens = getattr(response.usage, "completion_tokens", 0)
+            self._log_cost(provider, model, input_tokens, output_tokens)
+            return self._parse_result(raw_text, target.text or "", timer.elapsed_ms)
 
     def _ensure_openai_client(self) -> Any:
         if self._client is None:
@@ -294,7 +294,7 @@ class VisionAIMatcher(BaseMatcher):
         self,
         raw_text: str,
         target_text: str,
-        start: float,
+        elapsed_ms: float,
     ) -> MatchResult | None:
         """Parse JSON response from any vision provider."""
         try:
@@ -308,7 +308,6 @@ class VisionAIMatcher(BaseMatcher):
         x = int(data.get("x", 0))
         y = int(data.get("y", 0))
         confidence = float(data.get("confidence", 0.0))
-        elapsed = (time.monotonic() - start) * 1000
 
         if x == 0 and y == 0 and confidence == 0.0:
             logger.info("VisionAIMatcher: element not found by AI")
@@ -326,7 +325,7 @@ class VisionAIMatcher(BaseMatcher):
             x,
             y,
             confidence,
-            elapsed,
+            elapsed_ms,
         )
         return MatchResult(
             found=True,
@@ -336,7 +335,7 @@ class VisionAIMatcher(BaseMatcher):
             height=0,
             confidence=confidence,
             method=MatchMethod.VISION_AI,
-            elapsed_ms=elapsed,
+            elapsed_ms=elapsed_ms,
         )
 
     @staticmethod
