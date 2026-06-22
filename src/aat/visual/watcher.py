@@ -14,7 +14,100 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-# Polling fallback state
+
+class FileWatcher:
+    """Watches files for changes and triggers callbacks.
+
+    Uses watchfiles for efficient native FS events when available,
+    with a polling fallback for environments without watchfiles.
+    Encapsulates watch state to avoid global mutable state.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the file watcher with empty state."""
+        self._file_mtimes: dict[str, float] = {}
+
+    async def watch_and_run(
+        self,
+        watch_paths: list[Path],
+        on_change: Callable[[set[str]], None],
+        *,
+        extensions: set[str] | None = None,
+        debounce_ms: int = 500,
+        poll_interval: float = 1.0,
+    ) -> None:
+        """Watch *watch_paths* for file changes and call *on_change*.
+
+        Args:
+            watch_paths: Directories or files to watch.
+            on_change: Called with set of changed file paths.
+            extensions: Only trigger on these extensions (e.g. {".py", ".yaml"}).
+                        None = all files.
+            debounce_ms: Debounce interval in milliseconds.
+            poll_interval: Polling interval in seconds (fallback mode).
+        """
+        if extensions is None:
+            extensions = {".py", ".ts", ".tsx", ".js", ".jsx", ".yaml", ".yml", ".html", ".css"}
+
+        try:
+            await self._watch_native(watch_paths, on_change, extensions, debounce_ms)
+        except ImportError:
+            await self._watch_polling(watch_paths, on_change, extensions, poll_interval)
+
+    async def _watch_native(
+        self,
+        watch_paths: list[Path],
+        on_change: Callable[[set[str]], None],
+        extensions: set[str],
+        debounce_ms: int,
+    ) -> None:
+        """Use watchfiles for efficient native FS events."""
+        from watchfiles import awatch  # type: ignore[import-not-found]
+
+        str_paths = [str(p) for p in watch_paths]
+
+        async for changes in awatch(
+            *str_paths,
+            debounce=debounce_ms,
+            step=100,
+            rust_timeout=5000,
+        ):
+            changed_files: set[str] = set()
+            for _change_type, path in changes:
+                if _should_include(path, extensions):
+                    changed_files.add(path)
+
+            if changed_files:
+                on_change(changed_files)
+
+    async def _watch_polling(
+        self,
+        watch_paths: list[Path],
+        on_change: Callable[[set[str]], None],
+        extensions: set[str],
+        interval: float,
+    ) -> None:
+        """Polling fallback when watchfiles is not available."""
+        # Initial scan
+        self._file_mtimes = _scan_mtimes(watch_paths, extensions)
+
+        while True:
+            await asyncio.sleep(interval)
+            current = _scan_mtimes(watch_paths, extensions)
+
+            changed: set[str] = set()
+            for path, mtime in current.items():
+                if path not in self._file_mtimes or self._file_mtimes[path] < mtime:
+                    changed.add(path)
+
+            self._file_mtimes = current
+
+            if changed:
+                on_change(changed)
+
+
+# Backward-compatible module-level functions (deprecated, use FileWatcher class instead)
+
 _file_mtimes: dict[str, float] = {}
 
 
@@ -28,6 +121,10 @@ async def watch_and_run(
 ) -> None:
     """Watch *watch_paths* for file changes and call *on_change*.
 
+    .. deprecated::
+        Use FileWatcher class instead for better encapsulation.
+        This function will be removed in a future version.
+
     Args:
         watch_paths: Directories or files to watch.
         on_change: Called with set of changed file paths.
@@ -36,66 +133,14 @@ async def watch_and_run(
         debounce_ms: Debounce interval in milliseconds.
         poll_interval: Polling interval in seconds (fallback mode).
     """
-    if extensions is None:
-        extensions = {".py", ".ts", ".tsx", ".js", ".jsx", ".yaml", ".yml", ".html", ".css"}
-
-    try:
-        await _watch_native(watch_paths, on_change, extensions, debounce_ms)
-    except ImportError:
-        await _watch_polling(watch_paths, on_change, extensions, poll_interval)
-
-
-async def _watch_native(
-    watch_paths: list[Path],
-    on_change: Callable[[set[str]], None],
-    extensions: set[str],
-    debounce_ms: int,
-) -> None:
-    """Use watchfiles for efficient native FS events."""
-    from watchfiles import awatch  # type: ignore[import-not-found]
-
-    str_paths = [str(p) for p in watch_paths]
-
-    async for changes in awatch(
-        *str_paths,
-        debounce=debounce_ms,
-        step=100,
-        rust_timeout=5000,
-    ):
-        changed_files: set[str] = set()
-        for _change_type, path in changes:
-            if _should_include(path, extensions):
-                changed_files.add(path)
-
-        if changed_files:
-            on_change(changed_files)
-
-
-async def _watch_polling(
-    watch_paths: list[Path],
-    on_change: Callable[[set[str]], None],
-    extensions: set[str],
-    interval: float,
-) -> None:
-    """Polling fallback when watchfiles is not available."""
-    global _file_mtimes  # noqa: PLW0603
-
-    # Initial scan
-    _file_mtimes = _scan_mtimes(watch_paths, extensions)
-
-    while True:
-        await asyncio.sleep(interval)
-        current = _scan_mtimes(watch_paths, extensions)
-
-        changed: set[str] = set()
-        for path, mtime in current.items():
-            if path not in _file_mtimes or _file_mtimes[path] < mtime:
-                changed.add(path)
-
-        _file_mtimes = current
-
-        if changed:
-            on_change(changed)
+    watcher = FileWatcher()
+    await watcher.watch_and_run(
+        watch_paths,
+        on_change,
+        extensions=extensions,
+        debounce_ms=debounce_ms,
+        poll_interval=poll_interval,
+    )
 
 
 def _scan_mtimes(paths: list[Path], extensions: set[str]) -> dict[str, float]:

@@ -137,8 +137,8 @@ async def _watch(
     from aat.visual.watcher import (
         detect_changed_scenarios,
         format_change_summary,
-        watch_and_run,
     )
+    from aat.visual.watcher import FileWatcher
 
     def on_change(changed_files: set[str]) -> None:
         """Handle file changes — schedule test run."""
@@ -165,7 +165,9 @@ async def _watch(
         else:
             _run_tests(scenarios_path, config_path, url_override, threshold, has_baselines)
 
-    await watch_and_run(
+    # Use FileWatcher class instead of global state
+    watcher = FileWatcher()
+    await watcher.watch_and_run(
         watch_paths,
         on_change,
         debounce_ms=debounce_ms,
