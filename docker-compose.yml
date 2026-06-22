@@ -1,28 +1,51 @@
+# AI-Watch-Tester Docker Compose Configuration
+#
+# This file defines two separate services:
+# 1. AAT Dashboard (local, single-user) - Port 9500
+# 2. Cloud SaaS (multi-user, database) - Ports 8000 (backend) + 3000 (frontend)
+#
+# Quick Start:
+#   Start only AAT Dashboard:    docker compose up aat
+#   Start only Cloud SaaS:       docker compose up cloud-backend cloud-frontend
+#   Start all services:          docker compose up
+
 services:
-  # AAT Dashboard Service
+  # ============================================================================
+  # AAT Dashboard - Local Single-User Mode
+  # ============================================================================
+  # Quick, lightweight testing without authentication
+  # Perfect for: Local development, individual testing, quick experiments
+  # Access: http://localhost:9500
+
   aat:
     build:
       context: .
       dockerfile: Dockerfile
     image: ai-watch-tester:latest
     container_name: ai-watch-tester
+
     working_dir: /app
 
     volumes:
+      # Mount source code for development
       - .:/app
+      # Mount scenarios directory
       - ./scenarios:/app/scenarios
+      # Mount AAT cache directory
       - ./.aat:/app/.aat
+      # Mount Playwright browser cache
       - ~/.cache/ms-playwright:/root/.cache/ms-playwright
 
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/src:/app
       - PATH=/usr/local/bin:/usr/bin:/bin
-      # AI API Keys
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+      # AI Provider Configuration (choose one)
       - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
       - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4-flash}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
 
     ports:
@@ -30,13 +53,17 @@ services:
 
     command: >
       bash -c "
-        echo '=== Starting AAT Dashboard ===' &&
+        echo '========================================' &&
+        echo '🚀 Starting AAT Dashboard (Local Mode)' &&
+        echo '📍 Access: http://localhost:9500' &&
+        echo '========================================' &&
         aat dashboard --host 0.0.0.0 --port 9500 --reload
       "
 
     stdin_open: true
     tty: true
     restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9500"]
       interval: 30s
@@ -44,19 +71,30 @@ services:
       retries: 3
       start_period: 60s
 
-  # Cloud Backend Service
+  # ============================================================================
+  # Cloud SaaS - Multi-User Mode
+  # ============================================================================
+  # Full-featured testing platform with authentication and database
+  # Perfect for: Team collaboration, production deployment, managed testing
+  # Access: http://localhost:3000 (frontend) + http://localhost:8000 (API)
+
   cloud-backend:
     build:
       context: .
       dockerfile: cloud/Dockerfile
     image: awt-cloud-backend:latest
-      # 临时以 root 身份运行（开发环境），解决 SQLite 权限问题
-    user: root
     container_name: awt-cloud-backend
+
+    # Run as root for SQLite write access (development)
+    # For production, consider PostgreSQL + proper user permissions
+    user: root
+
     working_dir: /app
 
     volumes:
+      # Mount cloud source code for development
       - ./cloud:/app/cloud
+      # Persistent volumes for data
       - cloud_screenshots:/app/screenshots
       - cloud_uploads:/app/uploads
       - cloud_db:/app/cloud_data
@@ -64,13 +102,29 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/src:/app/cloud/app
-      # Cloud backend config (fully local — SQLite, no external auth/DB service)
+
+      # Database Configuration
       - AWT_DATABASE_URL=${AWT_DATABASE_URL:-sqlite+aiosqlite:///./cloud_data/awt_cloud.db}
+
+      # Rate Limiting (monthly tests per tier)
       - AWT_RATE_LIMIT_FREE=${AWT_RATE_LIMIT_FREE:-5}
       - AWT_RATE_LIMIT_PRO=${AWT_RATE_LIMIT_PRO:--1}
+      - AWT_RATE_LIMIT_TEAM=${AWT_RATE_LIMIT_TEAM:--1}
+
+      # Debug Mode
       - AWT_DEBUG=${AWT_DEBUG:-false}
-      # AI API Keys
-      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
+
+      # Encryption Key (REQUIRED for user API key storage)
+      # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - AWT_ENCRYPTION_KEY=${AWT_ENCRYPTION_KEY:-}
+
+      # Default AI Provider (fallback when user has no personal config)
+      - AWT_AI_PROVIDER=${AWT_AI_PROVIDER:-zhipuai}
+      - AWT_AI_API_KEY=${AWT_AI_API_KEY:-${ZHIPUAI_API_KEY:-}}
+      - AWT_AI_MODEL=${AWT_AI_MODEL:-glm-4-flash}
+
+      # AI Provider-Specific Keys (for reference)
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
       - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4-flash}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -80,7 +134,10 @@ services:
 
     command: >
       bash -c "
-        echo '=== Starting Cloud Backend ===' &&
+        echo '========================================' &&
+        echo '🔧 Starting Cloud Backend' &&
+        echo '📍 API: http://localhost:8000' &&
+        echo '========================================' &&
         mkdir -p screenshots uploads cloud_data &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
@@ -88,6 +145,7 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -95,7 +153,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # Cloud Frontend Service
   cloud-frontend:
     build:
       context: ./cloud/frontend
@@ -106,12 +163,23 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      # Backend API URL (accessible from browser)
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
 
     ports:
       - "3000:3000"
 
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '🌐 Starting Cloud Frontend' &&
+        echo '📍 Access: http://localhost:3000' &&
+        echo '========================================' &&
+        npm run start
+      "
+
     restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
@@ -123,6 +191,10 @@ services:
       cloud-backend:
         condition: service_healthy
 
+# ============================================================================
+# Persistent Volumes
+# ============================================================================
+
 volumes:
   cloud_screenshots:
     driver: local
@@ -130,3 +202,41 @@ volumes:
     driver: local
   cloud_db:
     driver: local
+
+# ============================================================================
+# Quick Reference
+# ============================================================================
+#
+# Environment Variables (.env file recommended):
+#
+# # AI Provider (choose one)
+# ZHIPUAI_API_KEY=your_zhipu_api_key_here
+# ZHIPUAI_MODEL=glm-4-flash
+# ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# OPENAI_API_KEY=your_openai_api_key_here
+#
+# # Cloud SaaS Configuration
+# AWT_ENCRYPTION_KEY=your_generated_encryption_key_here
+# AWT_AI_PROVIDER=zhipuai
+# AWT_AI_API_KEY=your_zhipu_api_key_here
+# AWT_AI_MODEL=glm-4-flash
+#
+# Usage Examples:
+#   # Start only AAT Dashboard (recommended for local use)
+#   docker compose up aat -d
+#
+#   # Start only Cloud SaaS (recommended for multi-user)
+#   docker compose up cloud-backend cloud-frontend -d
+#
+#   # Start everything
+#   docker compose up -d
+#
+#   # View logs
+#   docker compose logs -f aat
+#   docker compose logs -f cloud-backend
+#
+#   # Stop services
+#   docker compose down
+#
+#   # Rebuild images
+#   docker compose build --no-cache
