@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aat.core.models import TargetSpec
+from aat.core import TargetSpec
 from aat.matchers.vision_ai import VisionAIMatcher
 
 

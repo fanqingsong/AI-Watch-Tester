@@ -12,7 +12,7 @@ from aat.core.exceptions import GitOpsError
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from aat.core.models import FileChange
+    from aat.core import FileChange
 
 
 class GitOps:

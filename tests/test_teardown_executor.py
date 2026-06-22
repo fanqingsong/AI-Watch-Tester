@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aat.core.models import TeardownStep
+from aat.core import TeardownStep
 from aat.core.teardown import TeardownExecutor
 
 # ---------------------------------------------------------------------------

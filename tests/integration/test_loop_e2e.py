@@ -18,7 +18,7 @@ from typer.testing import CliRunner
 from aat.cli.main import app
 from aat.core.config import save_config
 from aat.core.loop import DevQALoop
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AnalysisResult,
     Config,
@@ -551,7 +551,7 @@ class TestLearnedStoreE2E:
         """save → find → increment → export → import to new DB."""
         from datetime import datetime
 
-        from aat.core.models import LearnedElement
+        from aat.core import LearnedElement
 
         store = LearnedStore(tmp_path / "test.db")
         try:

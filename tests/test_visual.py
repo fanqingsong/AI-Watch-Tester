@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import pytest
 
-from aat.core.models import BaselineMeta, StepDiffResult, VisualDiffReport
+from aat.core import BaselineMeta, StepDiffResult, VisualDiffReport
 from aat.visual.baseline_store import BaselineStore
 from aat.visual.comparator import VisualComparator
 

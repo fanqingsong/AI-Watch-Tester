@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from aat.core.exceptions import StepExecutionError
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AssertType,
     ExpectedResult,

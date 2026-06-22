@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aat.core.models import HumanizerConfig
+from aat.core import HumanizerConfig
 from aat.engine.humanizer import Humanizer
 
 

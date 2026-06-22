@@ -15,7 +15,7 @@ from typing import Any
 
 from aat.core.config import load_config, save_config
 from aat.core.exceptions import AATError, DashboardError
-from aat.core.models import ApprovalMode, Config, StepStatus
+from aat.core import ApprovalMode, Config, StepStatus
 
 try:
     from fastapi import (  # type: ignore[import-not-found]

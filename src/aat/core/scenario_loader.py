@@ -18,7 +18,7 @@ from typing import Any
 import yaml
 
 from aat.core.exceptions import ScenarioError
-from aat.core.models import Scenario
+from aat.core import Scenario
 
 _VAR_PATTERN = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
 _UNRESOLVED_PATTERN = re.compile(r"\{\{[\w.]+\}\}")

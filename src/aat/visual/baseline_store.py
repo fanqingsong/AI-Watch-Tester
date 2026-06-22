@@ -8,7 +8,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from aat.core.models import BaselineMeta
+from aat.core import BaselineMeta
 
 logger = logging.getLogger(__name__)
 

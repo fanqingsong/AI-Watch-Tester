@@ -43,7 +43,7 @@ async def _scan(
     config_path: str | None,
 ) -> None:
     """Execute scan asynchronously."""
-    from aat.core.models import EngineConfig
+    from aat.core import EngineConfig
     from aat.engine.web import WebEngine
 
     cfg_path = Path(config_path) if config_path else None

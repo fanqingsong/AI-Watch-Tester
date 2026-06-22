@@ -11,7 +11,7 @@ import pytest
 
 from aat.adapters.ollama import OllamaAdapter
 from aat.core.exceptions import AdapterError
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AIConfig,
     AnalysisResult,

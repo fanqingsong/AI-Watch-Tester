@@ -18,7 +18,7 @@ from playwright.async_api import (
 )
 
 from aat.core.exceptions import EngineError
-from aat.core.models import EngineConfig
+from aat.core import EngineConfig
 from aat.engine.base import BaseEngine
 from aat.engine.engine_utils import create_playwright_text_strategies_for_text
 

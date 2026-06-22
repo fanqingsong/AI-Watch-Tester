@@ -336,7 +336,7 @@ class TestScenarioGeneration:
         assert "비어있습니다" in response.json()["error"]
 
     def test_generate_success(self, client: TestClient) -> None:
-        from aat.core.models import Scenario, StepConfig
+        from aat.core import Scenario, StepConfig
 
         mock_scenario = Scenario(
             id="SC-001",
@@ -488,7 +488,7 @@ class TestAutoDetectAI:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Auto-detects ANTHROPIC_API_KEY from env."""
-        from aat.core.models import Config
+        from aat.core import Config
         from aat.dashboard.app import _auto_detect_ai
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test123")
@@ -499,7 +499,7 @@ class TestAutoDetectAI:
 
     def test_auto_detect_openai_key(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Auto-detects OPENAI_API_KEY from env."""
-        from aat.core.models import Config
+        from aat.core import Config
         from aat.dashboard.app import _auto_detect_ai
 
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -513,7 +513,7 @@ class TestAutoDetectAI:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Does not override if API key already set."""
-        from aat.core.models import Config
+        from aat.core import Config
         from aat.dashboard.app import _auto_detect_ai
 
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test123")
@@ -526,7 +526,7 @@ class TestAutoDetectAI:
 
     def test_auto_detect_ollama(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Auto-detects OLLAMA_HOST from env."""
-        from aat.core.models import Config
+        from aat.core import Config
         from aat.dashboard.app import _auto_detect_ai
 
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

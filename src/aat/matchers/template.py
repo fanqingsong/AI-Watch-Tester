@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from aat.core.models import MatchingConfig, MatchMethod, MatchResult
+from aat.core import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 from aat.matchers.image_utils import ImageUtils
 
 if TYPE_CHECKING:
-    from aat.core.models import TargetSpec
+    from aat.core import TargetSpec
 
 logger = logging.getLogger(__name__)
 

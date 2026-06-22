@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 
 from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
-from aat.core.models import (
+from aat.core import (
     FIND_ACTIONS,
     ActionType,
     ScreenRegion,
@@ -28,7 +28,7 @@ from aat.core.models import (
 )
 
 if TYPE_CHECKING:
-    from aat.core.models import MatchResult, StepConfig, TargetSpec
+    from aat.core import MatchResult, StepConfig, TargetSpec
     from aat.engine.base import BaseEngine
     from aat.engine.comparator import Comparator
     from aat.engine.humanizer import Humanizer
@@ -644,7 +644,7 @@ class StepExecutor:
         confidence: float = 1.0,
     ) -> MatchResult:
         """Execute find_and_* action at given position, return MatchResult."""
-        from aat.core.models import MatchMethod, MatchResult
+        from aat.core import MatchMethod, MatchResult
 
         # Handle iframe direct click (x=-1 sentinel from _find_text_with_synonyms)
         iframe_loc = getattr(self, "_iframe_locator", None)
@@ -1009,7 +1009,7 @@ class StepExecutor:
         ):
             pos = await self._find_by_flutter_semantics(target.text)
             if pos is not None:
-                from aat.core.models import MatchMethod, MatchResult
+                from aat.core import MatchMethod, MatchResult
 
                 logger.info(
                     "Found '%s' via Flutter Semantics at (%d, %d)",
@@ -1034,7 +1034,7 @@ class StepExecutor:
 
             # Fallback 3: JS force click via locator (bypasses sticky headers)
             if hasattr(self._engine, "force_click_by_text"):
-                from aat.core.models import MatchMethod, MatchResult
+                from aat.core import MatchMethod, MatchResult
 
                 texts_to_try = [target.text] + _SYNONYMS.get(target.text.lower(), [])
                 for t in texts_to_try:
@@ -1058,7 +1058,7 @@ class StepExecutor:
             confidence = target.confidence or 0.8
             coords = await self._engine.find_on_screen(target.image, confidence)
             if coords is not None:
-                from aat.core.models import MatchMethod, MatchResult
+                from aat.core import MatchMethod, MatchResult
 
                 sx, sy = coords
                 result = MatchResult(
@@ -1407,13 +1407,13 @@ class StepExecutor:
 
         data = _walk(data)
         # StepConfig is TYPE_CHECKING-only above; import at runtime here
-        from aat.core.models import StepConfig as _StepConfig  # noqa: PLC0415
+        from aat.core import StepConfig as _StepConfig  # noqa: PLC0415
 
         return _StepConfig.model_validate(data)
 
     async def _find_and_act_no_click(self, step: StepConfig) -> MatchResult | None:
         """Find target without clicking (for save_as)."""
-        from aat.core.models import MatchResult
+        from aat.core import MatchResult
 
         target = step.target
         if not target:
@@ -1711,7 +1711,7 @@ class StepExecutor:
                     )
                 else:
                     # Normal execution (main frame)
-                    from aat.core.models import StepConfig
+                    from aat.core import StepConfig
 
                     sub_copy["step"] = step.step * 100 + i + 1
                     if "description" not in sub_copy:
@@ -1825,7 +1825,7 @@ class StepExecutor:
                     "[AWT] iframe: unsupported action '%s', falling back to main frame",
                     action,
                 )
-                from aat.core.models import StepConfig
+                from aat.core import StepConfig
 
                 sub["step"] = parent_step * 100 + idx + 1
                 if "description" not in sub:

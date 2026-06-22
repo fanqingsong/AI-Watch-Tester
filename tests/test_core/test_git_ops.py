@@ -8,7 +8,7 @@ import pytest
 
 from aat.core.exceptions import GitOpsError
 from aat.core.git_ops import GitOps
-from aat.core.models import FileChange
+from aat.core import FileChange
 
 if TYPE_CHECKING:
     from pathlib import Path

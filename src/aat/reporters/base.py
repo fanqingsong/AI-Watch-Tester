@@ -10,7 +10,7 @@ from pathlib import Path  # noqa: TC003
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aat.core.models import LoopResult, TestResult
+    from aat.core import LoopResult, TestResult
 
 
 class BaseReporter(ABC):

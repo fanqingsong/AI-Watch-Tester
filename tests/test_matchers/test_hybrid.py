@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aat.core.models import MatchingConfig, MatchMethod, MatchResult, TargetSpec
+from aat.core import MatchingConfig, MatchMethod, MatchResult, TargetSpec
 from aat.matchers.base import BaseMatcher
 from aat.matchers.hybrid import HybridMatcher
 

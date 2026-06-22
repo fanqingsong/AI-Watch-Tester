@@ -16,7 +16,7 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_SCENARIOS,
 )
 from aat.core.exceptions import AdapterError
-from aat.core.models import (
+from aat.core import (
     AnalysisResult,
     FileChange,
     FixResult,
@@ -25,7 +25,7 @@ from aat.core.models import (
 )
 
 if TYPE_CHECKING:
-    from aat.core.models import AIConfig, TestResult
+    from aat.core import AIConfig, TestResult
 
 logger = logging.getLogger(__name__)
 

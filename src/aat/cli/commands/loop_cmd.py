@@ -14,7 +14,7 @@ from aat.core.cost import load_cost_log
 from aat.core.exceptions import AATError
 from aat.core.git_ops import GitOps
 from aat.core.loop import DevQALoop
-from aat.core.models import ApprovalMode, StepStatus
+from aat.core import ApprovalMode, StepStatus
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator
@@ -26,7 +26,7 @@ from aat.matchers.hybrid import HybridMatcher
 from aat.reporters import REPORTER_REGISTRY
 
 if TYPE_CHECKING:
-    from aat.core.models import (
+    from aat.core import (
         AnalysisResult,
         FixResult,
         TestResult,

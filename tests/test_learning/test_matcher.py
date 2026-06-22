@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aat.core.models import LearnedElement, MatchMethod, TargetSpec
+from aat.core import LearnedElement, MatchMethod, TargetSpec
 from aat.learning.matcher import LearnedMatcher
 
 

@@ -15,11 +15,11 @@ import re
 import time
 from typing import TYPE_CHECKING, Any
 
-from aat.core.models import MatchMethod, MatchResult
+from aat.core import MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 
 if TYPE_CHECKING:
-    from aat.core.models import MatchingConfig, TargetSpec, VisionConfig
+    from aat.core import MatchingConfig, TargetSpec, VisionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class VisionAIMatcher(BaseMatcher):
 
         # Legacy: if no VisionConfig but AIConfig provided, adapt
         if self._vision_config is None and ai_config is not None:
-            from aat.core.models import VisionConfig
+            from aat.core import VisionConfig
 
             provider = getattr(ai_config, "provider", "claude")
             if provider in ("claude", "openai", "gemini"):

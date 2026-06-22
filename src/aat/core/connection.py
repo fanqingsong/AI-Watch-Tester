@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 if TYPE_CHECKING:
-    from aat.core.models import AIConfig, VisionConfig
+    from aat.core import AIConfig, VisionConfig
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ async def test_vision_connection(
     if not config.api_key:
         return False, "Vision API key is empty."
 
-    from aat.core.models import AIConfig
+    from aat.core import AIConfig
 
     # Reuse existing provider tests via AIConfig adapter
     ai = AIConfig(

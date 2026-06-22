@@ -10,7 +10,7 @@ import yaml
 from typer.testing import CliRunner
 
 from aat.cli.main import app
-from aat.core.models import Scenario
+from aat.core import Scenario
 
 runner = CliRunner()
 

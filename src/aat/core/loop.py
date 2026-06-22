@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from aat.core.cost import log_cost
 from aat.core.exceptions import LoopError
-from aat.core.models import (
+from aat.core import (
     ApprovalMode,
     LoopIteration,
     LoopResult,
@@ -21,7 +21,7 @@ from aat.core.models import (
 if TYPE_CHECKING:
     from aat.adapters.base import AIAdapter
     from aat.core.git_ops import GitOps
-    from aat.core.models import AnalysisResult, Config, FileChange, FixResult, Scenario, StepResult
+    from aat.core import AnalysisResult, Config, FileChange, FixResult, Scenario, StepResult
     from aat.engine.base import BaseEngine
     from aat.engine.executor import StepExecutor
     from aat.reporters.base import BaseReporter

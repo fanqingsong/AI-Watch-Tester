@@ -8,7 +8,7 @@ import httpx
 
 from aat.core.connection import test_ai_connection as check_ai_connection
 from aat.core.connection import test_url as check_url
-from aat.core.models import AIConfig
+from aat.core import AIConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

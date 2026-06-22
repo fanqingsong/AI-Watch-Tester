@@ -6,11 +6,11 @@ import hashlib
 import logging
 from typing import TYPE_CHECKING
 
-from aat.core.models import MatchMethod, MatchResult
+from aat.core import MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 
 if TYPE_CHECKING:
-    from aat.core.models import TargetSpec
+    from aat.core import TargetSpec
     from aat.learning.store import LearnedStore
 
 logger = logging.getLogger(__name__)

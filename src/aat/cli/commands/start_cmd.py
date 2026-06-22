@@ -20,7 +20,7 @@ from aat.core.connection import test_ai_connection, test_url
 from aat.core.events import CLIEventHandler
 from aat.core.exceptions import AATError
 from aat.core.loop import DevQALoop
-from aat.core.models import Config
+from aat.core import Config
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator
@@ -212,7 +212,7 @@ async def _start_guided(config_path: str | None) -> None:
                 for f in files:
                     try:
                         text, images = await parser.parse(f)
-                        from aat.core.models import Scenario
+                        from aat.core import Scenario
 
                         new_scenarios: list[Scenario] = await adapter.generate_scenarios(
                             text,
@@ -319,7 +319,7 @@ async def _start_guided(config_path: str | None) -> None:
     try:
         await engine.start()
 
-        from aat.core.models import StepStatus, TestResult
+        from aat.core import StepStatus, TestResult
 
         all_step_results: list[Any] = []
         total_steps = sum(len(sc.steps) for sc in scenarios)

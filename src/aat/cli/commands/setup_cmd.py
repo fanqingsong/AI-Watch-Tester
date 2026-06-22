@@ -141,7 +141,7 @@ def setup_command(
     try:
         cfg = load_config(config_path if config_path.exists() else None)
     except Exception:
-        from aat.core.models import Config
+        from aat.core import Config
 
         cfg = Config()
 

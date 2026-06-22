@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: TC003
 
 import pytest
 
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AnalysisResult,
     FileChange,

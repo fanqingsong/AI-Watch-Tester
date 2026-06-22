@@ -13,10 +13,10 @@ import cv2
 import numpy as np
 
 from aat.core.exceptions import StepExecutionError
-from aat.core.models import AssertType, ExpectedResult
+from aat.core import AssertType, ExpectedResult
 
 if TYPE_CHECKING:
-    from aat.core.models import StepConfig
+    from aat.core import StepConfig
     from aat.engine.base import BaseEngine
 
 

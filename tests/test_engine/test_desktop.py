@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from aat.core.exceptions import EngineError
-from aat.core.models import EngineConfig
+from aat.core import EngineConfig
 from aat.engine.desktop import DesktopEngine
 
 if TYPE_CHECKING:

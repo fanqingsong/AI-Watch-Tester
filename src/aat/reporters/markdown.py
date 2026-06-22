@@ -6,7 +6,7 @@ import json
 from pathlib import Path  # noqa: TC003
 
 from aat.core.exceptions import ReporterError
-from aat.core.models import LoopResult, TestResult
+from aat.core import LoopResult, TestResult
 from aat.reporters.base import BaseReporter
 
 

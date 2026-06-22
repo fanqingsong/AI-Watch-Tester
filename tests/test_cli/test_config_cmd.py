@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from aat.cli.main import app
 from aat.core.config import save_config
-from aat.core.models import Config
+from aat.core import Config
 
 runner = CliRunner()
 

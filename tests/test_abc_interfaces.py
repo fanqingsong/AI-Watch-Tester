@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: TC003
 import pytest
 
 from aat.adapters.base import AIAdapter
-from aat.core.models import (
+from aat.core import (
     LoopResult,
     MatchResult,
     TargetSpec,

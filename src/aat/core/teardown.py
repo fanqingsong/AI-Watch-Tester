@@ -16,7 +16,7 @@ import httpx
 from aat.core.scenario_loader import _substitute_vars
 
 if TYPE_CHECKING:
-    from aat.core.models import TeardownStep
+    from aat.core import TeardownStep
 
 logger = logging.getLogger(__name__)
 

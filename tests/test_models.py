@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from aat import __version__
-from aat.core.models import (
+from aat.core import (
     FIND_ACTIONS,
     ActionType,
     AIConfig,

@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from aat.core.exceptions import ConfigError
-from aat.core.models import Config
+from aat.core import Config
 
 DEFAULT_CONFIG_FILENAME = "aat.config.yaml"
 

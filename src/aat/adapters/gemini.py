@@ -20,7 +20,7 @@ from openai import AsyncOpenAI
 from aat.adapters.openai_adapter import OpenAIAdapter
 
 if TYPE_CHECKING:
-    from aat.core.models import AIConfig
+    from aat.core import AIConfig
 
 logger = logging.getLogger(__name__)
 

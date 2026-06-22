@@ -124,7 +124,7 @@ def _save_to_store(store: object, target_name: str, img_hash: str, dest: str) ->
     Gracefully degrades if the store API doesn't match expectations yet.
     """
     try:
-        from aat.core.models import LearnedElement
+        from aat.core import LearnedElement
 
         element = LearnedElement(
             scenario_id="manual",

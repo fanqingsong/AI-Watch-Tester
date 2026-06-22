@@ -18,7 +18,7 @@ from aat.core.diagnosis import (
     format_skill_diagnosis,
 )
 from aat.core.exceptions import AATError
-from aat.core.models import FIND_ACTIONS, Scenario, StepResult, StepStatus
+from aat.core import FIND_ACTIONS, Scenario, StepResult, StepStatus
 from aat.core.platform_detect import detect_platform, format_platform_info
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from aat.core.models import Scenario, TeardownStep
+from aat.core import Scenario, TeardownStep
 from aat.core.scenario_loader import _validate_scenario_data
 
 # ---------------------------------------------------------------------------

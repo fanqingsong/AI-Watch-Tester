@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import pytest
 
-from aat.core.models import MatchingConfig, TargetSpec
+from aat.core import MatchingConfig, TargetSpec
 from aat.matchers.feature import FeatureMatcher
 from aat.matchers.hybrid import HybridMatcher
 from aat.matchers.ocr import OCRMatcher

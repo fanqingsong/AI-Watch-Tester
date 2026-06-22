@@ -15,7 +15,7 @@ import typer
 from aat.core.config import load_config
 
 if TYPE_CHECKING:
-    from aat.core.models import Config
+    from aat.core import Config
 
 _IS_MAC = platform.system() == "Darwin"
 _IS_LINUX = platform.system() == "Linux"

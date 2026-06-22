@@ -15,7 +15,7 @@ from aat.core.config import (
     save_config,
 )
 from aat.core.exceptions import ConfigError
-from aat.core.models import Config
+from aat.core import Config
 
 # ── Defaults ──
 

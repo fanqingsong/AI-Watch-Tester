@@ -73,7 +73,7 @@ async def _generate(
         save_cached_scenarios,
         spec_cache_key,
     )
-    from aat.core.models import Scenario  # noqa: TC001
+    from aat.core import Scenario  # noqa: TC001
 
     cfg_path = Path(config_path) if config_path else None
     config = load_config(config_path=cfg_path)

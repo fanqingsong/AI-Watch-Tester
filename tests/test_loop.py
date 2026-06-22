@@ -10,7 +10,7 @@ import pytest
 
 from aat.core.exceptions import LoopError
 from aat.core.loop import DevQALoop
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AnalysisResult,
     ApprovalMode,

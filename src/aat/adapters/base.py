@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aat.core.models import AnalysisResult, FixResult, Scenario, TestResult
+    from aat.core import AnalysisResult, FixResult, Scenario, TestResult
 
 
 class AIAdapter(ABC):

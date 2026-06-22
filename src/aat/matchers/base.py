@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aat.core.models import MatchResult, TargetSpec
+    from aat.core import MatchResult, TargetSpec
 
 
 class BaseMatcher(ABC):

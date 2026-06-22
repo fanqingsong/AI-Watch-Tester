@@ -11,7 +11,7 @@ import asyncio
 import random
 from typing import TYPE_CHECKING
 
-from aat.core.models import HumanizerConfig
+from aat.core import HumanizerConfig
 
 if TYPE_CHECKING:
     from aat.engine.base import BaseEngine

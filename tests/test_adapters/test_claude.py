@@ -10,7 +10,7 @@ import pytest
 
 from aat.adapters.claude import ClaudeAdapter
 from aat.core.exceptions import AdapterError
-from aat.core.models import (
+from aat.core import (
     ActionType,
     AIConfig,
     AnalysisResult,

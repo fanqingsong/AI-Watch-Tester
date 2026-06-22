@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: TC003
 
 import pytest
 
-from aat.core.models import LearnedElement
+from aat.core import LearnedElement
 from aat.learning.store import LearnedStore
 
 
