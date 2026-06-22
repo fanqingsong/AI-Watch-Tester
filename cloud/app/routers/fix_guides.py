@@ -116,17 +116,23 @@ async def generate_fix_guide_endpoint(
             api_key=user_cfg["api_key"],
             model=user_cfg["model"] or _DEFAULT_MODELS.get(user_cfg["provider"], ""),
         )
-    elif settings.ai_api_key:
-        ai_config = AIConfig(
-            provider=settings.ai_provider,
-            api_key=settings.ai_api_key,
-            model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
-        )
     else:
-        guide.status = FixGuideStatus.FAILED
-        guide.summary = "No AI API key configured."
-        await db.commit()
-        raise HTTPException(status_code=400, detail="no_ai_key_configured")
+        # Ollama is a local provider that doesn't require an API key
+        provider = settings.ai_provider
+        api_key = settings.ai_api_key
+        if provider == "ollama":
+            # Ollama uses localhost by default, API key is optional (can be used as URL override)
+            api_key = api_key or "http://localhost:11434"
+        elif not api_key:
+            guide.status = FixGuideStatus.FAILED
+            guide.summary = "No AI API key configured."
+            await db.commit()
+            raise HTTPException(status_code=400, detail="no_ai_key_configured")
+        ai_config = AIConfig(
+            provider=provider,
+            api_key=api_key,
+            model=settings.ai_model or _DEFAULT_MODELS.get(provider, ""),
+        )
 
     # Fetch GitHub connection for source context
     from app.routers.github import get_user_github

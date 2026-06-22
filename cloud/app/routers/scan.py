@@ -1660,12 +1660,18 @@ async def execute_scan_tests(
             max_tokens=16000,
         )
     else:
-        if not settings.ai_api_key:
+        # Ollama is a local provider that doesn't require an API key
+        provider = settings.ai_provider
+        api_key = settings.ai_api_key
+        if provider == "ollama":
+            # Ollama uses localhost by default, API key is optional (can be used as URL override)
+            api_key = api_key or "http://localhost:11434"
+        elif not api_key:
             raise HTTPException(status_code=400, detail="no_ai_key_configured")
         ai_config = AIConfig(
-            provider=settings.ai_provider,
-            api_key=settings.ai_api_key,
-            model=settings.ai_model or _DEFAULT_MODELS.get(settings.ai_provider, ""),
+            provider=provider,
+            api_key=api_key,
+            model=settings.ai_model or _DEFAULT_MODELS.get(provider, ""),
             max_tokens=16000,
         )
     adapter_cls = ADAPTER_REGISTRY.get(ai_config.provider)
