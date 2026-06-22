@@ -11,6 +11,7 @@ import numpy as np
 
 from aat.core.models import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
+from aat.matchers.image_utils import ImageUtils
 
 if TYPE_CHECKING:
     from aat.core.models import TargetSpec
@@ -64,36 +65,21 @@ class FeatureMatcher(BaseMatcher):
 
     # -- internal helpers -----------------------------------------------------
 
-    def _decode_image(self, raw: bytes) -> np.ndarray:
-        arr = np.frombuffer(raw, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img is None:
-            msg = "Failed to decode image bytes"
-            raise ValueError(msg)
-        return img
-
-    def _to_gray(self, img: np.ndarray) -> np.ndarray:
-        if len(img.shape) == 2:
-            return img
-        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
     def _match(
         self,
         target: TargetSpec,
         screenshot: bytes,
         start: float,
     ) -> MatchResult | None:
-        assert target.image is not None  # noqa: S101
+        if target.image is None:
+            msg = "target.image must not be None (guaranteed by can_handle)"
+            raise ValueError(msg)
 
-        tmpl_bgr = cv2.imread(target.image, cv2.IMREAD_COLOR)
-        if tmpl_bgr is None:
-            logger.warning("Cannot read template image: %s", target.image)
-            return None
+        tmpl_bgr = ImageUtils.decode_image(target.image)
+        screen_bgr = ImageUtils.decode_image(screenshot)
 
-        screen_bgr = self._decode_image(screenshot)
-
-        tmpl_gray = self._to_gray(tmpl_bgr)
-        screen_gray = self._to_gray(screen_bgr)
+        tmpl_gray = ImageUtils.to_gray(tmpl_bgr)
+        screen_gray = ImageUtils.to_gray(screen_bgr)
 
         kp_tmpl, desc_tmpl = self._orb.detectAndCompute(tmpl_gray, None)
         kp_screen, desc_screen = self._orb.detectAndCompute(screen_gray, None)

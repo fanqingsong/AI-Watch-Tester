@@ -43,8 +43,9 @@ RUN playwright install --with-deps chromium && chmod -R a+rX /ms-playwright
 COPY cloud/app/ ./app/
 COPY cloud/scripts/ ./scripts/
 
-# 运行时目录
-RUN mkdir -p screenshots uploads
+# 运行时目录（在切换用户前创建并设置权限）
+RUN mkdir -p screenshots uploads cloud_data && \
+    chown -R appuser:appuser screenshots uploads cloud_data
 
 # 非 root 用户
 RUN useradd -m -r appuser && chown -R appuser:appuser /app

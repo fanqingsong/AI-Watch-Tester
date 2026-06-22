@@ -297,16 +297,13 @@ Generate 3-5 test scenarios covering main user flows."""
             if not isinstance(scenarios_data, list):
                 raise AdapterError("Expected list of scenarios")
 
-            # 转换为Scenario对象（简化版，实际需要完整模型）
+            # 转换为Scenario对象（使用 Pydantic 验证）
             scenarios = []
             for i, item in enumerate(scenarios_data):
-                scenario = Scenario(
-                    id=item.get("id", f"scenario-{i}"),
-                    name=item.get("name", f"Scenario {i}"),
-                    description=item.get("description", ""),
-                    url=item.get("url", ""),
-                    steps=item.get("steps", []),
-                )
+                # 确保有默认 id
+                if "id" not in item:
+                    item["id"] = f"scenario-{i}"
+                scenario = Scenario.model_validate(item)
                 scenarios.append(scenario)
             return scenarios
         except Exception as e:

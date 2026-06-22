@@ -24,6 +24,7 @@ from playwright.async_api import (
 from aat.core.exceptions import EngineError
 from aat.core.models import EngineConfig
 from aat.engine.base import BaseEngine
+from aat.engine.engine_utils import create_playwright_text_strategies_for_text
 
 if TYPE_CHECKING:
     import types
@@ -339,13 +340,7 @@ class DesktopEngine(BaseEngine):
         if not self._page:
             return None
 
-        strategies = [
-            lambda: self._page.get_by_label(text, exact=False).first,
-            lambda: self._page.get_by_placeholder(text, exact=False).first,
-            lambda: self._page.get_by_role("button", name=text, exact=False).first,
-            lambda: self._page.get_by_role("link", name=text, exact=False).first,
-            lambda: self._page.get_by_text(text, exact=False).first,
-        ]
+        strategies = create_playwright_text_strategies_for_text(self._page, text)
 
         for strategy in strategies:
             try:

@@ -50,6 +50,8 @@ services:
       context: .
       dockerfile: cloud/Dockerfile
     image: awt-cloud-backend:latest
+      # 临时以 root 身份运行（开发环境），解决 SQLite 权限问题
+    user: root
     container_name: awt-cloud-backend
     working_dir: /app
 
@@ -67,6 +69,11 @@ services:
       - AWT_RATE_LIMIT_FREE=${AWT_RATE_LIMIT_FREE:-5}
       - AWT_RATE_LIMIT_PRO=${AWT_RATE_LIMIT_PRO:--1}
       - AWT_DEBUG=${AWT_DEBUG:-false}
+      # AI API Keys
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
+      - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4-flash}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
 
     ports:
       - "8000:8000"

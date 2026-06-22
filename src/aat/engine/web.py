@@ -20,6 +20,7 @@ from playwright.async_api import (
 from aat.core.exceptions import EngineError
 from aat.core.models import EngineConfig
 from aat.engine.base import BaseEngine
+from aat.engine.engine_utils import create_playwright_text_strategies_for_text
 
 
 class WebEngine(BaseEngine):
@@ -322,13 +323,7 @@ class WebEngine(BaseEngine):
             except Exception:
                 pass
 
-        strategies = [
-            lambda: self.page.get_by_label(text, exact=False).first,
-            lambda: self.page.get_by_placeholder(text, exact=False).first,
-            lambda: self.page.get_by_role("button", name=text, exact=False).first,
-            lambda: self.page.get_by_role("link", name=text, exact=False).first,
-            lambda: self.page.get_by_text(text, exact=False).first,
-        ]
+        strategies = create_playwright_text_strategies_for_text(self.page, text)
 
         for strategy in strategies:
             try:
@@ -359,13 +354,7 @@ class WebEngine(BaseEngine):
         Uses Playwright's force option to bypass actionability checks
         (e.g. element hidden behind sticky header). Returns True if clicked.
         """
-        strategies = [
-            lambda: self.page.get_by_label(text, exact=False).first,
-            lambda: self.page.get_by_placeholder(text, exact=False).first,
-            lambda: self.page.get_by_role("button", name=text, exact=False).first,
-            lambda: self.page.get_by_role("link", name=text, exact=False).first,
-            lambda: self.page.get_by_text(text, exact=False).first,
-        ]
+        strategies = create_playwright_text_strategies_for_text(self.page, text)
         for strategy in strategies:
             try:
                 locator = strategy()  # type: ignore[no-untyped-call]

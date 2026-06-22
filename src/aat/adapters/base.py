@@ -16,6 +16,27 @@ if TYPE_CHECKING:
 class AIAdapter(ABC):
     """AI tool integration abstract interface."""
 
+    @staticmethod
+    def _strip_markdown_fences(text: str) -> str:
+        """Strip markdown fence markers (```) from AI response text.
+
+        Many LLMs wrap JSON responses in ```json ... ``` or ``` ... ```.
+        This helper removes those fences while preserving the content.
+
+        Args:
+            text: Raw response text from the AI model.
+
+        Returns:
+            Cleaned text with markdown fences removed.
+        """
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            # Remove all fence lines (lines starting with ```)
+            lines = [ln for ln in lines if not ln.strip().startswith("```")]
+            cleaned = "\n".join(lines)
+        return cleaned
+
     @abstractmethod
     async def analyze_failure(
         self,

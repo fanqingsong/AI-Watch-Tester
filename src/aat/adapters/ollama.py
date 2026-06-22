@@ -10,6 +10,12 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from aat.adapters.base import AIAdapter
+from aat.adapters.prompts import (
+    _SYSTEM_ANALYZE_DOCUMENT,
+    _SYSTEM_ANALYZE_FAILURE,
+    _SYSTEM_GENERATE_FIX,
+    _SYSTEM_GENERATE_SCENARIOS,
+)
 from aat.core.exceptions import AdapterError
 from aat.core.models import (
     AnalysisResult,
@@ -23,90 +29,6 @@ if TYPE_CHECKING:
     from aat.core.models import AIConfig, TestResult
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Prompt templates (same as ClaudeAdapter)
-# ---------------------------------------------------------------------------
-
-_SYSTEM_ANALYZE_FAILURE = """\
-You are an expert QA engineer. Analyze the following test failure and return \
-a JSON object with these fields:
-- "cause": a concise description of the root cause
-- "suggestion": an actionable fix suggestion
-- "severity": one of "critical", "warning", "info"
-- "related_files": a list of file paths likely involved
-
-Return ONLY valid JSON, no markdown fences."""
-
-_SYSTEM_GENERATE_FIX = """\
-You are an expert software engineer. Given a failure analysis and source files, \
-propose a code fix. Return a JSON object with:
-- "description": short description of the fix
-- "files_changed": list of objects with "path", "original", "modified", "description"
-- "confidence": float 0.0-1.0
-
-Return ONLY valid JSON, no markdown fences."""
-
-_SYSTEM_GENERATE_SCENARIOS = """\
-You are an expert QA engineer. Given a specification document, generate test \
-scenarios as a JSON array.
-
-Each scenario must follow this EXACT format:
-{"id": "SC-001", "name": "Short name", "description": "What this tests", \
-"tags": ["tag1"], "steps": [...], "expected_result": []}
-
-"expected_result" must be an array of objects (NOT strings), each with:
-  {"type": "text_visible", "value": "expected text"}
-Valid types: "text_visible", "text_equals", "url_contains".
-Leave as empty array [] if no specific assertion is needed.
-
-Each step MUST have "step" (integer from 1) and "description" (non-empty).
-
-VALID ACTIONS (use ONLY these):
-- "navigate" — requires "value" with URL. Example:
-  {"step": 1, "action": "navigate", "value": "{{url}}/login", "description": "Go to login"}
-- "find_and_click" — requires "target" with "text". Example:
-  {"step": 2, "action": "find_and_click", "target": {"text": "Login"}, \
-"description": "Click login", "humanize": true}
-- "find_and_type" — requires "target" with "text" AND "value". Example:
-  {"step": 3, "action": "find_and_type", "target": {"text": "Email"}, \
-"value": "user@test.com", "description": "Enter email", "humanize": true}
-- "type_text" — types into focused field. Example:
-  {"step": 4, "action": "type_text", "value": "hello", "description": "Type text"}
-- "press_key" — press a key. Example:
-  {"step": 5, "action": "press_key", "value": "Enter", "description": "Press enter"}
-- "assert" — requires "assert_type" and "expected". Example:
-  {"step": 6, "action": "assert", "assert_type": "text_visible", \
-"expected": [{"type": "text_visible", "value": "Welcome"}], "description": "Verify text"}
-- "wait" — milliseconds. Example:
-  {"step": 7, "action": "wait", "value": "2000", "description": "Wait 2s"}
-- "screenshot" — capture screen. Example:
-  {"step": 8, "action": "screenshot", "description": "Capture state"}
-
-BUSINESS FLOW ORDERING:
-- Generate scenarios in logical business flow order \
-(e.g., sign up BEFORE login, login BEFORE dashboard)
-- Add "depends_on" field (array of scenario IDs) when a scenario \
-requires another to pass first. Example:
-  {"id": "SC-002", "depends_on": ["SC-001"], ...}
-- SC-001 should have no dependencies. Later scenarios depend on earlier ones.
-
-CRITICAL RULES:
-- "click" is INVALID. Use "find_and_click"
-- "type" is INVALID. Use "find_and_type"
-- target must NOT have "role" or "url" fields. Only "text"
-- Use {{url}} for base URL in navigate actions
-- Do NOT include "variables" with hardcoded URLs
-
-Return ONLY a valid JSON array, no markdown fences."""
-
-_SYSTEM_ANALYZE_DOCUMENT = """\
-You are an expert QA engineer. Analyze the following document and extract:
-- "screens": list of screen/page descriptions
-- "elements": list of UI elements found
-- "flows": list of user flows described
-
-Return ONLY valid JSON, no markdown fences."""
 
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
@@ -289,7 +211,7 @@ class OllamaAdapter(AIAdapter):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await asyncio.wait_for(
                     client.post(url, json=payload),
                     timeout=120.0,
@@ -302,7 +224,7 @@ class OllamaAdapter(AIAdapter):
             msg = f"Cannot connect to Ollama at {self._base_url}. Is Ollama running?"
             raise AdapterError(msg) from exc
         except httpx.TimeoutException as exc:
-            msg = f"Ollama timeout after 300s. Model may be too slow for this task: {exc}"
+            msg = f"Ollama timeout after 120s. Model may be too slow for this task: {exc}"
             raise AdapterError(msg) from exc
         except httpx.HTTPStatusError as exc:
             msg = f"Ollama API error: {exc.response.status_code} — {exc.response.text[:300]}"
@@ -323,12 +245,7 @@ class OllamaAdapter(AIAdapter):
             raise AdapterError(msg)
 
         # Strip markdown fences if the model wraps JSON in ```json ... ```
-        cleaned = raw_text.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n")
-            # Remove first line (```json) and last line (```)
-            lines = [ln for ln in lines if not ln.strip().startswith("```")]
-            cleaned = "\n".join(lines)
+        cleaned = AIAdapter._strip_markdown_fences(raw_text)
 
         try:
             return json.loads(cleaned)
