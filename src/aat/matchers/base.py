@@ -14,7 +14,24 @@ if TYPE_CHECKING:
 
 
 class BaseMatcher(ABC):
-    """Image matching abstract interface."""
+    """Image matching abstract interface.
+
+    Exception Handling Contract:
+        All implementations MUST handle exceptions internally and return None
+        on failure. This allows the matcher chain (HybridMatcher) to fall through
+        to the next matcher when one fails.
+
+        Recommended pattern:
+            try:
+                # ... matching logic ...
+                return MatchResult(...)
+            except Exception:
+                logger.exception("<MatcherName>.find failed")
+                return None
+
+        Specific exceptions (e.g., ValueError for invalid input) may be raised
+        for programmer errors, but operational errors should return None.
+    """
 
     @property
     @abstractmethod
@@ -36,6 +53,10 @@ class BaseMatcher(ABC):
 
         Returns:
             MatchResult if found (coordinates + confidence), None otherwise.
+
+        Raises:
+            Implementation may raise ValueError for invalid programmer input,
+            but should handle operational errors and return None.
         """
         ...
 
@@ -45,5 +66,8 @@ class BaseMatcher(ABC):
 
         e.g. TemplateMatcher requires target.image,
              OCRMatcher requires target.text.
+
+        Returns:
+            True if this matcher can attempt to find the target.
         """
         ...
