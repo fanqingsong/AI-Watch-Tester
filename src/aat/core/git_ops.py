@@ -144,3 +144,10 @@ class GitOps:
             yield
         finally:
             await self.checkout(original)
+
+
+
+__all__ = [
+    "GitOps",
+    "GitOpsError",
+]

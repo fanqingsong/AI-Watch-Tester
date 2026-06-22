@@ -205,3 +205,10 @@ class MessageBuffer(EventEmitter):
             else:
                 lines.append(msg.get("text", ""))
         return "\n".join(lines)
+
+
+__all__ = [
+    "EventEmitter",
+    "CLIEventHandler",
+    "MessageBuffer",
+]

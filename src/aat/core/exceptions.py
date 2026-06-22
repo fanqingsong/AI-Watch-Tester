@@ -69,3 +69,21 @@ class LearningError(AATError):
 
 class DashboardError(AATError):
     """Web dashboard error (server start, WebSocket, etc.)."""
+
+
+__all__ = [
+    "AATError",
+    "ConfigError",
+    "ScenarioError",
+    "EngineError",
+    "MatchError",
+    "AdapterError",
+    "ParserError",
+    "ReporterError",
+    "StepExecutionError",
+    "CriticalStepError",
+    "LoopError",
+    "GitOpsError",
+    "LearningError",
+    "DashboardError",
+]

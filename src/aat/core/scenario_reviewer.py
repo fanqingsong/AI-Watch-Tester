@@ -349,3 +349,9 @@ def _read_tty(prompt: str = "") -> str:
     except OSError:
         # /dev/tty unavailable (Windows, Docker without tty)
         return input(prompt)
+
+
+
+__all__ = [
+    "ScenarioReviewer",
+]

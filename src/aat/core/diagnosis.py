@@ -284,3 +284,10 @@ def check_learned_hint(
         return store.find_similar_failure(failure_type)
     except Exception:
         return None
+
+
+
+__all__ = [
+    "classify_failure",
+    "collect_context",
+]

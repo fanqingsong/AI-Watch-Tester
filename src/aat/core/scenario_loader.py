@@ -2,7 +2,6 @@
 
 Loads Scenario YAML files, validates via Pydantic, substitutes variables.
 """
-
 from __future__ import annotations
 
 import os
@@ -379,3 +378,11 @@ def _resolve_var(var_name: str, variables: dict[str, str]) -> str:
 
     # Unresolved — keep placeholder
     return f"{{{{{var_name}}}}}"
+
+
+__all__ = [
+    "load_scenario",
+    "load_scenarios_from_file",
+    "load_scenarios",
+    "find_unresolved_vars",
+]

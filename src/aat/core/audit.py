@@ -74,3 +74,11 @@ def read_audit(
         except Exception:  # noqa: BLE001
             continue
     return entries
+
+
+
+__all__ = [
+    "AuditEntry",
+    "log_audit",
+    "read_audit",
+]

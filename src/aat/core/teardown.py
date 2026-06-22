@@ -185,3 +185,9 @@ class TeardownExecutor:
         """Substitute {{variables}} in a string using the executor context."""
         result = _substitute_vars(text, self._vars)
         return str(result) if not isinstance(result, str) else result
+
+
+
+__all__ = [
+    "TeardownExecutor",
+]

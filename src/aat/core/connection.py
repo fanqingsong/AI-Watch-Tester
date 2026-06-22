@@ -229,3 +229,15 @@ async def test_url(url: str) -> tuple[bool, str]:
         return False, f"URL returned HTTP {e.response.status_code}"
     except Exception as exc:
         return False, f"URL check failed: {exc}"
+
+
+__all__ = [
+    "AATConnectionError",
+    "AATAuthenticationError",
+    "AATTimeoutError",
+    "AATNetworkError",
+    "AATProviderError",
+    "test_ai_connection",
+    "test_vision_connection",
+    "test_url",
+]

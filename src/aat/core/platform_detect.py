@@ -157,3 +157,9 @@ def format_platform_info(info: dict[str, Any]) -> str:
     for tip in info.get("tips", []):
         lines.append(f"    ⚠️  {tip}")
     return "\n".join(lines)
+
+
+
+__all__ = [
+    "detect_platform",
+]

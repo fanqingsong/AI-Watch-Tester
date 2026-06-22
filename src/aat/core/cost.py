@@ -228,3 +228,9 @@ def save_cached_scenarios(
         json.dump(scenarios, f, ensure_ascii=False, indent=2)
 
     return cache_path
+
+
+
+__all__ = [
+    "log_cost",
+]
