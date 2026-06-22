@@ -1,4 +1,7 @@
-"""AI Provider connection testing and URL health checks."""
+"""AI Provider connection testing and URL health checks.
+
+Improved error handling with specific exception types for better debugging.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,46 @@ import httpx
 
 if TYPE_CHECKING:
     from aat.core.models import AIConfig, VisionConfig
+
+
+# ---------------------------------------------------------------------------
+# Custom exception types for connection errors
+# ---------------------------------------------------------------------------
+
+
+class ConnectionError(Exception):
+    """Base exception for connection-related errors."""
+
+    pass
+
+
+class AuthenticationError(ConnectionError):
+    """Exception raised when API authentication fails."""
+
+    pass
+
+
+class TimeoutError(ConnectionError):
+    """Exception raised when connection times out."""
+
+    pass
+
+
+class NetworkError(ConnectionError):
+    """Exception raised when network-level errors occur."""
+
+    pass
+
+
+class ProviderError(ConnectionError):
+    """Exception raised when provider-specific errors occur."""
+
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Connection testing functions
+# ---------------------------------------------------------------------------
 
 
 async def test_ai_connection(config: AIConfig) -> tuple[bool, str]:
@@ -54,8 +97,12 @@ async def _test_ollama(config: AIConfig) -> tuple[bool, str]:
                 )
             else:
                 return False, "Connected to Ollama but no models installed."
-    except httpx.ConnectError:
+    except httpx.ConnectError as e:
         return False, f"Cannot connect to Ollama at {base_url}. Is it running?"
+    except httpx.TimeoutException as e:
+        return False, f"Ollama connection timed out (10s)."
+    except httpx.HTTPStatusError as e:
+        return False, f"Ollama returned HTTP {e.response.status_code}"
     except Exception as exc:
         return False, f"Ollama connection error: {exc}"
 
@@ -76,8 +123,16 @@ async def _test_claude(config: AIConfig) -> tuple[bool, str]:
         if resp.content:
             return True, f"Connected to Claude API. Model: {config.model}"
         return False, "Claude API returned empty response."
+    except anthropic.AuthenticationError as e:
+        return False, f"Claude authentication failed: {e}"
+    except anthropic.PermissionError as e:
+        return False, f"Claude permission denied: {e}"
+    except anthropic.RateLimitError as e:
+        return False, f"Claude rate limit exceeded: {e}"
+    except anthropic.APIClientError as e:
+        return False, f"Claude API error: {e}"
     except Exception as exc:
-        return False, f"Claude API error: {exc}"
+        return False, f"Claude connection error: {exc}"
 
 
 async def _test_openai(config: AIConfig) -> tuple[bool, str]:
@@ -91,8 +146,14 @@ async def _test_openai(config: AIConfig) -> tuple[bool, str]:
         resp = await client.models.list()
         model_ids = [m.id for m in resp.data[:5]]
         return True, f"Connected to OpenAI API. Models available (e.g. {', '.join(model_ids)})"
+    except openai.AuthenticationError as e:
+        return False, f"OpenAI authentication failed: {e}"
+    except openai.RateLimitError as e:
+        return False, f"OpenAI rate limit exceeded: {e}"
+    except openai.APIClientError as e:
+        return False, f"OpenAI API error: {e}"
     except Exception as exc:
-        return False, f"OpenAI API error: {exc}"
+        return False, f"OpenAI connection error: {exc}"
 
 
 async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
@@ -109,8 +170,14 @@ async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
         resp = await client.models.list()
         model_ids = [m.id for m in resp.data[:5]]
         return True, f"Connected to Gemini API. Models: {', '.join(model_ids)}"
+    except openai.AuthenticationError as e:
+        return False, f"Gemini authentication failed: {e}"
+    except openai.RateLimitError as e:
+        return False, f"Gemini rate limit exceeded: {e}"
+    except openai.APIClientError as e:
+        return False, f"Gemini API error: {e}"
     except Exception as exc:
-        return False, f"Gemini API error: {exc}"
+        return False, f"Gemini connection error: {exc}"
 
 
 async def test_vision_connection(
@@ -158,5 +225,7 @@ async def test_url(url: str) -> tuple[bool, str]:
         return False, f"Cannot connect to {url}. Is the server running?"
     except httpx.TimeoutException:
         return False, f"Connection to {url} timed out (15s)."
+    except httpx.HTTPStatusError as e:
+        return False, f"URL returned HTTP {e.response.status_code}"
     except Exception as exc:
         return False, f"URL check failed: {exc}"

@@ -27,7 +27,13 @@ _UNRESOLVED_PATTERN = re.compile(r"\{\{[\w.]+\}\}")
 _DYNAMIC_VARS = frozenset({"timestamp", "datetime", "random", "uuid"})
 
 
-def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenario:
+def load_scenario(
+    path: Path,
+    variables: dict[str, str] | None = None,
+    *,
+    strict_mode: bool = False,
+    required_vars: set[str] | None = None,
+) -> Scenario:
     """Load a single Scenario from a YAML file.
 
     If the file contains multiple YAML documents (--- separator),
@@ -37,6 +43,8 @@ def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenar
     Args:
         path: Path to the scenario YAML file.
         variables: External variables to substitute.
+        strict_mode: If True, raise ScenarioError on unresolved variables.
+        required_vars: Set of variable names that must be resolved.
 
     Returns:
         Validated Scenario instance.
@@ -48,23 +56,53 @@ def load_scenario(path: Path, variables: dict[str, str] | None = None) -> Scenar
     if not docs:
         msg = f"Scenario file is empty: {path.name}"
         raise ScenarioError(msg)
-    return _validate_scenario_data(docs[0], path, variables)
+    return _validate_scenario_data(
+        docs[0],
+        path,
+        variables,
+        strict_mode=strict_mode,
+        required_vars=required_vars,
+    )
 
 
 def load_scenarios_from_file(
     path: Path,
     variables: dict[str, str] | None = None,
+    *,
+    strict_mode: bool = False,
+    required_vars: set[str] | None = None,
 ) -> list[Scenario]:
     """Load all scenarios from a single YAML file.
 
     Supports multi-document YAML (--- separator) — each document
     is treated as a separate scenario.
+
+    Args:
+        path: Path to the scenario YAML file.
+        variables: External variables to substitute.
+        strict_mode: If True, raise ScenarioError on unresolved variables.
+        required_vars: Set of variable names that must be resolved.
+
+    Returns:
+        List of validated Scenario instances.
+
+    Raises:
+        ScenarioError: If file cannot be read, parsed, or validated.
     """
     docs = _load_yaml_all(path)
     if not docs:
         msg = f"Scenario file is empty: {path.name}"
         raise ScenarioError(msg)
-    return [_validate_scenario_data(doc, path, variables) for doc in docs]
+    return [
+        _validate_scenario_data(
+            doc,
+            path,
+            variables,
+            strict_mode=strict_mode,
+            required_vars=required_vars,
+        )
+        for doc in docs
+    ]
 
 
 def load_scenarios(
@@ -120,20 +158,59 @@ def _validate_scenario_data(
     data: dict[str, Any],
     path: Path,
     variables: dict[str, str] | None,
+    *,
+    strict_mode: bool = False,
+    required_vars: set[str] | None = None,
 ) -> Scenario:
-    """Validate and substitute variables in a scenario dict."""
+    """Validate and substitute variables in a scenario dict.
+
+    Args:
+        data: Raw scenario data from YAML.
+        path: Path to the scenario file (for error messages).
+        variables: External variables to substitute.
+        strict_mode: If True, raise ScenarioError on unresolved variables.
+        required_vars: Set of variable names that must be resolved.
+
+    Returns:
+        Validated Scenario instance.
+
+    Raises:
+        ScenarioError: If validation fails or unresolved variables in strict mode.
+    """
     # Expand include steps before variable substitution
     data = _expand_includes(data, path.parent)
     data = _substitute_vars(data, variables or {})
     unresolved = find_unresolved_vars(data)
+
     if unresolved:
+        # Check if any required variables are unresolved
+        if required_vars:
+            unresolved_names = {
+                match[2:-2].strip() for match in unresolved
+            }
+            missing_required = required_vars & unresolved_names
+            if missing_required:
+                msg = (
+                    f"Required variables not resolved in {path.name}: "
+                    f"{', '.join(sorted(missing_required))}"
+                )
+                raise ScenarioError(msg)
+
+        if strict_mode:
+            msg = (
+                f"Unresolved variables in {path.name} (strict mode): "
+                f"{', '.join(sorted(unresolved))}"
+            )
+            raise ScenarioError(msg)
+
+        # Non-strict mode: warn only
         import warnings
 
         warnings.warn(
             f"Unresolved variables in {path.name}: "
             f"{', '.join(sorted(unresolved))}. "
             "Check that the URL and other variables are configured.",
-            stacklevel=3,
+            stacklevel=4,
         )
     try:
         return Scenario.model_validate(data)

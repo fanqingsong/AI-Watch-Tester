@@ -271,22 +271,12 @@ class DevQALoop:
         branch_name = f"aat/fix-{self._fix_counter:03d}"
 
         async with self._git_ops.on_fix_branch(branch_name):
-            safe_changes = []
-            for change in fix.files_changed:
-                safe, reason = self._validate_fix(change)
-                if not safe:
-                    logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
-                else:
-                    affected = self._analyze_impact(change)
-                    if affected:
-                        logger.info(
-                            "Impact analysis for %s: %d dependent file(s): %s",
-                            change.path,
-                            len(affected),
-                            ", ".join(affected),
-                        )
-                    safe_changes.append(change)
-            written = await self._git_ops.apply_file_changes(safe_changes)
+            # Process and apply fix changes using branch write strategy
+            safe_changes, written = await self._process_and_apply_fix(
+                fix,
+                # Branch mode write strategy: use git_ops.apply_file_changes
+                lambda change: self._git_ops.apply_file_changes([change]),
+            )
             commit_hash = await self._git_ops.commit_changes(
                 written,
                 f"aat: {fix.description}",
@@ -319,22 +309,16 @@ class DevQALoop:
 
         # Apply changes directly to working directory
         project_root = Path(self._config.source_path)
-        for change in fix.files_changed:
-            safe, reason = self._validate_fix(change)
-            if not safe:
-                logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
-                continue
-            affected = self._analyze_impact(change)
-            if affected:
-                logger.info(
-                    "Impact analysis for %s: %d dependent file(s): %s",
-                    change.path,
-                    len(affected),
-                    ", ".join(affected),
-                )
+
+        # Process and apply fix changes using auto write strategy
+        async def write_auto(change: FileChange) -> str | None:
+            """Write change directly to working directory."""
             file_path = project_root / change.path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(change.modified, encoding="utf-8")
+            return str(file_path)
+
+        safe_changes, _ = await self._process_and_apply_fix(fix, write_auto)
 
         # Re-test
         retest_result = await self._execute_scenarios(scenarios)
@@ -350,6 +334,52 @@ class DevQALoop:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    async def _process_and_apply_fix(
+        self,
+        fix: "FixResult",
+        write_strategy: callable,
+    ) -> tuple[list[FileChange], list[str]]:
+        """Process fix changes through validation and impact analysis.
+
+        This helper extracts the common fix processing logic used by
+        _handle_branch and _handle_auto modes. It validates each change,
+        analyzes impact, and applies changes using the provided write strategy.
+
+        Args:
+            fix: The fix result containing files_changed.
+            write_strategy: Async function that writes a FileChange.
+                             Should return the written file path or None.
+
+        Returns:
+            Tuple of (safe_changes, commit_paths) where:
+            - safe_changes: List of validated FileChange objects
+            - commit_paths: List of file paths that were written
+        """
+        safe_changes = []
+        commit_paths = []
+
+        for change in fix.files_changed:
+            safe, reason = self._validate_fix(change)
+            if not safe:
+                logger.warning("Skipping unsafe fix for %s: %s", change.path, reason)
+                continue
+
+            affected = self._analyze_impact(change)
+            if affected:
+                logger.info(
+                    "Impact analysis for %s: %d dependent file(s): %s",
+                    change.path,
+                    len(affected),
+                    ", ".join(affected),
+                )
+
+            safe_changes.append(change)
+            written_path = await write_strategy(change)
+            if written_path:
+                commit_paths.append(written_path)
+
+        return safe_changes, commit_paths
 
     def _validate_fix(self, change: FileChange) -> tuple[bool, str]:
         """AI가 제안한 파일 변경이 안전한지 검증한다."""
