@@ -14,35 +14,35 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Custom exception types for connection errors
+# Custom exception types for connection errors (prefixed with AAT to avoid shadowing built-ins)
 # ---------------------------------------------------------------------------
 
 
-class ConnectionError(Exception):
+class AATConnectionError(Exception):
     """Base exception for connection-related errors."""
 
     pass
 
 
-class AuthenticationError(ConnectionError):
+class AATAuthenticationError(AATConnectionError):
     """Exception raised when API authentication fails."""
 
     pass
 
 
-class TimeoutError(ConnectionError):
+class AATTimeoutError(AATConnectionError):
     """Exception raised when connection times out."""
 
     pass
 
 
-class NetworkError(ConnectionError):
+class AATNetworkError(AATConnectionError):
     """Exception raised when network-level errors occur."""
 
     pass
 
 
-class ProviderError(ConnectionError):
+class AATProviderError(AATConnectionError):
     """Exception raised when provider-specific errors occur."""
 
     pass
@@ -97,9 +97,9 @@ async def _test_ollama(config: AIConfig) -> tuple[bool, str]:
                 )
             else:
                 return False, "Connected to Ollama but no models installed."
-    except httpx.ConnectError as e:
+    except httpx.ConnectError:
         return False, f"Cannot connect to Ollama at {base_url}. Is it running?"
-    except httpx.TimeoutException as e:
+    except httpx.TimeoutException:
         return False, f"Ollama connection timed out (10s)."
     except httpx.HTTPStatusError as e:
         return False, f"Ollama returned HTTP {e.response.status_code}"
@@ -181,7 +181,7 @@ async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
 
 
 async def test_vision_connection(
-    config: VisionConfig,
+    config: "VisionConfig",
 ) -> tuple[bool, str]:
     """Test Vision AI provider connection.
 

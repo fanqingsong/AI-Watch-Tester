@@ -382,11 +382,11 @@ class DevQALoop:
         return safe_changes, commit_paths
 
     def _validate_fix(self, change: FileChange) -> tuple[bool, str]:
-        """AI가 제안한 파일 변경이 안전한지 검증한다."""
+        """Verify that AI-suggested file changes are safe."""
         original_lines = change.original.count("\n")
         modified_lines = change.modified.count("\n")
 
-        # 원본의 80% 이상 삭제하는 경우 차단
+        # Block fixes that delete >80% of original lines
         if original_lines > 10 and modified_lines < original_lines * 0.2:
             return (
                 False,
@@ -394,7 +394,7 @@ class DevQALoop:
                 " lines (>80%)",
             )
 
-        # 모든 import 구문이 제거된 경우 차단 (환각 가능성)
+        # Block if all import statements removed (possible hallucination)
         if (
             "import " in change.original
             and "import " not in change.modified
@@ -402,14 +402,14 @@ class DevQALoop:
         ):
             return False, "Fix removes all import statements"
 
-        # 큰 파일을 소규모 stub으로 교체하는 경우 차단
+        # Block if large file replaced with small stub
         if original_lines > 20 and modified_lines < 5:
             return (
                 False,
                 f"Fix replaces {original_lines}-line file with {modified_lines}-line stub",
             )
 
-        # 파일 확장자별 문법 검증
+        # Syntax validation by file extension
         ext = Path(change.path).suffix.lower()
         if ext == ".py":
             try:
@@ -419,7 +419,7 @@ class DevQALoop:
             except SyntaxError as e:
                 return False, f"Python syntax error in fix: {e}"
         elif ext in (".js", ".ts", ".jsx", ".tsx"):
-            # 기본 검증: 괄호 균형 확인
+            # Basic validation: check bracket balance
             m = change.modified
             opens = m.count("{") + m.count("(") + m.count("[")
             closes = m.count("}") + m.count(")") + m.count("]")
@@ -436,11 +436,11 @@ class DevQALoop:
         return True, ""
 
     def _analyze_impact(self, change: FileChange) -> list[str]:
-        """변경된 파일에 의존하는 다른 파일을 탐색한다."""
+        """Find other files that depend on the changed file."""
         changed_path = Path(change.path)
-        stem = changed_path.stem  # 확장자 제외 파일명
+        stem = changed_path.stem  # filename without extension
 
-        # 파일 유형별 탐색 패턴 구성
+        # Build search patterns by file type
         patterns: list[str]
         if changed_path.suffix == ".py":
             module_name = stem.replace("-", "_")
@@ -472,7 +472,7 @@ class DevQALoop:
         except Exception:
             pass
 
-        return affected[:10]  # 노이즈 방지를 위해 최대 10개로 제한
+        return affected[:10]  # limit to 10 to reduce noise
 
     async def _validate_git_ready(self) -> None:
         """Validate git prerequisites for branch mode."""
@@ -503,7 +503,7 @@ class DevQALoop:
 
     @staticmethod
     def _classify_failure(test_result: TestResult) -> str:
-        """실패를 조치 가능한 카테고리로 분류한다."""
+        """Classify failures into actionable categories."""
         for step_result in test_result.steps:
             if step_result.status.value == "passed":
                 continue
@@ -571,7 +571,7 @@ class DevQALoop:
             1 for s in all_steps if s.status in (StepStatus.FAILED, StepStatus.ERROR)
         )
 
-        # 여러 시나리오를 하나의 결과로 합칠 때 모든 ID/이름 포함
+        # Include all IDs/names when merging multiple scenarios into one result
         scenario_id = "+".join(s.id for s in scenarios) if scenarios else "SC-000"
         scenario_name = " | ".join(s.name for s in scenarios) if scenarios else "Unknown"
 

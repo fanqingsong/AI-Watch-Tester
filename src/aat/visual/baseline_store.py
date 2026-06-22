@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
 
 from aat.core.models import BaselineMeta
+
+logger = logging.getLogger(__name__)
 
 
 class BaselineStore:
@@ -126,7 +129,8 @@ class BaselineStore:
             try:
                 data = json.loads(meta_path.read_text(encoding="utf-8"))
                 results.append(BaselineMeta(**data))
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Failed to load baseline metadata from %s: %s", meta_path, e)
                 continue
         return results
 

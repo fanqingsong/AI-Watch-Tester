@@ -9,6 +9,12 @@ from typing import TYPE_CHECKING, Any
 from openai import AsyncOpenAI
 
 from aat.adapters.base import AIAdapter
+from aat.adapters.prompts import (
+    _SYSTEM_ANALYZE_DOCUMENT,
+    _SYSTEM_ANALYZE_FAILURE,
+    _SYSTEM_GENERATE_FIX,
+    _SYSTEM_GENERATE_SCENARIOS,
+)
 from aat.core.exceptions import AdapterError
 from aat.core.models import (
     AnalysisResult,
@@ -22,73 +28,6 @@ if TYPE_CHECKING:
     from aat.core.models import AIConfig, TestResult
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Prompt templates (shared with ClaudeAdapter / OpenAIAdapter)
-# ---------------------------------------------------------------------------
-
-_SYSTEM_ANALYZE_FAILURE = """\
-You are an expert QA engineer. Analyze the following test failure and return \
-a JSON object with these fields:
-- "cause": a concise description of the root cause
-- "suggestion": an actionable fix suggestion
-- "severity": one of "critical", "warning", "info"
-- "related_files": a list of file paths likely involved
-
-Return ONLY valid JSON, no markdown fences."""
-
-_SYSTEM_GENERATE_FIX = """\
-You are an expert software engineer. Given a failure analysis and source files, \
-propose a code fix. Return a JSON object with:
-- "description": short description of the fix
-- "files_changed": list of objects with "path", "original", "modified", "description"
-- "confidence": float 0.0-1.0
-
-Return ONLY valid JSON, no markdown fences."""
-
-_SYSTEM_GENERATE_SCENARIOS = """\
-You are an expert test automation engineer. Analyze the following specification \
-and generate test scenarios in YAML format. Each scenario should have:
-- id: unique identifier
-- name: descriptive name
-- description: what is being tested
-- url: starting URL
-- steps: list of test steps with action, selector, value (if applicable), \
-  description, and assert (if applicable)
-
-Return ONLY valid YAML, no markdown fences.
-Each step action can be: navigate, click, type, wait, assert_text, assert_visible.
-
-Example:
-```yaml
-- id: login-001
-  name: User Login
-  description: Test successful user login
-  url: https://example.com/login
-  steps:
-    - action: navigate
-      value: https://example.com/login
-      description: Navigate to login page
-    - action: type
-      selector: '#username'
-      value: testuser
-      description: Enter username
-    - action: click
-      selector: '#login-button'
-      description: Click login button
-    - action: assert_text
-      value: Welcome
-      description: Verify successful login
-```"""
-
-_SYSTEM_ANALYZE_DOCUMENT = """\
-You are an expert business analyst. Analyze the following specification document \
-and extract structured information. Return a JSON object with:
-- "screens": list of screens/pages mentioned
-- "elements": list of UI elements with selectors
-- "flows": list of user flows or business processes
-
-Return ONLY valid JSON, no markdown fences."""
 
 # ---------------------------------------------------------------------------
 # ZhipuAIAdapter

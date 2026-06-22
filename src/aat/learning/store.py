@@ -10,7 +10,7 @@ from pathlib import Path  # noqa: TC003
 from typing import Any
 
 from aat.core.exceptions import LearningError
-from aat.core.models import LearnedElement
+from aat.core.learning_models import LearnedElement
 
 logger = logging.getLogger(__name__)
 

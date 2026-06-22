@@ -21,6 +21,7 @@ import numpy as np
 
 from aat.core.models import MatchingConfig, MatchMethod
 from aat.matchers.base import BaseMatcher
+from aat.matchers.image_utils import ImageUtils
 
 if TYPE_CHECKING:
     from aat.core.models import MatchResult, TargetSpec
@@ -343,10 +344,7 @@ class HybridMatcher(BaseMatcher):
 
         try:
             # Decode screenshot
-            screen_arr = np.frombuffer(screenshot, dtype=np.uint8)
-            screen_bgr = cv2.imdecode(screen_arr, cv2.IMREAD_COLOR)
-            if screen_bgr is None:
-                return
+            screen_bgr = ImageUtils.decode_image(screenshot)
 
             # Calculate crop region with padding
             sh, sw = screen_bgr.shape[:2]

@@ -12,6 +12,7 @@ import pytesseract  # type: ignore[import-untyped]
 
 from aat.core.models import MatchingConfig, MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
+from aat.matchers.image_utils import ImageUtils
 
 if TYPE_CHECKING:
     from aat.core.models import TargetSpec
@@ -51,13 +52,9 @@ class OCRMatcher(BaseMatcher):
         start = time.monotonic()
 
         try:
-            screen_arr = np.frombuffer(screenshot, dtype=np.uint8)
-            screen_bgr = cv2.imdecode(screen_arr, cv2.IMREAD_COLOR)
-        except Exception:
+            screen_bgr = ImageUtils.decode_image(screenshot)
+        except ValueError:
             logger.debug("Failed to decode screenshot for OCR")
-            return None
-
-        if screen_bgr is None:
             return None
 
         # Preprocessing — enhanced for Canvas/CanvasKit rendered text
