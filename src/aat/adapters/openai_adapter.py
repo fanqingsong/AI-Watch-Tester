@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -17,6 +16,7 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_FIX,
     _SYSTEM_GENERATE_SCENARIOS,
 )
+from aat.adapters.utils import encode_image_to_base64
 from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
@@ -254,7 +254,7 @@ class OpenAIAdapter(AIAdapter):
                         "type": "image_url",
                         "image_url": {
                             "url": (
-                                f"data:image/png;base64,{base64.b64encode(img_bytes).decode()}"
+                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
                             ),
                         },
                     }
@@ -336,7 +336,7 @@ class OpenAIAdapter(AIAdapter):
                         "type": "image_url",
                         "image_url": {
                             "url": (
-                                f"data:image/png;base64,{base64.b64encode(img_bytes).decode()}"
+                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
                             ),
                         },
                     }
@@ -379,7 +379,7 @@ class OpenAIAdapter(AIAdapter):
                         "type": "image_url",
                         "image_url": {
                             "url": (
-                                f"data:image/png;base64,{base64.b64encode(img_bytes).decode()}"
+                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
                             ),
                         },
                     }

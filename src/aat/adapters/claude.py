@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +16,7 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_SCENARIOS,
     _SYSTEM_VERIFY_STEP,
 )
+from aat.adapters.utils import encode_image_to_base64
 from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
@@ -74,7 +74,7 @@ class ClaudeAdapter(AIAdapter):
                         "source": {
                             "type": "base64",
                             "media_type": "image/png",
-                            "data": base64.b64encode(img_bytes).decode(),
+                            "data": encode_image_to_base64(img_bytes),
                         },
                     }
                 )
@@ -156,7 +156,7 @@ class ClaudeAdapter(AIAdapter):
                         "source": {
                             "type": "base64",
                             "media_type": "image/png",
-                            "data": base64.b64encode(img_bytes).decode(),
+                            "data": encode_image_to_base64(img_bytes),
                         },
                     }
                 )
@@ -191,7 +191,7 @@ class ClaudeAdapter(AIAdapter):
                         "source": {
                             "type": "base64",
                             "media_type": "image/png",
-                            "data": base64.b64encode(img_bytes).decode(),
+                            "data": encode_image_to_base64(img_bytes),
                         },
                     }
                 )
@@ -222,7 +222,7 @@ class ClaudeAdapter(AIAdapter):
                 "source": {
                     "type": "base64",
                     "media_type": "image/png",
-                    "data": base64.b64encode(screenshot).decode(),
+                    "data": encode_image_to_base64(screenshot),
                 },
             },
         ]

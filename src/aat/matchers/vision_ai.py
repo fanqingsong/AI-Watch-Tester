@@ -8,12 +8,12 @@ If no vision API key is configured, this tier is silently skipped.
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from aat.adapters.utils import encode_image_to_base64
 from aat.core import MatchMethod, MatchResult
 from aat.matchers.base import BaseMatcher
 from aat.matchers.timing import TimedOperation
@@ -137,7 +137,7 @@ class VisionAIMatcher(BaseMatcher):
             return None
 
         with TimedOperation() as timer:
-            b64_image = base64.b64encode(screenshot).decode("ascii")
+            b64_image = encode_image_to_base64(screenshot)
             model = self._get_model()
 
             try:
@@ -217,7 +217,7 @@ class VisionAIMatcher(BaseMatcher):
             return None
 
         with TimedOperation() as timer:
-            b64_image = base64.b64encode(screenshot).decode("ascii")
+            b64_image = encode_image_to_base64(screenshot)
             model = self._get_model()
             provider = self._get_provider()
 
