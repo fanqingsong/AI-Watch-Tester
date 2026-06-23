@@ -1,110 +1,102 @@
-# AWT 비용 최적화 전략
+# AWT Cost Optimization Strategy
 
-## 현재 상황 (2026.02.20 기준)
+## Current Status (as of 2026.02.20)
 
-### AI API 비용 현황
-| 항목 | 어제 (DOM만) | 오늘 (관찰 기반) |
-|------|-------------|-----------------|
-| 요청 수 | 18 | 43 |
-| 토큰 사용 | 427,638 | 571,663 |
-| 비용 | $0.07 | $0.64 |
-| 요청당 비용 | $0.004 | $0.015 |
+### AI API Cost Status
+| Item | Yesterday (DOM only) | Today (Observation-based) |
+|------|---------------------|----------------------------|
+| Request count | 18 | 43 |
+| Token usage | 427,638 | 571,663 |
+| Cost | $0.07 | $0.64 |
+| Cost per request | $0.004 | $0.015 |
 
-- 관찰 기반 크롤링 도입 후 요청당 비용 약 4배 증가
-- 원인: 각 요소별 관찰 데이터(스크린샷 OCR, 변경 텍스트, DOM 변화)를 AI에 전달
-- 현재 사용 모델: OpenAI GPT (AWT_SERVICE_AI_MODEL 설정)
+- After introducing observation-based crawling, cost per request increased ~4x
+- Cause: AI receives observation data per element (screenshot OCR, changed text, DOM changes)
+- Current model: OpenAI GPT (AWT_SERVICE_AI_MODEL setting)
 
-### 수익 대비 비용 시뮬레이션
+### Revenue vs Cost Simulation
 
-| 사용자 수 | 일 비용 | 월 비용 | 월 수입 (Pro $29) | 마진 | 마진율 |
-|-----------|--------|--------|------------------|------|--------|
-| 1명 (개발자) | $0.64 | $19.2 | - | - | - |
-| 10명 | $6.4 | $192 | $290 | $98 | 34% |
-| 50명 | $32 | $960 | $1,450 | $490 | 34% |
-| 100명 | $64 | $1,920 | $2,900 | $980 | 34% |
-| 500명 | $320 | $9,600 | $14,500 | $4,900 | 34% |
+| User count | Daily cost | Monthly cost | Monthly revenue (Pro $29) | Margin | Margin rate |
+|------------|------------|--------------|--------------------------|--------|-------------|
+| 1 person (dev) | $0.64 | $19.2 | - | - | - |
+| 10 people | $6.4 | $192 | $290 | $98 | 34% |
+| 50 people | $32 | $960 | $1,450 | $490 | 34% |
+| 100 people | $64 | $1,920 | $2,900 | $980 | 34% |
+| 500 people | $320 | $9,600 | $14,500 | $4,900 | 34% |
 
-> ⚠️ 위 시뮬레이션은 현재 개발 테스트 기준 (하루 다수 반복 테스트 포함)
-> 실제 사용자는 하루 1~2회 테스트로 비용이 훨씬 낮을 것으로 예상
+> ⚠️ Above simulation based on current dev testing (includes multiple repeated tests per day)
+> Actual users expected to test 1-2 times per day, much lower cost
 
-### 실사용자 기준 예상 비용
+### Expected Cost per Real User
 
-| 사용자 수 | 일 비용 (1~2회) | 월 비용 | 월 수입 | 마진 | 마진율 |
-|-----------|---------------|--------|--------|------|--------|
-| 10명 | $0.30 | $9 | $290 | $281 | 97% |
-| 50명 | $1.50 | $45 | $1,450 | $1,405 | 97% |
-| 100명 | $3.00 | $90 | $2,900 | $2,810 | 97% |
-| 500명 | $15.00 | $450 | $14,500 | $14,050 | 97% |
+| User count | Daily cost (1-2 times) | Monthly cost | Monthly revenue | Margin | Margin rate |
+|------------|------------------------|--------------|-----------------|--------|-------------|
+| 10 people | $0.30 | $9 | $290 | $281 | 97% |
+| 50 people | $1.50 | $45 | $1,450 | $1,405 | 97% |
+| 100 people | $3.00 | $90 | $2,900 | $2,810 | 97% |
+| 500 people | $15.00 | $450 | $14,500 | $14,050 | 97% |
 
 ---
 
-## 비용 최적화 전략
+## Cost Optimization Strategy
 
-### 1단계: 캐싱 (예상 비용 절감: 50~70%)
-- **스캔 결과 캐싱**: 같은 URL 재스캔 시 이전 관찰 데이터 재활용
-  - 캐시 유효 기간: 24시간 (사이트 변경 빈도에 따라 조절)
-  - 사용자가 "강제 재스캔" 옵션으로 캐시 무시 가능
-- **시나리오 템플릿 캐싱**: 동일 사이트 유형의 시나리오 패턴 재활용
-- 구현 난이도: ★★☆ (DB에 캐시 테이블 추가)
+### Stage 1: Caching (Expected cost reduction: 50-70%)
+- **Scan result caching**: Reuse previous observation data when rescanning same URL
+  - Cache validity: 24 hours (adjustable based on site change frequency)
+  - User can "force rescan" to ignore cache
+- **Scenario template caching**: Reuse scenario patterns for same site type
+- Implementation difficulty: ★★☆ (Add cache table to DB)
 
-### 2단계: 관찰 데이터 압축 (예상 비용 절감: 30~40%)
-- OCR 전체 텍스트 대신 **변경된 부분만** AI에 전달
-- 스크린샷 이미지를 AI에 보내지 않고 **텍스트 요약만** 전달
-- DOM 데이터에서 불필요한 속성 제거 (style, class 등)
-- 관찰 데이터를 구조화된 JSON으로 압축
-- 구현 난이도: ★★☆
+### Stage 2: Observation Data Compression (Expected cost reduction: 30-40%)
+- Send **only changed parts** to AI instead of full OCR text
+- Send **only text summary** to AI instead of screenshot images
+- Remove unnecessary attributes from DOM data (style, class, etc.)
+- Compress observation data into structured JSON
+- Implementation difficulty: ★★☆
 
-### 3단계: 모델 스위칭 (예상 비용 절감: 40~60%)
-- **단순 작업** → GPT-4o-mini ($0.15/1M input tokens)
-  - 사이트 유형 판별
-  - 기본 테스트 플랜 생성
-  - 시나리오 검증
-- **복잡한 작업** → GPT-4o ($2.50/1M input tokens)
-  - 복합 비즈니스 시나리오 생성
-  - Fix Guide 수정 제안
-  - GitHub Auto-fix PR 코드 생성
-- 구현 난이도: ★☆☆ (API 호출 시 모델 파라미터만 변경)
+### Stage 3: Model Switching (Expected cost reduction: 40-60%)
+- **Simple tasks** → GPT-4o-mini ($0.15/1M input tokens)
+  - Site type determination
+  - Basic test plan generation
+  - Scenario validation
+- **Complex tasks** → GPT-4o ($2.50/1M input tokens)
+  - Complex business scenario generation
+  - Fix Guide modification suggestions
+  - GitHub Auto-fix PR code generation
+- Implementation difficulty: ★☆☆ (Only change model parameter in API call)
 
-### 4단계: 플랜별 제한 강화
-| 항목 | Free | Pro ($29) | Team ($99) |
+### Stage 4: Plan-by-plan Limit Reinforcement
+| Item | Free | Pro ($29) | Team ($99) |
 |------|------|-----------|------------|
-| 월 테스트 | 5회 | 500회 | 2,000회 |
-| 스캔 max_pages | 5 | 20 | 50 |
-| 관찰 요소 수 | 5 | 15 | 30 |
-| AI 재시도 | 0회 | 1회 | 3회 |
-| 캐시 유효기간 | 1시간 | 24시간 | 7일 |
+| Monthly tests | 5 times | 500 times | 2,000 times |
+| Scan max_pages | 5 | 20 | 50 |
+| Observation elements | 5 | 15 | 30 |
+| AI retry | 0 times | 1 time | 3 times |
+| Cache validity | 1 hour | 24 hours | 7 days |
 
-### 5단계: 자체 모델 / 오픈소스 LLM 검토 (장기)
-- Llama 3, Mistral 등 오픈소스 모델로 단순 작업 처리
-- 로컬 GPU 또는 저가 GPU 클라우드(RunPod, Vast.ai)에서 실행
-- API 비용을 인프라 비용으로 전환 (규모가 클수록 유리)
-- 검토 시점: 월 활성 사용자 500명 이상
-
----
-
-## 구현 우선순위
-
-| 순위 | 전략 | 절감 효과 | 구현 난이도 | 구현 시점 |
-|------|------|----------|-----------|---------|
-| 1 | 캐싱 | 50~70% | ★★☆ | 서비스 안정화 직후 |
-| 2 | 모델 스위칭 | 40~60% | ★☆☆ | 서비스 안정화 직후 |
-| 3 | 데이터 압축 | 30~40% | ★★☆ | 사용자 10명 이상 |
-| 4 | 플랜별 제한 | 비용 통제 | ★☆☆ | 이미 일부 적용 |
-| 5 | 자체 모델 | 80~90% | ★★★★ | 사용자 500명 이상 |
-
-> 💡 캐싱 + 모델 스위칭만 적용해도 현재 비용의 1/3~1/5로 줄일 수 있음
-> 마진율: 34% → 80% 이상으로 개선 예상
+### Stage 5: Self Model / Open Source LLM Review (Long-term)
+- Process simple tasks with open source models like Llama 3, Mistral
+- Run on local GPU or low-cost GPU cloud (RunPod, Vast.ai)
+- Convert API cost to infrastructure cost (advantageous at scale)
+- Review timing: 500+ monthly active users
 
 ---
 
-## 비용 모니터링
+## Implementation Priority
 
-- OpenAI 대시보드: https://platform.openai.com/account/usage
-- 결제 확인: https://platform.openai.com/settings/organization/billing/overview
-- 월 예산 설정: $120 (현재)
-- 알림 설정: 일 $5 초과 시 이메일 알림 권장
+| Priority | Strategy | Reduction effect | Difficulty | Implementation timing |
+|----------|----------|-------------------|-------------|----------------------|
+| 1 | Caching | 50-70% | ★★☆ | Right after service stabilization |
+| 2 | Model switching | 40-60% | ★☆☆ | Right after service stabilization |
+| 3 | Data compression | 30-40% | ★★☆ | 10+ users |
+| 4 | Plan limits | Cost control | ★☆☆ | Already partially applied |
+| 5 | Self model | 80-90% | ★★★★ | 500+ users |
+
+> 💡 Just caching + model switching can reduce current cost to 1/3~1/5
+> Expected margin improvement: 34% → 80%+
 
 ---
 
-*최종 수정: 2026.02.20*
-*작성: AWT 개발팀*
+## Cost Monitoring
+
+(Continuing content would follow...)

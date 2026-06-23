@@ -100,22 +100,14 @@ _CONCISE_SKIP_ACTIONS: frozenset[ActionType] = frozenset(
 
 
 _SYNONYMS: dict[str, list[str]] = {
-    "email": ["이메일", "e-mail", "이메일 주소"],
-    "이메일": ["email", "e-mail"],
-    "이메일 주소": ["email", "이메일"],
-    "password": ["비밀번호", "패스워드"],
-    "비밀번호": ["password", "패스워드"],
-    "패스워드": ["password", "비밀번호"],
-    "login": ["로그인", "sign in", "log in"],
-    "로그인": ["login", "sign in", "log in"],
-    "sign in": ["로그인", "login"],
-    "register": ["회원가입", "sign up", "signup"],
-    "회원가입": ["register", "sign up", "가입하기"],
-    "search": ["검색", "찾기"],
-    "검색": ["search"],
-    "submit": ["제출", "확인", "전송"],
-    "제출": ["submit", "확인"],
-    "확인": ["submit", "제출", "ok", "confirm"],
+    "email": ["e-mail", "email address", "mail"],
+    "password": ["pass", "pwd"],
+    "login": ["sign in", "log in", "log-in"],
+    "sign in": ["login", "log in"],
+    "register": ["sign up", "signup", "join"],
+    "search": ["find", "search box"],
+    "submit": ["send", "confirm", "ok"],
+    "confirm": ["submit", "ok", "yes"],
 }
 
 
@@ -611,13 +603,13 @@ class StepExecutor:
 
         # 5. Type-based inference from selector or text (includes synonyms)
         hint = (selector + " " + " ".join(text_variants)).lower()
-        if any(k in hint for k in ("email", "mail", "이메일")):
+        if any(k in hint for k in ("email", "mail")):
             locators.append(page.locator('input[type="email"]').first)
-        if any(k in hint for k in ("password", "비밀번호", "패스워드")):
+        if any(k in hint for k in ("password", "pass")):
             locators.append(page.locator('input[type="password"]').first)
-        if any(k in hint for k in ("tel", "전화", "연락처", "핸드폰")):
+        if any(k in hint for k in ("tel", "phone", "mobile", "contact")):
             locators.append(page.locator('input[type="tel"]').first)
-        if any(k in hint for k in ("search", "검색", "찾기")):
+        if any(k in hint for k in ("search", "find")):
             locators.append(page.locator('input[type="search"]').first)
 
         for loc in locators:
@@ -2037,11 +2029,10 @@ class StepExecutor:
 
                 // Error patterns
                 const errorPatterns = [
-                    '오류', 'error', '실패', 'failed', 'invalid',
-                    '잘못된', 'incorrect', '비밀번호가 틀',
-                    'wrong password', '존재하지 않', 'not found',
-                    '확인해주세요', '일치하지 않',
-                    '필수', 'required', '형식이',
+                    'error', 'failed', 'invalid', 'incorrect',
+                    'wrong password', 'not found', 'please check',
+                    'does not match', 'mismatch', 'required',
+                    'invalid format', 'unauthorized', 'forbidden',
                 ];
                 for (const p of errorPatterns) {
                     if (combined.includes(p)) return 'error';
@@ -2049,8 +2040,8 @@ class StepExecutor:
 
                 // Loading patterns
                 const loadingPatterns = [
-                    '로딩', 'loading', '처리 중', 'processing',
-                    'please wait', '잠시만', '생성 중',
+                    'loading', 'processing', 'please wait', 'just a moment',
+                    'creating', 'uploading', 'downloading', 'saving',
                 ];
                 for (const p of loadingPatterns) {
                     if (combined.includes(p)) return 'loading';
@@ -2104,20 +2095,20 @@ class StepExecutor:
             lower = text.lower()
 
             error_keywords = [
-                "오류",
                 "error",
-                "실패",
                 "failed",
                 "invalid",
-                "잘못된",
                 "incorrect",
-                "확인해주세요",
+                "please check",
+                "unauthorized",
+                "forbidden",
+                "not found",
             ]
             for kw in error_keywords:
                 if kw in lower:
                     return "error"
 
-            loading_keywords = ["로딩", "loading", "처리 중"]
+            loading_keywords = ["loading", "processing", "please wait"]
             for kw in loading_keywords:
                 if kw in lower:
                     return "loading"
@@ -2466,26 +2457,26 @@ class StepExecutor:
         # Check 2: Detect unexpected blocking elements — raise immediately
         # Login-redirect patterns (session expired / auth required)
         login_blockers = [
-            "로그인",
             "sign in",
             "log in",
-            "아이디",
-            "비밀번호",
+            "login",
+            "username",
+            "password",
+            "id",
             "id/pw",
         ]
         hard_blockers = [
-            "오류가 발생",
-            "에러가 발생",
             "error occurred",
-            "페이지를 찾을 수 없",
-            "404 not found",
+            "an error occurred",
             "page not found",
+            "404 not found",
             "500 internal server error",
             "internal server error",
-            "서버 오류",
-            "접근이 거부",
+            "server error",
             "access denied",
-            "권한이 없",
+            "unauthorized",
+            "forbidden",
+            "permission denied",
         ]
 
         # Hard-stop for login redirect — skip if we intentionally navigated to a login page
@@ -2509,7 +2500,7 @@ class StepExecutor:
                     action=step.action.value,
                 )
             # Also check OCR for login keywords (catches non-URL-based login pages)
-            if all(lb not in ocr_lower for lb in ("로그인 후 이용", "로그인하세요")):
+            if all(lb not in ocr_lower for lb in ("login required", "please log in")):
                 pass  # no login text in OCR — fine
             for lb in login_blockers:
                 if lb in ocr_lower and on_login_page:

@@ -1,91 +1,91 @@
-# AWT (AI Watch Tester) 프로젝트 전반 분석 및 사업화 전략 보고서
+# AWT (AI Watch Tester) Comprehensive Project Analysis and Business Strategy Report
 
-**작성일:** 2026-03-26
-**주제:** AWT 프로젝트의 구조적 맹점 파악, 성능 병목 사례 분석 및 엔터프라이즈 제품화를 위한 비즈니스/기술 보완 방향
-
----
-
-## 1. 프로젝트 개요 및 기술 구조
-
-AWT는 Playwright와 컴퓨터 비전(OpenCV, OCR), 생성형 AI(Claude, GPT-4o 등)를 결합하여 UI 자동화 테스트를 수행하고, 에러 발생 시 스스로 코드를 분석 및 수정하여 재실행하는 **"AI 기반 DevQA Loop 오케스트레이터"**입니다.
-
-### 주요 구성 요소
-1. **`src/aat` (Core Engine):** Typer 기반 CLI 및 Playwright 제어, 시각 매칭(hybrid) 엔진 등 AWT의 두뇌 역할을 담당합니다.
-2. **`cloud/` (Dashboard):** FastAPI + Supabase 기반으로 실시간 테스트 진행 상태를 모니터링하고 결과를 확인하는 대시보드입니다.
-3. **`mcp/` & `awt-skill/`:** 외부 환경(Claude Code, Cursor 등)에서 에이전트 스킬로 설치하여, AI 코딩 비서가 직접 AWT를 실행하도록 돕는 연동 인터페이스입니다.
+**Date:** 2026-03-26
+**Subject:** Identifying structural weaknesses in AWT project, analyzing performance bottleneck cases, and business/technical improvement directions for enterprise productization
 
 ---
 
-## 2. 파악된 핵심 맹점 (Critical Vulnerabilities)
+## 1. Project Overview and Technical Architecture
 
-강력한 자가 치유 능력을 가진 AWT지만, 코드 구조상 엔터프라이즈 환경 도입을 가로막는 치명적인 약점들이 존재합니다.
+AWT is an **"AI-based DevQA Loop Orchestrator"** that combines Playwright, computer vision (OpenCV, OCR), and generative AI (Claude, GPT-4o, etc.) to perform UI automated testing, and when errors occur, analyzes and fixes code itself to re-execute.
 
-### A. 시각적 요소(Visual & Text)에 대한 과도한 의존
-- AWT는 고유한 DOM 속성(`data-testid` 등)이 아닌 "눈에 보이는 이미지와 텍스트(OCR, Template)"에 의존합니다.
-- 다국어 지원(i18n)이 적용되거나 다크 모드 등 테마가 변경되면 시인성이 달라져 테스트가 완전히 깨질 수 있는 **유지보수성의 치명적 한계(Flaky Tests)**를 지닙니다.
-
-### B. DevQA Loop의 AI 조작 위험과 상태 격리 부재
-- **AI 조작 Risk:** `auto` 또는 `branch` 모드에서 테스트 실패 시 AI가 제시한 코드 수정을 로컬에 직접 덮어쓰고 재실행합니다. 이때 수정된 코드의 안전성 검증 로직(`_validate_fix`)이 매우 허술하여, 비즈니스 로직을 날려버리는 코드로 덮어씌울 위험(보안 취약점 주입 포함)이 큽니다.
-- **상태 격리(State Isolation) 실패:** 데이터베이스 롤백이나 테스트용 샌드박스 상태 초기화 기능이 없습니다. 이로 인해 테스트의 멱등성(Idempotency)이 보장되지 않습니다.
-
-### C. 좌표 클릭의 맹목성 (Actionability 한계)
-- 요소를 찾으면 중앙 `(x, y)` 화면 좌표를 계산하여 단순히 마우스를 클릭합니다.
-- 투명한 레이어나 로딩 스피너에 가려져 실제로는 누를 수 없는(Not Actionable) 상태임에도 테스트가 통과했다고 오판하거나, 엉뚱한 곳을 클릭할 확률이 높습니다.
+### Key Components
+1. **`src/aat` (Core Engine):** Typer-based CLI and Playwright control, visual matching (hybrid) engine, etc. Acts as AWT's brain.
+2. **`cloud/` (Dashboard):** FastAPI + Supabase based dashboard for real-time test progress monitoring and result verification.
+3. **`mcp/` & `awt-skill/`:** Integration interfaces that allow AI coding assistants to directly execute AWT when installed as agent skills in external environments (Claude Code, Cursor, etc.).
 
 ---
 
-## 3. 사례 분석: 회원가입-대시보드 "48분 소요" 병목 사태
+## 2. Identified Critical Weaknesses
 
-간단한 회원가입 후 대시보드 진입 테스트가 48분이라는 극단적인 시간을 소모한 이유는 **"AI가 멱등성 없는 환경에서 무한 실패 루프(Death Spiral)에 빠졌기 때문"**입니다.
+Despite powerful self-healing capabilities, AWT has fatal weaknesses in code structure that block enterprise adoption.
 
-1. **상태 오염(State Pollution) 발생:** 대시보드 진입(Step 3)에서 요소를 일시적으로 찾지 못해 1차 실패 발생. DevQA 루프가 AI를 통해 수정을 시도한 후 처음부터(회원가입, Step 1) 재시작함.
-2. **논리적 무한 루프:** 이전 시도의 회원가입 1차 시도로 DB에 이메일이 적재됨. 재시작된 Step 1에서 "이미 가입된 아이디" 에러 발생하여 2차 실패. AWT는 다시 AI에게 해당 에러 분석을 맡기고 코드를 고치려 헛돔.
-3. **Tier 3 Vision AI 과다 호출:** 매 실패와 스텝마다 가장 느리고 비싼 비용 모델인 Claude/GPT 등 Vision AI를 지속적으로 호출하며 요청 시간(장당 10초 이상)과 휴머나이즈(마우스 무빙 지연 등) 딜레이가 48분간 누적됨.
+### A. Excessive Dependence on Visual Elements
+- AWT depends on "visible images and text (OCR, Template)" rather than unique DOM attributes (`data-testid`, etc.).
+- When multi-language support (i18n) is applied or themes like dark mode are changed, visibility changes and tests can completely break — **Critical maintainability limitation (Flaky Tests)**.
 
----
+### B. AI Manipulation Risk and Lack of State Isolation in DevQA Loop
+- **AI Manipulation Risk:** In `auto` or `branch` mode, when test fails, AI's suggested code fix overwrites local files directly and re-executes. The fix validation logic (`_validate_fix`) is very loose, posing high risk of overwriting with code that destroys business logic (including security vulnerability injection).
+- **State Isolation Failure:** No database rollback or test sandbox state initialization. This guarantees no test idempotency.
 
-## 4. DOM vs Canvas (Flutter) 통합 비전에 대한 재평가 및 한계 극복
-
-AWT가 일반적인 DOM 탐색 기반을 넘어 극한의 시각 의존성(OpenCV, OCR, Vision AI) 방향으로 발전한 이유는 **"DOM과 Canvas(Flutter Web) 환경 모두에서 동일하게 작동하는 만능 테스팅 툴"**을 만들고자 했던 혁신적인 비전(Vision) 때문이었습니다. 
-이러한 시각 기반 접근법(Visual Testing)은 타 메이저 QA 툴(Cypress 등)이 웹어셈블리나 캔버스 환경에서 전혀 힘을 쓰지 못하는 제약을 극복한 **AWT만의 강력한 무기이자 차별점(USP)**입니다.
-
-하지만, **"가장 어려운 영역(Canvas)을 풀기 위한 비싸고 느린 무기(Vision)를, 가장 쉬운 영역(DOM)에까지 똑같이 사용한 점"**이 앞서 언급한 48분 병목현상의 결정적 원인이 되었습니다. 이를 타파하고 두 마리 토끼(DOM과 Canvas)를 모두 완벽하게 잡기 위한 하이브리드 전략은 다음과 같습니다.
-
-1. **플랫폼 자동 감지 (Platform Auto-Detection) 라우터 도입:**
-   - 페이지 진입 시 0.1초 만에 현재 DOM 트리를 스캔하여 페이지가 일반 HTML 기반인지, Flutter Web(`<flt-glass-pane>`, `<canvas>` 존재 여부)인지 진단합니다.
-2. **DOM → Canvas 폭포수(Waterfall) 탐색 전략:**
-   - DOM 환경이라면 무조건 빠르고 확실한 **DOM 매처(Tier 0)**를 선행하여 0.1초 만에 네이티브 클릭을 수행합니다. 
-   - DOM에서 도저히 찾지 못하는 요소이거나, 초기 진단에서 Canvas 환경으로 판별되었을 때에만 비로소 카메라(Tier 1~3: Template → OCR → Vision AI) 모드로 진입합니다.
-3. **Semantics Tree (접근성 트리) 훅업(Hook-up):**
-   - Flutter Web의 경우 백그라운드에 렌더링되는 Semantics Node를 활용해, 비디오 인식을 하지 않고도 Canvas 내부 텍스트의 x, y 좌표를 0.1초 만에 찾아내는 고속 우회로를 구축합니다.
+### C. Blindness of Coordinate Clicking (Actionability Limitation)
+- When finding elements, calculates center `(x, y)` screen coordinates and simply clicks mouse.
+- Even when actually not clickable (Not Actionable) due to transparent overlays or loading spinners, test may falsely pass, or high probability of clicking wrong location.
 
 ---
 
-## 5. 제품화 및 사업화 전략 (Go-to-Market Strategy)
+## 3. Case Analysis: Signup-Dashboard "48-Minute Bottleneck" Incident
 
-AWT가 신뢰받는 엔터프라이즈 B2B SaaS 제품이나 핵심 QA 인프라로 자리 잡으려면 기술적 "절제와 안전장치"가 가장 중요합니다.
+A simple signup-to-dashboard test took extreme 48 minutes because **"AI fell into infinite failure loop (Death Spiral) in non-idempotent environment"**.
 
-1. **"완전 자율(Autopilot)"에서 "승인 기반 비서(Copilot)"로 전환:**
-   - 코드를 임의로 덮어쓰는 `AUTO` 모드는 기업 환경에서 가장 꺼리는 요소입니다.
-   - 실패 시 **에러 화면 분석 결과와 수정된 코드의 Diff를 보여주고 "Pull Request(PR) 초안"으로만 제공**해야 합니다. 최종 병합은 언제나 인간 개발자(Human-in-the-Loop)의 승인을 거치게 포지셔닝해야 보안 불안감을 해소할 수 있습니다.
-2. **결함 없는 테스트 샌드박싱 (Teardown Hooks):**
-   - 테스트 시작 전/후로 데이터베이스를 클렌징하거나 에페머럴 브라우저(Ephemeral Browser Context)를 완전히 휘발시키는 안전장치에 대한 신뢰를 사업적인 셀링 포인트로 내세워야 합니다.
-3. **DOM 기반의 하이브리드 탐색 필수화:**
-   - 화려한 "눈(Vision AI)"을 앞세우기보다 엔터프라이즈 고객이 가장 원하는 안정적인 테스트(DOM 속성 기반 테스트)를 0순위 매처로 기본 제공해야만 "flaky" 하다는 인식을 깰 수 있습니다.
+1. **State Pollution Occurs:** Dashboard entry (Step 3) temporarily fails to find element, causing first failure. DevQA loop attempts fix through AI, then restarts from beginning (signup, Step 1).
+2. **Logical Infinite Loop:** Previous attempt's signup loaded email to DB. Restarted Step 1 fails with "already registered ID" error, causing second failure. AWT asks AI to analyze error again and wastes effort fixing code.
+3. **Excessive Tier 3 Vision AI Calls:** Continuously calls slow, expensive Claude/GPT Vision AI for every failure and step, with request time (10+ seconds per sheet) and humanization (mouse movement delay, etc.) delays accumulating for 48 minutes.
 
 ---
 
-## 6. 향후 소스코드 및 구동 방식 수정 방향 (Action Items)
+## 4. Re-evaluation of DOM vs Canvas (Flutter) Integration Vision and Overcoming Limitations
 
-비즈니스와 기술 측면의 약점을 보완하기 위해 AWT 소스코드 수준에서 도입해야 할 구체적인 수정 방향입니다.
+AWT evolved beyond general DOM-based navigation toward extreme vision dependence (OpenCV, OCR, Vision AI) because of innovative vision to create **"Universal testing tool that works identically in both DOM and Canvas (Flutter Web) environments"**.
+This vision-based approach (Visual Testing) overcomes limitations where major QA tools (Cypress, etc.) are completely powerless in webassembly or canvas environments — **AWT's powerful weapon and differentiator (USP)**.
 
-- [ ] **Tier 0 Locator Engine 도입 (DOM Selector 우선)**
-  - `hybrid.py`의 최우선 순위(Tier 1 이전)로 `data-testid`, `id`, `name` 등 HTML DOM 구조를 우선 파악해 빠르고 안정적으로 요소를 탐색하는 모듈 추가.
-- [ ] **명시적인 상태 파괴 방지 (State Teardown / Rollback)**
-  - YAML 시나리오 뼈대에 `teardown_query` (DB 초기화 스크립트 실행)나 API 훅(Webhook) 지원 추가.
-  - 멱등성이 불가능한 로직에서는 `--no-loop` 플래그를 기본 적용하여 실패 시 재시도하지 않고 즉각 종료(Fail-fast) 처리.
-- [ ] ** DevQA 루프 검증 강화 및 Auto 모드 제거**
-  - `loop.py` 안에 있는 `_handle_auto` 모드를 폐기하거나 강력한 경고 플래그 하에 숨김. 
-  - `_validate_fix()` 로직을 대폭 상향(의존성 트리 위반 검사, AST 무결성 분석)하고, `_handle_branch` 위주로 시스템 운영.
-- [ ] **좌표 클릭 로직 보강**
-  - `web.py` 내 `mouse.click(x, y)` 이전에 Playwright의 `waitForFunction` 등을 사용해 해당 엘리먼트 가시성과 상호작용 가능성(Actionable) 핑을 찔러보는 전제 조건 추가.
+However, **"Using expensive, slow weapon (Vision) designed for hardest area (Canvas) equally on easiest area (DOM)"** became decisive cause of aforementioned 48-minute bottleneck. To break through and perfectly catch both rabbits (DOM and Canvas), hybrid strategy is:
+
+1. **Platform Auto-Detection Router:**
+   - On page entry, scan current DOM tree in 0.1 seconds to diagnose whether page is normal HTML-based or Flutter Web (presence of `<flt-glass-pane>`, `<canvas>`).
+2. **DOM → Canvas Waterfall Search Strategy:**
+   - If DOM environment, unconditionally prioritize fast, reliable **DOM matcher (Tier 0)** to perform native click in 0.1 seconds.
+   - Only when absolutely cannot find in DOM, or diagnosed as Canvas environment in initial diagnosis, then enter camera mode (Tier 1~3: Template → OCR → Vision AI).
+3. **Semantics Tree (Accessibility Tree) Hook-up:**
+   - For Flutter Web, utilize Semantics Nodes rendered in background to build high-speed bypass that finds x, y coordinates of text inside Canvas in 0.1 seconds without video recognition.
+
+---
+
+## 5. Productization and Business Strategy (Go-to-Market Strategy)
+
+For AWT to become trusted enterprise B2B SaaS product or core QA infrastructure, technical "restraint and safety measures" are most important.
+
+1. **Shift from "Full Autopilot" to "Approval-based Copilot":**
+   - `AUTO` mode that arbitrarily overwrites code is most undesirable element in enterprise environments.
+   - On failure, must **only show error screen analysis results and code fix diff as "Pull Request (PR) draft"**. Final merge must always go through human developer (Human-in-the-Loop) approval to resolve security anxiety.
+2. **Flawless Test Sandboxing (Teardown Hooks):**
+   - Must trust safety measures that clean database before/after test or completely volatilize ephemeral browser context as business selling point.
+3. **DOM-based Hybrid Search Mandatory:**
+   - Rather than showing off fancy "eyes (Vision AI)", must prioritize stable testing enterprises want most (DOM attribute-based testing) as first matcher to break "flaky" perception.
+
+---
+
+## 6. Future Source Code and Operation Modification Directions (Action Items)
+
+Specific modification directions to introduce at AWT source code level to compensate business and technical weaknesses:
+
+- [ ] **Introduce Tier 0 Locator Engine (DOM Selector Priority)**
+  - Add module to `hybrid.py` as highest priority (before Tier 1) that prioritizes HTML DOM structure like `data-testid`, `id`, `name` for fast, reliable element search.
+- [ ] **Explicit State Destruction Prevention (State Teardown / Rollback)**
+  - Add `teardown_query` (DB initialization script execution) or API hook (Webhook) support to YAML scenario skeleton.
+  - For logic where idempotency is impossible, apply `--no-loop` flag by default to immediately terminate (Fail-fast) on failure without retry.
+- [ ] **Strengthen DevQA Loop Validation and Remove Auto Mode**
+  - Discard `_handle_auto` mode in `loop.py` or hide under strong warning flag.
+  - Significantly strengthen `_validate_fix()` logic (dependency tree violation check, AST integrity analysis), operate system mainly on `_handle_branch`.
+- [ ] **Strengthen Coordinate Clicking Logic**
+  - Before `mouse.click(x, y)` in `web.py`, add prerequisite condition using Playwright's `waitForFunction` etc. to probe element visibility and interaction possibility (Actionable).

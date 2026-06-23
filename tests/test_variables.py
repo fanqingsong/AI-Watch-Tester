@@ -140,7 +140,7 @@ def test_step_dict_substitution() -> None:
     step = {
         "action": "type_text",
         "value": "ceo+{{timestamp}}@ailooplab.com",
-        "description": "이메일 입력 (unique: {{random}})",
+        "description": "Enter email (unique: {{random}})",
     }
     result = _substitute_vars(step, {})
     assert "{{timestamp}}" not in result["value"]

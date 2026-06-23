@@ -30,22 +30,14 @@ _TEST_DATA: dict[str, str] = {
 
 _PLACEHOLDER_HINTS: dict[str, str] = {
     "name": "Test User",
-    "이름": "테스트유저",
-    "성": "김",
     "last name": "Smith",
     "first name": "John",
     "nickname": "tester",
-    "닉네임": "테스터",
-    "주소": "서울시 강남구",
     "address": "123 Test St",
     "company": "TestCorp",
-    "회사": "테스트회사",
     "phone": "01012345678",
-    "전화": "01012345678",
     "message": "This is a test message.",
-    "메시지": "테스트 메시지입니다.",
     "subject": "Test Subject",
-    "제목": "테스트 제목",
 }
 
 # Patterns to detect credential hint blocks on page
@@ -296,7 +288,7 @@ def _count_asserts(steps: list[dict]) -> int:
 # Tier 1: Deterministic scenario builders
 # ---------------------------------------------------------------------------
 
-_HIGH_RISK_FEATURES = {"cart", "payment", "checkout", "결제", "장바구니"}
+_HIGH_RISK_FEATURES = {"cart", "payment", "checkout", "billing"}
 
 
 def _is_high_risk(test_detail: dict) -> bool:

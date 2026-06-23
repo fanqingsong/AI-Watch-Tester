@@ -793,21 +793,19 @@ def fix_form_submit_steps(
 
 # Mapping from generic English keywords to field type for matching
 _FIELD_TYPE_HINTS: dict[str, list[str]] = {
-    "email": ["email", "mail", "이메일", "e-mail"],
+    "email": ["email", "mail", "e-mail", "email address"],
     "password": [
-        "password", "비밀번호", "패스워드", "pw", "passwd",
+        "password", "pass", "pw", "passwd",
     ],
     "confirm_password": [
-        "confirm password", "password confirm", "비밀번호 확인",
-        "비밀번호확인", "패스워드 확인", "re-enter", "retype",
-        "confirm", "확인",
+        "confirm password", "password confirm", "re-enter", "retype",
+        "confirm", "verify",
     ],
     "name": [
-        "name", "이름", "닉네임", "nickname", "username", "아이디",
-        "full name", "fullname",
+        "name", "nickname", "username", "full name", "fullname",
     ],
     "phone": [
-        "phone", "전화", "휴대폰", "핸드폰", "tel", "연락처", "mobile",
+        "phone", "tel", "telephone", "mobile", "contact",
     ],
 }
 
@@ -1004,9 +1002,9 @@ def fix_field_targets(
 # Multi-step form order enforcement
 # ---------------------------------------------------------------------------
 
-_NEXT_KW = frozenset({"다음", "next", "continue", "계속", "다음 단계"})
-_BACK_KW = frozenset({"이전", "previous", "back", "뒤로", "prev"})
-_REG_KW = ("회원가입", "register", "signup", "sign up", "registration")
+_NEXT_KW = frozenset({"next", "continue", "proceed"})
+_BACK_KW = frozenset({"previous", "back", "prev"})
+_REG_KW = ("register", "signup", "sign up", "registration")
 
 
 def _get_step_action(step: object) -> str:
@@ -1151,10 +1149,10 @@ def enforce_multi_step_order(
     """Enforce correct step ordering for multi-step registration scenarios.
 
     AI often ignores the STEP ORDER RULE, placing Step 2 fields before the
-    "다음" click. This function:
+    "next" click. This function:
     1. Identifies registration scenarios
     2. Classifies each form step into its multi-step phase
-    3. Rebuilds: Step1 fields → "다음" click → wait → Step2 fields → submit → assert
+    3. Rebuilds: Step1 fields → "next" click → wait → Step2 fields → submit → assert
     """
     if not multi_step_fields or len(multi_step_fields) < 2:
         return scenarios
@@ -1235,7 +1233,7 @@ def enforce_multi_step_order(
                 continue
 
             if action == "find_and_click":
-                # Drop transition clicks — "다음"/"이전" (will rebuild)
+                # Drop transition clicks — "next"/"previous" (will rebuild)
                 if any(kw in target_text for kw in _NEXT_KW):
                     continue
                 if any(kw in target_text for kw in _BACK_KW):
@@ -1318,10 +1316,10 @@ def enforce_multi_step_order(
                 )
 
             if phase < num_phases:
-                # Inject "다음" click + wait between phases
+                # Inject "next" click + wait between phases
                 btn = step_buttons.get(phase)
                 btn_text = (
-                    btn.get("label", "다음") if btn else "다음"
+                    btn.get("label", "next") if btn else "next"
                 )
                 btn_sel = (
                     btn.get("selector", "") if btn else ""
@@ -1355,7 +1353,7 @@ def enforce_multi_step_order(
 
         # Suffix — force-replace assert for registration redirect
         # Registration form submit redirects to login/main page.
-        # AI often asserts form text ("1단계", "계정 정보") instead.
+        # AI often asserts form text ("step 1", "account info") instead.
         has_assert = any(
             _get_step_action(s) == "assert" for s in suffix
         )
@@ -1415,7 +1413,7 @@ def enforce_multi_step_order(
                 continue
             sel = _get_step_target_selector(s).lower()
             txt = _get_step_target_text(s).lower()
-            if "email" in sel or "이메일" in txt or "email" in txt:
+            if "email" in sel or "email" in txt:
                 # Replace email value
                 if isinstance(s, dict):
                     s["value"] = unique_email
@@ -1440,13 +1438,13 @@ def enforce_multi_step_order(
 # ---------------------------------------------------------------------------
 
 _AUTH_SKIP_KW = (
-    "로그인", "login", "회원가입", "register", "signup",
+    "login", "register", "signup",
     "sign up", "broken", "nav",
 )
 _AUTH_NEED_KW = (
-    "게시", "post", "write", "comment", "댓글",
-    "프로필", "profile", "설정", "setting", "마이페이지",
-    "mypage", "dashboard", "작성", "수정", "edit", "delete", "삭제",
+    "post", "write", "comment",
+    "profile", "setting", "mypage",
+    "dashboard", "create", "edit", "delete",
 )
 
 
@@ -1476,7 +1474,7 @@ def _extract_login_info(
 
         info: dict[str, str] = {
             "nav_selector": elem.get("selector", ""),
-            "nav_text": elem.get("text", "로그인"),
+            "nav_text": elem.get("text", "login"),
         }
 
         for f in fields:
@@ -1484,13 +1482,13 @@ def _extract_login_info(
             sel = f.get("selector", "")
             label = f.get("label", "")
 
-            if ftype == "email" or "email" in sel.lower() or "이메일" in label:
+            if ftype == "email" or "email" in sel.lower():
                 info["email_selector"] = sel
             elif ftype == "password" or "password" in sel.lower():
                 info["password_selector"] = sel
             elif ftype == "submit_button" and f.get("context") == "form":
                 info["submit_selector"] = sel
-                info["submit_text"] = f.get("label", "로그인")
+                info["submit_text"] = f.get("label", "login")
 
         if info.get("email_selector") and info.get("password_selector"):
             return info
@@ -1507,7 +1505,7 @@ def inject_login_prefix(
     """Prepend login steps to scenarios that require authentication.
 
     After session isolation (cookies cleared per scenario), scenarios like
-    "게시물 작성" or "댓글 작성" need a login prefix to work.
+    "create post" or "write comment" need a login prefix to work.
 
     Skips login/register/nav scenarios that don't need auth.
     """
@@ -1557,7 +1555,7 @@ def inject_login_prefix(
         has_login = False
         for s in steps[:6]:
             t = _get_step_target_text(s).lower()
-            if "로그인" in t or "login" in t:
+            if "login" in t:
                 sel = _get_step_target_selector(s).lower()
                 if "password" in sel or "email" in sel or "login" in sel:
                     has_login = True
@@ -1570,20 +1568,20 @@ def inject_login_prefix(
             _make_step(1, "navigate", "Navigate to homepage",
                        value=target_url),
             _make_step(2, "find_and_click", "Click login link",
-                       target_text=login_info.get("nav_text", "로그인"),
+                       target_text=login_info.get("nav_text", "login"),
                        target_selector=login_info.get("nav_selector", "")),
             _make_step(3, "wait", "Wait for login form",
                        value="1000"),
             _make_step(4, "find_and_type", "Enter email",
-                       target_text="이메일",
+                       target_text="email",
                        target_selector=login_info.get("email_selector", ""),
                        value=email),
             _make_step(5, "find_and_type", "Enter password",
-                       target_text="비밀번호",
+                       target_text="password",
                        target_selector=login_info.get("password_selector", ""),
                        value=password),
             _make_step(6, "find_and_click", "Click login button",
-                       target_text=login_info.get("submit_text", "로그인"),
+                       target_text=login_info.get("submit_text", "login"),
                        target_selector=login_info.get("submit_selector", "")),
             _make_step(7, "wait", "Wait for login redirect",
                        value="1500"),
@@ -1770,8 +1768,7 @@ def build_language_instruction(site_lang: str) -> str:
             "- Step descriptions: English\n"
             "- Assert values (text_visible, url_contains): copy EXACT English text from data\n"
             "- Test data: use English (e.g., 'Test User', 'awttest@example.com')\n"
-            "- NEVER use Korean (한글) for ANY generated text — only copy Korean if it\n"
-            "  appears verbatim in the page data or observation data.\n"
+            "- Match form field labels and button text exactly as they appear.\n"
             + common_suffix
         )
     if site_lang == "ko":
@@ -2028,7 +2025,7 @@ def _is_login_scenario(scenario: dict | object) -> bool:
     else:
         name = (getattr(scenario, "name", "") or "").lower()
         desc = (getattr(scenario, "description", "") or "").lower()
-    keywords = ("login", "로그인", "signin", "sign in", "sign-in", "auth")
+    keywords = ("login", "signin", "sign in", "sign-in", "auth")
     return any(k in name or k in desc for k in keywords)
 
 

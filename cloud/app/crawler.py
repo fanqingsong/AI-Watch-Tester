@@ -22,81 +22,45 @@ from app.ws import WSManager
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Bilingual log messages (scan detail log shown to users)
+# Log messages (scan detail log shown to users)
 # ---------------------------------------------------------------------------
 
-_MESSAGES: dict[str, dict[str, str]] = {
-    "navigating": {"en": "Navigating to {url}", "ko": "페이지 접속 중... {url}"},
-    "nav_failed": {"en": "Navigation failed: {err}", "ko": "페이지 접속 실패: {err}"},
-    "http_error": {"en": "HTTP {status} error: {url}", "ko": "HTTP {status} 에러: {url}"},
-    "page_loaded": {"en": "Page loaded ({time}s) — {title}", "ko": "페이지 로드 완료 ({time}초) — {title}"},
-    "collecting_dom": {"en": "Collecting DOM elements...", "ko": "DOM 요소 수집 중..."},
-    "dom_collected": {
-        "en": "DOM collected: {buttons} buttons, {links} links, {forms} forms, {navs} nav menus",
-        "ko": "DOM 수집 완료: {buttons}개 버튼, {links}개 링크, {forms}개 폼, {navs}개 내비게이션",
-    },
-    "detecting_features": {"en": "Detecting site features...", "ko": "사이트 기능 감지 중..."},
-    "observe_start": {
-        "en": "Starting element observation — clicking elements and recording changes...",
-        "ko": "요소 관찰 시작 — 각 요소를 클릭하고 변화를 기록합니다...",
-    },
-    "checking_links": {"en": "Checking external link status...", "ko": "외부 링크 상태 확인 중..."},
-    "scroll_start": {
-        "en": "Page scroll scan started ({sections} sections)",
-        "ko": "페이지 스크롤 스캔 시작 ({sections}개 섹션)",
-    },
-    "scrolling": {
-        "en": "Scrolling page... [{i}/{sections} sections]",
-        "ko": "페이지 스크롤 중... [{i}/{sections} 섹션]",
-    },
-    "accordion_found": {
-        "en": "Accordion elements found: {count} — expanding each...",
-        "ko": "아코디언 요소 발견: {count}개 → 각각 펼쳐서 확인 중...",
-    },
-    "accordion_checking": {
-        "en": "Checking accordion... [{current}/{total}]",
-        "ko": "아코디언 확인 중... [{current}/{total}]",
-    },
-    "accordion_done": {
-        "en": "Accordion observation complete: recorded {count} expanded elements.",
-        "ko": "아코디언 관찰 완료: {count}개 요소의 펼친 콘텐츠를 기록했습니다.",
-    },
-    "skipping_observed": {
-        "en": "Skipping {count} elements already observed on previous pages",
-        "ko": "이전 페이지에서 관찰된 {count}개 요소 스킵",
-    },
-    "file_download_found": {
-        "en": "  → File download link found: '{text}' ({file})",
-        "ko": "  → 파일 다운로드 링크 발견: '{text}' ({file})",
-    },
-    "observing_element": {
-        "en": "Observing element [{current}/{total}]: clicking '{text}'...",
-        "ko": "요소 관찰 중 [{current}/{total}]: '{text}' 클릭...",
-    },
-    "observe_result": {"en": "  → Result: {label}", "ko": "  → 결과: {label}"},
-    "observe_failed": {"en": "  → Observation failed: {err}", "ko": "  → 관찰 실패: {err}"},
-    "observe_done": {
-        "en": "Observation complete: recorded behavior of {count} elements.",
-        "ko": "관찰 완료: {count}개 요소의 동작을 기록했습니다.",
-    },
-    "change_page_navigation": {"en": "page navigation", "ko": "페이지 이동"},
-    "change_modal_opened": {"en": "modal/popup opened", "ko": "모달/팝업 열림"},
-    "change_anchor_scroll": {"en": "section scroll", "ko": "섹션 스크롤"},
-    "change_section_change": {"en": "content changed", "ko": "콘텐츠 변경"},
-    "change_no_change": {"en": "no change", "ko": "변화 없음"},
-    "change_minor_change": {"en": "minor change", "ko": "미세 변화"},
+_MESSAGES: dict[str, str] = {
+    "navigating": "Navigating to {url}",
+    "nav_failed": "Navigation failed: {err}",
+    "http_error": "HTTP {status} error: {url}",
+    "page_loaded": "Page loaded ({time}s) — {title}",
+    "collecting_dom": "Collecting DOM elements...",
+    "dom_collected": "DOM collected: {buttons} buttons, {links} links, {forms} forms, {navs} nav menus",
+    "detecting_features": "Detecting site features...",
+    "observe_start": "Starting element observation — clicking elements and recording changes...",
+    "checking_links": "Checking external link status...",
+    "scroll_start": "Page scroll scan started ({sections} sections)",
+    "scrolling": "Scrolling page... [{i}/{sections} sections]",
+    "accordion_found": "Accordion elements found: {count} — expanding each...",
+    "accordion_checking": "Checking accordion... [{current}/{total}]",
+    "accordion_done": "Accordion observation complete: recorded {count} expanded elements.",
+    "skipping_observed": "Skipping {count} elements already observed on previous pages",
+    "file_download_found": "  → File download link found: '{text}' ({file})",
+    "observing_element": "Observing element [{current}/{total}]: clicking '{text}'...",
+    "observe_result": "  → Result: {label}",
+    "observe_failed": "  → Observation failed: {err}",
+    "observe_done": "Observation complete: recorded behavior of {count} elements.",
+    "change_page_navigation": "page navigation",
+    "change_modal_opened": "modal/popup opened",
+    "change_anchor_scroll": "section scroll",
+    "change_section_change": "content changed",
+    "change_no_change": "no change",
+    "change_minor_change": "minor change",
 }
-
-# Module-level language setting — set before calling crawl_site
-_scan_lang: str = "en"
 
 
 def _msg(key: str, **kwargs: Any) -> str:
-    """Get a log message in the current scan language."""
+    """Get a log message and format it with provided kwargs."""
     entry = _MESSAGES.get(key)
     if not entry:
         return key
-    return entry.get(_scan_lang, entry.get("en", key)).format(**kwargs)
+    return entry.format(**kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +82,7 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
         "strong": ["input[type=password]", "form[action*=login]", "form[action*=signin]"],
         "weak": [],
         "confirm_texts": [],
-        "link_texts": ["login", "log in", "sign in", "로그인"],
+        "link_texts": ["login", "log in", "sign in"],
         "link_hrefs": ["/login", "/signin", "/sign-in", "/log-in"],
         "threshold": 0.5,
     },
@@ -126,13 +90,13 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
         "strong": ["form[action*=register]", "form[action*=signup]"],
         "weak": [],
         "confirm_texts": [],
-        "link_texts": ["sign up", "signup", "register", "join", "회원가입", "가입"],
+        "link_texts": ["sign up", "signup", "register", "join"],
         "link_hrefs": ["/register", "/signup", "/sign-up", "/join"],
         "threshold": 0.5,
     },
     "search": {
         "strong": ["input[type=search]", "[role=search]", "form[action*=search]"],
-        "weak": ["input[placeholder*=search]", "input[placeholder*=검색]"],
+        "weak": ["input[placeholder*=search]"],
         "confirm_texts": [],
         "link_texts": [],
         "link_hrefs": [],
@@ -140,15 +104,15 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
     },
     "cart": {
         "strong": ["a[href*='/cart']", "a[href*='/basket']", "[data-cart]"],
-        "weak": ["[class*=cart-icon]", "[class*=cart-count]", "[class*=basket]"],
-        "confirm_texts": ["장바구니", "Cart", "Basket"],
-        "link_texts": ["cart", "basket", "장바구니"],
+        "weak": ["[class*=cart-count]", "[class*=basket]"],
+        "confirm_texts": ["Cart", "Basket"],
+        "link_texts": ["cart", "basket"],
         "link_hrefs": ["/cart", "/basket"],
         "threshold": 0.5,
     },
     "product_list": {
         "strong": ["[class*=product-list]", "[class*=product-grid]", "[class*=product-card]"],
-        "weak": ["[class*=item-price]", "[class*=product]"],
+        "weak": ["[class*=product]"],
         "confirm_texts": [],
         "link_texts": [],
         "link_hrefs": ["/products", "/shop", "/store"],
@@ -156,25 +120,25 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
     },
     "review_form": {
         "strong": ["form[action*=review]", "textarea[name*=review]", "input[name*=rating]"],
-        "weak": ["[class*=review-form]", "[class*=rating-input]", "[class*=star-rating]"],
-        "confirm_texts": ["리뷰 작성", "Write a review", "후기 작성"],
+        "weak": ["[class*=rating-input]", "[class*=star-rating]"],
+        "confirm_texts": ["Write a review"],
         "link_texts": [],
         "link_hrefs": [],
         "threshold": 0.5,
     },
     "comment_form": {
         "strong": ["textarea[name*=comment]", "form[action*=comment]"],
-        "weak": ["[class*=comment-form]", "[class*=comment-input]"],
-        "confirm_texts": ["댓글 작성", "댓글 등록", "Add comment", "Write comment"],
+        "weak": ["[class*=comment-input]"],
+        "confirm_texts": ["Add comment", "Write comment"],
         "link_texts": [],
         "link_hrefs": [],
         "threshold": 0.5,
     },
     "board_write": {
         "strong": ["a[href*='/write']", "a[href*='/board/']", "a[href*='/post/new']"],
-        "weak": ["a[href*='/create']", "a[href*='/new']"],
-        "confirm_texts": ["글쓰기", "새 글", "New Post", "게시판"],
-        "link_texts": ["게시판", "board", "forum"],
+        "weak": ["a[href*='/new']"],
+        "confirm_texts": ["New Post"],
+        "link_texts": ["board", "forum"],
         "link_hrefs": ["/board", "/forum", "/community", "/write"],
         "threshold": 0.5,
     },
@@ -182,7 +146,7 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
         "strong": [],
         "weak": [],
         "confirm_texts": [],
-        "link_texts": ["blog", "블로그"],
+        "link_texts": ["blog"],
         "link_hrefs": ["/blog", "/posts"],
         "threshold": 0.5,
     },
@@ -196,16 +160,16 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
     },
     "admin_panel": {
         "strong": ["a[href*='/admin']"],
-        "weak": ["a[href*='/manage']"],
-        "confirm_texts": ["관리자 페이지", "Admin Panel", "관리자 로그인"],
-        "link_texts": ["admin", "관리자"],
+        "weak": [],
+        "confirm_texts": ["Admin Panel"],
+        "link_texts": ["admin"],
         "link_hrefs": ["/admin"],
         "threshold": 0.5,
     },
     "newsletter": {
         "strong": ["form[action*=subscribe]", "form[action*=newsletter]"],
-        "weak": ["[class*=newsletter]", "input[name*=newsletter]"],
-        "confirm_texts": ["이메일 구독", "Subscribe", "뉴스레터 구독"],
+        "weak": ["input[name*=newsletter]"],
+        "confirm_texts": ["Subscribe"],
         "link_texts": [],
         "link_hrefs": [],
         "threshold": 0.5,
@@ -217,18 +181,18 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
             "[class*=social-login]", "a[href*='accounts.google.com']",
             "a[href*='kauth.kakao.com']", "a[href*='nid.naver.com']",
         ],
-        "weak": ["[class*=oauth]", "[class*=social-btn]"],
-        "confirm_texts": ["소셜 로그인", "Sign in with", "카카오로 로그인", "네이버로 로그인"],
-        "link_texts": ["google", "kakao", "naver", "카카오", "네이버"],
+        "weak": ["[class*=social-btn]"],
+        "confirm_texts": ["Sign in with"],
+        "link_texts": ["google", "kakao", "naver"],
         "link_hrefs": ["/oauth", "/auth/google", "/auth/kakao", "/auth/naver"],
         "threshold": 0.5,
     },
     "multilingual": {
         "strong": ["link[hreflang]"],
-        "weak": ["[class*=lang-switch]", "[class*=language]", "select[name*=lang]",
+        "weak": ["[class*=language]", "select[name*=lang]",
                  "[data-lang]", "[class*=locale]"],
         "confirm_texts": [],
-        "link_texts": ["english", "한국어", "language", "언어", "日本語", "中文", "EN", "KR", "JP"],
+        "link_texts": ["english", "language", "日本語", "中文", "EN", "KR", "JP"],
         "link_hrefs": [],
         "threshold": 0.5,
     },
@@ -242,15 +206,15 @@ FEATURE_DETECTORS: dict[str, dict[str, Any]] = {
     },
     "filter_sort": {
         "strong": ["select[name*=sort]", "select[name*=order]", "[class*=filter-panel]"],
-        "weak": ["[class*=filter]", "[class*=sort-btn]"],
-        "confirm_texts": ["필터", "정렬", "Filter", "Sort by"],
+        "weak": ["[class*=sort-btn]"],
+        "confirm_texts": ["Filter", "Sort by"],
         "link_texts": [],
         "link_hrefs": [],
         "threshold": 0.5,
     },
     "sticky_header": {
         "strong": [],
-        "weak": ["[class*=sticky]", "[class*=fixed-header]", "[class*=fixed-nav]",
+        "weak": ["[class*=fixed-header]", "[class*=fixed-nav]",
                  "[class*=navbar-fixed]", "[class*=header-fixed]"],
         "confirm_texts": [],
         "link_texts": [],
@@ -1730,7 +1694,7 @@ async def _observe_single_click(
                 page_type = "login"
                 if text and any(
                     kw in text.lower()
-                    for kw in ("가입", "signup", "register", "회원")
+                    for kw in ("signup", "register")
                 ):
                     page_type = "registration"
 

@@ -221,7 +221,7 @@ async def _devqa(
             previous_yaml=previous_yaml,
             auto_approve=False,  # always require human approval for retry
         ):
-            typer.echo("[AWT] 재시도 취소됨.")
+            typer.echo("[AWT] Retry cancelled.")
             raise typer.Exit(code=1)
 
     # -- Step 7/9: Report -----------------------------------------------------
@@ -429,10 +429,10 @@ def _generate_scenario(
 
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
-    "login": ["로그인", "login", "sign in", "signin", "로그 인"],
-    "signup": ["회원가입", "signup", "sign up", "register", "가입"],
-    "search": ["검색", "search", "찾기", "find"],
-    "generate": ["생성", "generate", "만들기", "create"],
+    "login": ["login", "sign in", "signin", "log-in"],
+    "signup": ["signup", "sign up", "register", "join"],
+    "search": ["search", "find"],
+    "generate": ["generate", "create", "make"],
 }
 
 
@@ -537,21 +537,20 @@ _INPUT_TYPE_MAP: dict[str, str] = {
 }
 
 _LABEL_HINTS: dict[str, str] = {
-    "이메일": "email",
     "email": "email",
     "e-mail": "email",
-    "비밀번호": "password",
+    "mail": "email",
     "password": "password",
-    "패스워드": "password",
-    "이름": "name",
+    "pass": "password",
     "name": "name",
     "nickname": "name",
-    "닉네임": "name",
-    "전화": "tel",
+    "username": "name",
     "phone": "tel",
-    "연락처": "tel",
-    "검색": "search",
+    "tel": "tel",
+    "mobile": "tel",
     "search": "search",
+    "address": "address",
+    "company": "TestCorp",
 }
 
 
@@ -623,20 +622,18 @@ def _is_submit_button(el: dict[str, Any], intent: str) -> bool:
     """Check if element is a form submit button."""
     label = (el.get("label") or "").lower()
     submit_words = [
-        "로그인",
         "login",
         "sign in",
         "submit",
-        "제출",
-        "가입",
         "register",
-        "확인",
-        "검색",
+        "sign up",
+        "confirm",
         "search",
-        "생성",
         "create",
-        "만들기",
         "generate",
+        "send",
+        "ok",
+        "continue",
     ]
     return any(w in label for w in submit_words)
 
@@ -706,10 +703,8 @@ def _extract_keywords(description: str) -> list[str]:
     """Extract meaningful keywords from test description."""
     # Remove common filler words
     fillers = {
-        "테스트",
         "test",
         "testing",
-        "확인",
         "check",
         "verify",
         "the",
@@ -717,15 +712,11 @@ def _extract_keywords(description: str) -> list[str]:
         "an",
         "and",
         "or",
-        "을",
-        "를",
-        "이",
-        "가",
-        "에서",
-        "으로",
-        "하기",
-        "해줘",
-        "해주세요",
+        "for",
+        "with",
+        "from",
+        "to",
+        "by",
     }
     words = description.replace("-", " ").replace("→", " ").split()
     return [w for w in words if w.lower() not in fillers and len(w) > 1]

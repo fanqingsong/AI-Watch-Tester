@@ -437,7 +437,7 @@ class OpenAIAdapter(AIAdapter):
                         {"role": "user", "content": user_content},
                     ],
                 ),
-                timeout=120.0,  # 2분 타임아웃
+                timeout=120.0,  # 2 minute timeout
             )
         except TimeoutError:
             msg = f"OpenAI API call timed out after 120s (model: {self._config.model})"

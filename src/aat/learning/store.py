@@ -401,7 +401,7 @@ class LearnedStore:
         action: str = "",
         fix_description: str = "",
     ) -> None:
-        """실패 패턴을 기록한다. 동일한 error_type + action이 있으면 hit_count를 증가시킨다."""
+        """Record failure pattern. Increment hit_count if same error_type + action exists."""
         now = datetime.now(timezone.utc).isoformat()
         try:
             cursor = self._conn.execute(
@@ -433,7 +433,7 @@ class LearnedStore:
             raise LearningError(msg) from exc
 
     def find_similar_failure(self, error_type: str, action: str = "") -> dict[str, Any] | None:
-        """fix가 적용된 동일 유형의 실패 패턴을 반환한다."""
+        """Return failure pattern of same type with fix applied."""
         try:
             cursor = self._conn.execute(
                 """\
@@ -459,7 +459,7 @@ class LearnedStore:
             raise LearningError(msg) from exc
 
     def mark_fix_applied(self, error_type: str, fix_description: str) -> None:
-        """해당 error_type의 실패 패턴에 fix 적용 완료를 표시한다."""
+        """Mark fix applied for failure pattern of given error_type."""
         now = datetime.now(timezone.utc).isoformat()
         try:
             self._conn.execute(
@@ -474,7 +474,7 @@ class LearnedStore:
             raise LearningError(msg) from exc
 
     def get_failure_stats(self) -> list[dict[str, Any]]:
-        """실패 패턴 통계를 hit_count 내림차순으로 반환한다 (최대 20개)."""
+        """Return failure pattern statistics by hit_count descending (max 20)."""
         try:
             cursor = self._conn.execute(
                 """\

@@ -111,7 +111,7 @@ class FeatureMatcher(BaseMatcher):
             else self._config.confidence_threshold
         )
 
-        # RANSAC 호모그래피로 정확한 위치 추정 (반복 패턴 오검출 방지)
+        # RANSAC homography for accurate position estimation (prevents false detection on repetitive patterns)
         src_pts = np.array(
             [kp_tmpl[m.queryIdx].pt for m in good_matches], dtype=np.float32
         ).reshape(-1, 1, 2)
@@ -123,7 +123,7 @@ class FeatureMatcher(BaseMatcher):
 
         homography_ok = False
         if h_matrix is not None:
-            # 템플릿 코너를 스크린샷 공간으로 변환하여 바운딩 박스 계산
+            # Transform template corners to screenshot space to calculate bounding box
             h_tmpl, w_tmpl = tmpl_gray.shape[:2]
             corners = np.array(
                 [[0, 0], [w_tmpl, 0], [w_tmpl, h_tmpl], [0, h_tmpl]], dtype=np.float32
@@ -138,7 +138,7 @@ class FeatureMatcher(BaseMatcher):
             w = x_max - x_min
             h = y_max - y_min
 
-            # 변환 결과가 퇴화(degenerate)하면 폴백
+            # Fallback if transformation result is degenerate
             if w > 0 and h > 0:
                 cx = (x_min + x_max) // 2
                 cy = (y_min + y_max) // 2
@@ -147,7 +147,7 @@ class FeatureMatcher(BaseMatcher):
                 homography_ok = True
 
         if not homography_ok:
-            # 폴백: 매칭 키포인트 평균으로 위치 추정
+            # Fallback: estimate position from average of matched keypoints
             fallback_pts = np.array(
                 [kp_screen[m.trainIdx].pt for m in good_matches],
                 dtype=np.float32,

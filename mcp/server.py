@@ -242,7 +242,7 @@ async def aat_devqa(
     There is no way to bypass this approval step — it is mandatory.
 
     Args:
-        description: What to test (e.g. "login flow test", "회원가입 테스트")
+        description: What to test (e.g. "login flow test", "signup test")
         url: Target URL. Auto-detected from localhost if omitted.
         verbosity: 'concise' (faster, recommended) or 'detailed' (all steps).
         screenshots: 'all', 'before-after' (recommended), or 'on-failure'.
