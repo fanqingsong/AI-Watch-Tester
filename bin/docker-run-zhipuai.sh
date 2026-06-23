@@ -29,7 +29,7 @@ if [ -z "$ZHIPUAI_API_KEY" ]; then
     echo "  export ZHIPUAI_API_KEY=your_api_key_here"
     echo ""
     echo "或者创建 .env 文件："
-    echo "  cp .env.zhipuai.example .env"
+    echo "  cp .env.example .env"
     echo "  # 编辑 .env 填入你的密钥"
     echo "  source .env"
     exit 1

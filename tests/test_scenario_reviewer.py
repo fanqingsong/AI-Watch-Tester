@@ -14,7 +14,7 @@ from aat.core.scenario_reviewer import ScenarioReviewer
 
 _LOGIN_YAML = """
 id: SC-001
-name: 로그인 테스트
+name: Login Test
 steps:
   - step: 1
     action: navigate
@@ -23,19 +23,19 @@ steps:
   - step: 2
     action: find_and_type
     target:
-      text: "이메일"
+      text: "Email"
     value: "test@example.com"
     description: "Enter email"
   - step: 3
     action: find_and_type
     target:
-      text: "비밀번호"
+      text: "Password"
     value: "Secret123!"
     description: "Enter password"
   - step: 4
     action: find_and_click
     target:
-      text: "로그인"
+      text: "Login"
     critical: true
     description: "Click login"
   - step: 5
@@ -64,7 +64,7 @@ def test_format_find_and_type_masks_password() -> None:
     r = ScenarioReviewer()
     step = {
         "action": "find_and_type",
-        "target": {"text": "비밀번호"},
+        "target": {"text": "Password"},
         "value": "Secret123!",
         "step": 3,
     }
@@ -77,7 +77,7 @@ def test_format_find_and_type_shows_email() -> None:
     r = ScenarioReviewer()
     step = {
         "action": "find_and_type",
-        "target": {"text": "이메일"},
+        "target": {"text": "Email"},
         "value": "test@example.com",
         "step": 2,
     }
@@ -90,7 +90,7 @@ def test_format_type_text_masks_password_by_description() -> None:
     step = {
         "action": "type_text",
         "value": "MyPass!",
-        "description": "비밀번호 입력",
+        "description": "Enter password",
         "step": 3,
     }
     detail = r._format_detail(step, "type_text")
@@ -123,12 +123,12 @@ def test_format_find_and_click_shows_label() -> None:
     r = ScenarioReviewer()
     step = {
         "action": "find_and_click",
-        "target": {"text": "로그인"},
+        "target": {"text": "Login"},
         "critical": True,
         "step": 4,
     }
     detail = r._format_detail(step, "find_and_click")
-    assert "로그인" in detail
+    assert "Login" in detail
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ def test_format_step_critical_tag() -> None:
     step = {
         "step": 4,
         "action": "find_and_click",
-        "target": {"text": "로그인"},
+        "target": {"text": "Login"},
         "critical": True,
         "description": "Click login",
     }
@@ -214,7 +214,7 @@ def test_show_and_approve_user_cancels(capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_show_and_approve_shows_header(capsys: pytest.CaptureFixture[str]) -> None:
-    """First attempt shows 검토 header."""
+    """First attempt shows Review header."""
     r = ScenarioReviewer()
     with (
         patch("aat.core.scenario_reviewer._read_tty", return_value=""),
@@ -227,7 +227,7 @@ def test_show_and_approve_shows_header(capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_show_and_approve_retry_header(capsys: pytest.CaptureFixture[str]) -> None:
-    """Second attempt shows 재시도 header."""
+    """Second attempt shows Retry header."""
     r = ScenarioReviewer()
     with (
         patch("aat.core.scenario_reviewer._read_tty", return_value=""),
@@ -239,7 +239,7 @@ def test_show_and_approve_retry_header(capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_show_and_approve_diff_marker(capsys: pytest.CaptureFixture[str]) -> None:
-    """Changed step shows ← 수정 marker on retry."""
+    """Changed step shows ← edited marker on retry."""
     import yaml
 
     prev = yaml.safe_load(_LOGIN_YAML)

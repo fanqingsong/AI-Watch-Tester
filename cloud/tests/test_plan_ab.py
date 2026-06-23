@@ -76,7 +76,7 @@ TEST_SITES: list[dict[str, str]] = [
 async def crawl_one(url: str, name: str) -> dict[str, Any] | None:
     """Crawl a single site and return raw data."""
     try:
-        from aat.core.models import EngineConfig
+        from aat.core.config_models import EngineConfig
         from aat.engine.web import WebEngine
         from app.crawler import (
             _extract_page_data,
@@ -288,7 +288,7 @@ async def generate_ai_plan(crawl_data: dict, site_url: str) -> dict | None:
 
     # Create adapter
     from aat.adapters import ADAPTER_REGISTRY
-    from aat.core.models import AIConfig
+    from aat.core.config_models import AIConfig
     from app.config import settings
 
     ai_config = AIConfig(
@@ -600,7 +600,7 @@ def print_results(results: list[dict]) -> None:
     print("=" * 80)
     if coverage >= 90:
         print(f"Default covers {coverage:.1f}% of AI output.")
-        print("RECOMMENDATION: REMOVE AI plan generation (2단계 AI 제거 확정)")
+        print("RECOMMENDATION: REMOVE AI plan generation (2-stage AI removal confirmed)")
     elif coverage >= 80:
         print(f"Default covers {coverage:.1f}% of AI output.")
         print("RECOMMENDATION: Keep AI as 'advanced mode' option")

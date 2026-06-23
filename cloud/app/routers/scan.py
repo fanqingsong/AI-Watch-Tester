@@ -64,9 +64,7 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "product_list",
             "name_en": "Product Browsing",
-            "name_ko": "상품 탐색",
             "desc_en": "Browse product listings, verify product details load correctly",
-            "desc_ko": "상품 목록을 탐색하고 상품 상세 페이지가 정상 로드되는지 확인",
             "priority": "high",
             "estimated_time": 30,
             "requires_auth": False,
@@ -74,9 +72,7 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "cart",
             "name_en": "Add to Cart Flow",
-            "name_ko": "장바구니 추가 흐름",
             "desc_en": "Add a product to cart, verify cart count updates and cart page shows item",
-            "desc_ko": "상품을 장바구니에 추가하고, 장바구니 수량 업데이트 및 장바구니 페이지에 상품이 표시되는지 확인",
             "priority": "high",
             "estimated_time": 40,
             "requires_auth": False,
@@ -84,9 +80,7 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "filter_sort",
             "name_en": "Filter and Sort Products",
-            "name_ko": "상품 필터/정렬",
             "desc_en": "Apply filters and sorting options, verify product list updates accordingly",
-            "desc_ko": "필터와 정렬 옵션을 적용하고 상품 목록이 올바르게 변경되는지 확인",
             "priority": "medium",
             "estimated_time": 30,
             "requires_auth": False,
@@ -94,9 +88,7 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "search",
             "name_en": "Product Search",
-            "name_ko": "상품 검색",
             "desc_en": "Search for products and verify search results are relevant",
-            "desc_ko": "상품을 검색하고 검색 결과가 적절한지 확인",
             "priority": "medium",
             "estimated_time": 20,
             "requires_auth": False,
@@ -104,25 +96,19 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "review_form",
             "name_en": "Write Product Review",
-            "name_ko": "상품 리뷰 작성",
             "desc_en": "Write a product review with rating, verify it appears in review list",
-            "desc_ko": "상품 리뷰를 작성하고 리뷰 목록에 표시되는지 확인",
             "priority": "medium",
             "estimated_time": 40,
             "requires_auth": True,
             "auth_fields": [
                 {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "password", "label": "Password", "type": "password", "required": True},
-            ],
-        },
-    ],
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
+        }],
     "blog": [
         {
             "requires_feature": "blog",
             "name_en": "Blog Post Navigation",
-            "name_ko": "블로그 글 탐색",
             "desc_en": "Browse blog posts, click into articles, verify content loads",
-            "desc_ko": "블로그 글 목록을 탐색하고, 글을 클릭해서 본문이 정상 로드되는지 확인",
             "priority": "high",
             "estimated_time": 25,
             "requires_auth": False,
@@ -130,69 +116,53 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {
             "requires_feature": "comment_form",
             "name_en": "Blog Comment",
-            "name_ko": "블로그 댓글 작성",
             "desc_en": "Write a comment on a blog post, verify it appears",
-            "desc_ko": "블로그 글에 댓글을 작성하고 댓글이 표시되는지 확인",
             "priority": "medium",
             "estimated_time": 30,
             "requires_auth": True,
             "auth_fields": [
                 {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "password", "label": "Password", "type": "password", "required": True},
-            ],
-        },
-    ],
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
+        }],
     "community": [
         {
             "requires_feature": "board_write",
             "name_en": "Create Post",
-            "name_ko": "게시글 작성",
             "desc_en": "Create a new board post with title and content, verify it appears in list",
-            "desc_ko": "게시판에 새 글을 작성하고 목록에 표시되는지 확인",
             "priority": "high",
             "estimated_time": 40,
             "requires_auth": True,
             "auth_fields": [
                 {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "password", "label": "Password", "type": "password", "required": True},
-            ],
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
         },
         {
             "requires_feature": "comment_form",
             "name_en": "Post Comment",
-            "name_ko": "댓글 작성",
             "desc_en": "Write a comment on a post, verify it appears",
-            "desc_ko": "게시글에 댓글을 작성하고 댓글이 표시되는지 확인",
             "priority": "medium",
             "estimated_time": 30,
             "requires_auth": True,
             "auth_fields": [
                 {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "password", "label": "Password", "type": "password", "required": True},
-            ],
-        },
-    ],
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
+        }],
     "saas": [
         {
             "requires_feature": "login_form",
             "name_en": "Login and Dashboard Access",
-            "name_ko": "로그인 및 대시보드 접근",
             "desc_en": "Login with credentials and verify dashboard loads correctly",
-            "desc_ko": "로그인 후 대시보드가 정상적으로 로드되는지 확인",
             "priority": "high",
             "estimated_time": 30,
             "requires_auth": True,
             "auth_fields": [
                 {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "password", "label": "Password", "type": "password", "required": True},
-            ],
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
         },
         {
             "requires_feature": "signup",
             "name_en": "Signup Flow",
-            "name_ko": "회원가입 흐름",
             "desc_en": "Complete signup form and verify account creation flow",
-            "desc_ko": "회원가입 폼을 작성하고 계정 생성 흐름을 확인",
             "priority": "high",
             "estimated_time": 40,
             "requires_auth": False,
@@ -208,27 +178,21 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
                     "label": "Test Password",
                     "placeholder": "TestPass123!",
                     "required": True,
-                },
-            ],
+                }],
         },
         {
             "requires_feature": "search",
             "name_en": "Search Functionality",
-            "name_ko": "검색 기능",
             "desc_en": "Use search feature and verify results are displayed",
-            "desc_ko": "검색 기능을 사용하고 결과가 표시되는지 확인",
             "priority": "medium",
             "estimated_time": 20,
             "requires_auth": False,
-        },
-    ],
+        }],
     "corporate": [
         {
             "requires_feature": "newsletter",
             "name_en": "Newsletter Subscription",
-            "name_ko": "뉴스레터 구독",
             "desc_en": "Subscribe to newsletter with email, verify confirmation",
-            "desc_ko": "이메일로 뉴스레터를 구독하고 확인 메시지를 검증",
             "priority": "medium",
             "estimated_time": 20,
             "requires_auth": False,
@@ -238,26 +202,21 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
                     "label": "Test Email",
                     "placeholder": "test@example.com",
                     "required": True,
-                },
-            ],
-        },
-    ],
+                }],
+        }],
     "portfolio": [],
     "multilingual": [
         {
             "requires_feature": "multilingual",
             "name_en": "Language Switch Test",
-            "name_ko": "언어 전환 테스트",
             "desc_en": (
                 "Switch site language and verify page content changes"
                 " accordingly without broken layout"
             ),
-            "desc_ko": "사이트 언어를 전환하고 페이지 콘텐츠가 깨지지 않고 올바르게 변경되는지 확인",
             "priority": "medium",
             "estimated_time": 30,
             "requires_auth": False,
-        },
-    ],
+        }],
 }
 
 
@@ -270,65 +229,54 @@ BUSINESS_TEMPLATES: dict[str, list[dict[str, Any]]] = {
 _FEATURE_REQUIRED_TESTS: list[dict[str, Any]] = [
     {
         "feature": "login_form",
-        "keywords": ["로그인", "login", "sign in", "authentication"],
+        "keywords": ["login", "sign in", "authentication"],
         "test": {
-            "name_ko": "로그인 테스트",
             "name_en": "Login Test",
-            "desc_ko": "로그인 페이지에서 이메일/비밀번호를 입력하고 로그인 성공 여부를 확인",
             "desc_en": "Enter credentials on login page and verify successful authentication",
             "priority": "high",
             "estimated_time": 30,
             "requires_auth": True,
             "auth_fields": [
-                {"key": "email", "label": "이메일", "type": "email", "required": True},
-                {"key": "password", "label": "비밀번호", "type": "password", "required": True},
-            ],
+                {"key": "email", "label": "Email", "type": "email", "required": True},
+                {"key": "password", "label": "Password", "type": "password", "required": True}],
         },
     },
     {
         "feature": "signup",
-        "keywords": ["회원가입", "signup", "sign up", "register"],
+        "keywords": ["signup", "sign up", "register"],
         "test": {
-            "name_ko": "회원가입 흐름 테스트",
             "name_en": "Signup Flow Test",
-            "desc_ko": "회원가입 폼을 작성하고 계정 생성 흐름을 확인",
             "desc_en": "Complete signup form and verify account creation flow",
             "priority": "high",
             "estimated_time": 40,
             "requires_auth": False,
             "test_data_fields": [
-                {"key": "signup_email", "label": "테스트 이메일",
+                {"key": "signup_email", "label": "Test Email",
                  "placeholder": "test@example.com", "required": True},
-                {"key": "signup_password", "label": "테스트 비밀번호",
-                 "placeholder": "TestPass123!", "required": True},
-            ],
+                {"key": "signup_password", "label": "Test Password",
+                 "placeholder": "TestPass123!", "required": True}],
         },
     },
     {
         "feature": "admin_panel",
-        "keywords": ["관리자", "admin", "manage"],
+        "keywords": ["admin", "manage"],
         "test": {
-            "name_ko": "관리자 패널 접근 테스트",
             "name_en": "Admin Panel Access Test",
-            "desc_ko": "관리자 페이지 접근 가능 여부와 권한 체크를 확인",
             "desc_en": "Verify admin panel access and permission checks",
             "priority": "medium",
             "estimated_time": 20,
             "requires_auth": True,
             "auth_fields": [
-                {"key": "admin_id", "label": "관리자 ID", "type": "text", "required": True},
-                {"key": "admin_pw", "label": "관리자 비밀번호",
-                 "type": "password", "required": True},
-            ],
+                {"key": "admin_id", "label": "Admin ID", "type": "text", "required": True},
+                {"key": "admin_pw", "label": "Admin Password",
+                 "type": "password", "required": True}],
         },
     },
     {
         "feature": "search",
-        "keywords": ["검색", "search", "찾기"],
+        "keywords": ["search"],
         "test": {
-            "name_ko": "검색 기능 테스트",
             "name_en": "Search Functionality Test",
-            "desc_ko": "검색어를 입력하고 결과가 표시되는지 확인",
             "desc_en": "Enter search query and verify results are displayed",
             "priority": "medium",
             "estimated_time": 20,
@@ -337,18 +285,15 @@ _FEATURE_REQUIRED_TESTS: list[dict[str, Any]] = [
     },
     {
         "feature": "cart",
-        "keywords": ["장바구니", "cart", "basket"],
+        "keywords": ["cart", "basket"],
         "test": {
-            "name_ko": "장바구니 테스트",
             "name_en": "Cart Flow Test",
-            "desc_ko": "상품을 장바구니에 추가하고 장바구니 페이지에서 확인",
             "desc_en": "Add product to cart and verify cart page shows item",
             "priority": "high",
             "estimated_time": 40,
             "requires_auth": False,
         },
-    },
-]
+    }]
 
 
 def _validate_plan_against_features(
@@ -424,7 +369,7 @@ def _validate_plan_against_features(
         if biz_cat is None:
             biz_cat = {
                 "id": "business",
-                "name": "주요 기능 테스트" if ko else "Business Flows",
+                "name": "Business Flows" if ko else "Business Flows",
                 "auto_selected": False,
                 "tests": [],
             }
@@ -438,13 +383,12 @@ def _validate_plan_against_features(
 def _dedup_section_nav_tests(plan: dict[str, Any]) -> dict[str, Any]:
     """Remove section navigation tests that duplicate the nav menu test.
 
-    AI sometimes generates tests like "기능 섹션 네비게이션" or "About 페이지 이동"
+    AI sometimes generates tests like "section navigation" or "navigate to About page"
     which are already covered by the nav_menu_test in the basic category.
     """
     nav_dedup_keywords = [
-        "섹션 네비게이션", "섹션 이동", "섹션 확인", "페이지 이동",
-        "section navigation", "section nav", "navigate to section",
-    ]
+        "section navigation", "section move", "section check", "page move",
+        "section navigation", "section nav", "navigate to section"]
 
     # Check if nav menu test exists in basic category
     has_nav_test = False
@@ -452,7 +396,7 @@ def _dedup_section_nav_tests(plan: dict[str, Any]) -> dict[str, Any]:
         if cat.get("id") == "basic":
             for t in cat.get("tests", []):
                 name_lower = (t.get("name") or "").lower()
-                if "네비게이션 메뉴" in name_lower or "navigation menu" in name_lower:
+                if "navigation menu" in name_lower or "navigation menu" in name_lower:
                     has_nav_test = True
                     break
             break
@@ -660,13 +604,13 @@ CRITICAL RULES:
 5. For all text assertions, set case_insensitive: true to handle dynamic casing.
 6. Respond in the language specified by the user.
 7. FORM FIELD RULE: For tests involving forms, reference the EXACT field data from crawl data:
-   - Use placeholder text as-is (e.g., if placeholder is "이메일", use "이메일" NOT "Email")
-   - Use label text as-is (e.g., if label is "비밀번호", keep "비밀번호" NOT "Password")
+   - Use placeholder text as-is (e.g., if placeholder is use NOT "Email")
+   - Use label text as-is (e.g., if label is keep NOT "Password")
    - For auth_fields, set the "label" to match the actual form field label/placeholder from crawl data
    - NEVER translate form field labels or placeholders into another language
 8. For auth_fields in test entries: copy the exact label/placeholder from the crawl data forms.
-   Example: if crawl shows {{placeholder: "이메일", label: "이메일 주소"}}, then auth_fields should be:
-   {{"key": "email", "label": "이메일 주소", "type": "email", "required": true}}
+   Example: if crawl shows {{placeholder: label: "email address"}}, then auth_fields should be:
+   {{"key": "email", "label": "email address", "type": "email", "required": true}}
 9. **OBSERVATION-BASED PLANNING**: The "Interaction Observations" section below contains
    REAL results from actually clicking each element. DO NOT GUESS what happens —
    use the observed change type (page_navigation, modal_opened, anchor_scroll, section_change)
@@ -680,10 +624,10 @@ CRITICAL RULES:
 10. **LOGIN/FORM PAGE RULE**: When an observation has change_type "page_navigation" AND
    navigated_page_fields, the click leads to a SEPARATE FORM PAGE (not a modal).
    - auth_fields MUST use the EXACT placeholder/label from navigated_page_fields
-   - Example: if navigated_page_fields shows placeholder="이메일", use "이메일" NOT "Email"
+   - Example: if navigated_page_fields shows placeholder=use NOT "Email"
    - NEVER translate, NEVER guess — copy-paste the exact text from the data
 11. **NO SECTION NAVIGATION TESTS**: Do NOT generate tests that only navigate to a page section
-   (e.g., "기능 섹션 네비게이션", "About 페이지 이동", "서비스 섹션 확인").
+   (e.g., "section navigation", "navigate to About page", "service section check").
    Section navigation is ALREADY covered by the nav_menu_test in the "basic" category.
    Instead, for sections with interactive elements, generate INTERACTION tests:
    - accordion → test expand/collapse with actual FAQ items
@@ -693,7 +637,7 @@ CRITICAL RULES:
    - form → test input validation with actual fields
 12. **NEGATIVE CHECK — ERROR DETECTION**: For form tests, consider both success and
    error states. After submit, if the page stays on the same URL AND shows error text
-   (e.g., "오류", "error", "invalid", "실패"), the test should detect this as failure.
+   (e.g., "error", "invalid", "failure"), the test should detect this as failure.
    Happy-path tests should assert URL change or success text; error-path tests should
    assert error message visibility.
 13. **LOGIN MUST VERIFY REDIRECT**: Login tests MUST verify the user LEFT the login page.
@@ -730,9 +674,9 @@ CATEGORY "business" - Business Flows (based on detected features):
 - Use the business test hints above as guidance
 - Test names and descriptions MUST reflect actual observed behavior, NOT generic labels
 - WRONG: "Product Browsing Test" (generic — no "product" in observations)
-- WRONG: "기능 섹션 네비게이션 테스트" (this is just section navigation — ALREADY covered by nav menu test)
-- RIGHT: "FAQ 아코디언 펼치기/접기 테스트" (tests INTERACTIVE BEHAVIOR within a section)
-- RIGHT: "로그인 모달 열기/입력 테스트" (tests INTERACTIVE BEHAVIOR triggered by click)
+- WRONG: "section navigation test" (this is just section navigation — ALREADY covered by nav menu test)
+- RIGHT: "FAQ accordion expand/collapse test" (tests INTERACTIVE BEHAVIOR within a section)
+- RIGHT: "login modal open/input test" (tests INTERACTIVE BEHAVIOR triggered by click)
 
 IMPORTANT — SELECTOR-FIRST RULE:
 - For each test, include the exact CSS selectors from the observation data in "actual_elements".
@@ -969,7 +913,7 @@ async def generate_plan(
         # AI plan mode (advanced option — off by default)
         try:
             from aat.adapters import ADAPTER_REGISTRY
-            from aat.core.models import AIConfig
+            from aat.core import AIConfig
             from app.routers.ai_config import get_user_ai_config
 
             user_cfg = await get_user_ai_config(user.id, db)
@@ -1010,7 +954,7 @@ async def generate_plan(
     # --- Debug logging ---
     logger.debug("=== detected_features === %s", features)
     logger.debug("=== observations count === %d", len(observations))
-    login_obs = [o for o in observations if "로그인" in str(o)]
+    login_obs = [o for o in observations if in str(o)]
     if login_obs:
         logger.debug("=== login-related observations === %d items", len(login_obs))
         for lo in login_obs:
@@ -1128,9 +1072,9 @@ def _generate_default_plan(
     if broken:
         basic_tests.append({
             "id": f"t{tid}",
-            "name": "깨진 링크 검사" if ko else "Broken Link Check",
+            "name": "Broken Link Check" if ko else "Broken Link Check",
             "description": (
-                f"{len(broken)}개의 깨진 링크를 확인합니다" if ko
+                f"Found {len(broken)} broken links"
                 else f"Verify {len(broken)} broken link(s) are fixed"
             ),
             "priority": "high",
@@ -1151,9 +1095,9 @@ def _generate_default_plan(
         if all_links:
             basic_tests.append({
                 "id": f"t{tid}",
-                "name": "링크 헬스 체크" if ko else "Link Health Check",
+                "name": "Link Health Check" if ko else "Link Health Check",
                 "description": (
-                    f"페이지 내 {len(all_links)}개 링크가 정상 응답하는지 확인" if ko
+                    f"Checking {len(all_links)} links on page respond normally"
                     else f"Verify {len(all_links)} page links return valid responses"
                 ),
                 "priority": "medium",
@@ -1184,9 +1128,9 @@ def _generate_default_plan(
     if unique_nav:
         basic_tests.append({
             "id": f"t{tid}",
-            "name": "네비게이션 메뉴 테스트" if ko else "Navigation Menu Test",
+            "name": "Navigation Menu Test" if ko else "Navigation Menu Test",
             "description": (
-                f"{len(unique_nav)}개 메뉴 항목을 각각 클릭하여 페이지 로딩 확인"
+                f"{len(unique_nav)} menu items load correctly"
                 if ko
                 else f"Click each of {len(unique_nav)} menu items and verify page loads"
             ),
@@ -1213,9 +1157,9 @@ def _generate_default_plan(
         if fallback_links:
             basic_tests.append({
                 "id": f"t{tid}",
-                "name": "주요 링크 탐색" if ko else "Key Link Navigation",
+                "name": "Key Link Navigation" if ko else "Key Link Navigation",
                 "description": (
-                    f"발견된 {len(fallback_links)}개 주요 링크의 페이지 이동 확인"
+                    f"{len(fallback_links)} discovered key links navigate correctly"
                     if ko
                     else f"Navigate {len(fallback_links)} discovered links and verify page loads"
                 ),
@@ -1230,9 +1174,9 @@ def _generate_default_plan(
     # Page load test
     basic_tests.append({
         "id": f"t{tid}",
-        "name": "페이지 로딩 테스트" if ko else "Page Load Test",
+        "name": "Page Load Test" if ko else "Page Load Test",
         "description": (
-            f"스캔된 {len(pages)}개 페이지가 정상적으로 로딩되는지 확인"
+            f"{len(pages)} scanned pages load normally"
             if ko
             else f"Verify all {len(pages)} scanned pages load without errors"
         ),
@@ -1246,7 +1190,7 @@ def _generate_default_plan(
 
     categories.append({
         "id": "basic",
-        "name": "기본 점검" if ko else "Basic Health Check",
+        "name": "Basic Health Check" if ko else "Basic Health Check",
         "auto_selected": True,
         "tests": basic_tests,
     })
@@ -1268,9 +1212,9 @@ def _generate_default_plan(
             ]
             form_tests.append({
                 "id": f"t{tid}",
-                "name": f"폼 입력 테스트 #{i + 1}" if ko else f"Form Input Test #{i + 1}",
+                "name": f"Form Input Test #{i + 1}" if ko else f"Form Input Test #{i + 1}",
                 "description": (
-                    f"필드: {', '.join(field_names[:5])}" if ko
+                    f"Fields: {', '.join(field_names[:5])}" if ko
                     else f"Fields: {', '.join(field_names[:5])}"
                 ),
                 "priority": "medium",
@@ -1283,7 +1227,7 @@ def _generate_default_plan(
 
         categories.append({
             "id": "forms",
-            "name": "폼 검증" if ko else "Form Validation",
+            "name": "Form Validation" if ko else "Form Validation",
             "auto_selected": True,
             "tests": form_tests,
         })
@@ -1349,7 +1293,7 @@ def _generate_default_plan(
     if business_tests:
         categories.append({
             "id": "business",
-            "name": "주요 기능 테스트" if ko else "Business Flows",
+            "name": "Business Flows" if ko else "Business Flows",
             "auto_selected": False,
             "tests": business_tests,
         })
@@ -1376,8 +1320,7 @@ def _extract_json(text: str) -> dict:
     patterns = [
         r"```json\s*([\s\S]*?)```",
         r"```\s*([\s\S]*?)```",
-        r"\{[\s\S]*\}",
-    ]
+        r"\{[\s\S]*\}"]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
@@ -1410,19 +1353,19 @@ Do NOT skip any selected test.
 ## ========== ABSOLUTE RULES (NEVER VIOLATE) ==========
 
 1. **SELECTOR-FIRST**: Every click/type target MUST include "selector" from the observation data.
-   WRONG: {{"text": "기능"}}
-   RIGHT: {{"selector": "a[href=\\"#features\\"]", "text": "기능"}}
+   WRONG: {{"text": "features"}}
+   RIGHT: {{"selector": "a[href=\\"#features\\"]", "text": "features"}}
 
 2. **ASSERT FROM OBSERVED DATA ONLY**: Assert values MUST come from the "OBSERVED new_text"
    field in the observation table below, or from crawl data text that actually exists.
-   WRONG: assert value "제품 목록" (AI guess — this text does NOT exist in observation data)
+   WRONG: assert value "product list" (AI guess — this text does NOT exist in observation data)
    WRONG: assert value "Product Browsing" (from test name — test names are NOT data)
-   RIGHT: assert value "클래스링의 핵심 기능" (copy-pasted from observation new_text)
+   RIGHT: assert value "core features" (copy-pasted from observation new_text)
 
 3. **MODAL FORM FIELDS**: When observation shows modal_opened with modal_form_fields,
    use the EXACT selector/placeholder from modal_form_fields for find_and_type targets.
-   observation: modal_form_fields: [{{"selector": "#email", "placeholder": "이메일을 입력하세요"}}]
-   → target: {{"selector": "#email", "text": "이메일을 입력하세요"}}
+   observation: modal_form_fields: [{{"selector": "#email", "placeholder": "enter your email"}}]
+   → target: {{"selector": "#email", "text": "enter your email"}}
 
 4. **NEVER INVENT**: Do not use any text, selector, URL, or page name that is NOT
    in the Observation Reference Table or Crawl Data below. The selected test names
@@ -1453,10 +1396,10 @@ Do NOT skip any selected test.
    AND "NAVIGATED PAGE FIELDS" data, this click leads to a SEPARATE FORM PAGE (e.g., login).
    Steps to generate:
    a. navigate to target URL (homepage)
-   b. find_and_click the element (e.g., "로그인" link) to go to the form page
+   b. find_and_click the element (e.g., link) to go to the form page
    c. For find_and_type: use EXACT placeholder/label from NAVIGATED PAGE FIELDS
-      - If placeholder is "이메일", target text MUST be "이메일" — NOT "Email"
-      - If placeholder is "비밀번호", target text MUST be "비밀번호" — NOT "Password"
+      - If placeholder is target text MUST be — NOT "Email"
+      - If placeholder is target text MUST be — NOT "Password"
    d. For submit button: use EXACT label from NAVIGATED PAGE FIELDS
    e. NEVER translate or guess field names — copy the EXACT text from observation data
 
@@ -1466,9 +1409,9 @@ Do NOT skip any selected test.
    - SUBMIT[form] = button INSIDE the form → USE THIS for form submission
    - SUBMIT[nav] = navigation menu link → NEVER use this after form input
    - SUBMIT[body] = button outside form/nav → only use if no [form] button exists
-   Example: PAGE FIELDS shows SUBMIT[form](button.btn, '다음') and SUBMIT[nav](a.nav, '가입')
-   → After filling email/password, click '다음' (SUBMIT[form]), NOT '가입' (SUBMIT[nav])
-   - The nav link '가입' is for PAGE NAVIGATION (step b above), NOT for form submission
+   Example: PAGE FIELDS shows SUBMIT[form](button.btn, "next") and SUBMIT[nav](a.nav, "signup")
+   → After filling email/password, click "next" (SUBMIT[form]), NOT "signup" (SUBMIT[nav])
+   - The nav link "signup" is for PAGE NAVIGATION (step b above), NOT for form submission
 
 11. **OUTCOME VERIFICATION — MANDATORY**:
    Every scenario with form interaction MUST end with an assert step AFTER submit.
@@ -1489,7 +1432,7 @@ Do NOT skip any selected test.
    RIGHT: assert url_contains "/inventory" (EXACT path from observation after.url)
    Use url_contains or text_visible from the observation "new_text" / "after.url"
    which shows the post-redirect page content. For example, if after.url is "/board"
-   and new_text includes "게시판", assert text_visible "게시판" — NOT "로그인".
+   and new_text includes "board", assert text_visible "board" — NOT .
 
    **LOGIN ASSERT — UNIQUE TEXT RULE**:
    When asserting login success with text_visible:
@@ -1511,7 +1454,7 @@ Do NOT skip any selected test.
    **REGISTRATION REDIRECT RULE**: After REGISTRATION form submit → the page redirects
    to login page or main page. Assert the REDIRECTED page (e.g., url_contains "/login"
    or text_visible for login page text). NEVER assert registration form text like
-   "1단계" or "계정 정보" — those are from BEFORE submission.
+   "step 1" or "account info" — those are from BEFORE submission.
 
 12. **NO LANGUAGE-CHECKING ASSERTS**:
    NEVER generate scenarios that verify the LANGUAGE of the page
@@ -1520,7 +1463,7 @@ Do NOT skip any selected test.
    Assert values MUST be EXACT text copied from the Observation Table or Crawl Data.
    WRONG: assert text_visible "page content is in English"
    WRONG: assert text_visible "Fix it like this" (invented English text)
-   RIGHT: assert text_visible "로그인" (actual text from observation data)
+   RIGHT: assert text_visible (actual text from observation data)
    RIGHT: assert text_visible "Welcome back" (actual text from crawl data)
 
 ## ========== END ABSOLUTE RULES ==========
@@ -1533,10 +1476,10 @@ Return ONLY a valid JSON array. Each object:
   "description": "Test description",
   "steps": [
     {{"step": 1, "action": "navigate", "value": "TARGET_URL", "description": "Navigate to homepage"}},
-    {{"step": 2, "action": "find_and_click", "target": {{"selector": "a[href=\\"#login\\"]", "text": "로그인"}}, "description": "Click login button"}},
+    {{"step": 2, "action": "find_and_click", "target": {{"selector": "a[href=\\"#login\\"]", "text": }}, "description": "Click login button"}},
     {{"step": 3, "action": "wait", "value": "1000", "description": "Wait for modal animation"}},
-    {{"step": 4, "action": "find_and_type", "target": {{"selector": "#email", "text": "이메일"}}, "value": "awttest@example.com", "description": "Enter email"}},
-    {{"step": 5, "action": "find_and_click", "target": {{"selector": "button[type=submit]", "text": "로그인"}}, "description": "Click submit button (SUBMIT[form])"}},
+    {{"step": 4, "action": "find_and_type", "target": {{"selector": "#email", "text": }}, "value": "awttest@example.com", "description": "Enter email"}},
+    {{"step": 5, "action": "find_and_click", "target": {{"selector": "button[type=submit]", "text": }}, "description": "Click submit button (SUBMIT[form])"}},
     {{"step": 6, "action": "wait", "value": "1500", "description": "Wait for page transition after form submit"}},
     {{"step": 7, "action": "assert", "assert_type": "text_visible", "value": "Welcome", "description": "Verify login success", "case_insensitive": true}}
   ]
@@ -1645,7 +1588,7 @@ async def execute_scan_tests(
     # Validate AI adapter is available (fail fast before creating test)
     try:
         from aat.adapters import ADAPTER_REGISTRY
-        from aat.core.models import AIConfig
+        from aat.core import AIConfig
     except ImportError as exc:
         raise HTTPException(status_code=503, detail=f"AAT core not installed: {exc}") from exc
 
@@ -1995,7 +1938,7 @@ async def _bg_generate_scenarios(
         )
 
         # Convert pattern-built dicts to Scenario model objects
-        from aat.core.models import Scenario as ScenarioModel
+        from aat.core import Scenario as ScenarioModel
 
         pattern_scenarios: list = []
         for sc_dict in pattern_scenarios_raw:

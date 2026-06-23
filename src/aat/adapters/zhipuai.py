@@ -230,23 +230,49 @@ Generate 3-5 test scenarios covering main user flows."""
 
         response = await self._call_api(messages, max_tokens=4096)
 
-        # 解析YAML响应
-        try:
-            scenarios_data = yaml.safe_load(response)
-            if not isinstance(scenarios_data, list):
-                raise AdapterError("Expected list of scenarios")
+        # 解析响应（支持JSON和YAML格式）
+        # 清理可能的markdown代码块
+        cleaned_response = response.strip()
+        if cleaned_response.startswith("```"):
+            # 移除markdown代码块标记
+            lines = cleaned_response.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]  # 移除首行
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]  # 移除末行
+            cleaned_response = "\n".join(lines)
 
-            # 转换为Scenario对象（使用 Pydantic 验证）
-            scenarios = []
-            for i, item in enumerate(scenarios_data):
-                # 确保有默认 id
-                if "id" not in item:
-                    item["id"] = f"scenario-{i}"
-                scenario = Scenario.model_validate(item)
-                scenarios.append(scenario)
-            return scenarios
-        except Exception as e:
-            raise AdapterError(f"Failed to parse scenarios: {e}") from e
+        scenarios_data = None
+        parse_error = None
+
+        # 先尝试JSON解析
+        try:
+            scenarios_data = json.loads(cleaned_response)
+        except (json.JSONDecodeError, ValueError) as je:
+            parse_error = je
+
+        # 如果JSON失败，尝试YAML解析
+        if scenarios_data is None:
+            try:
+                scenarios_data = yaml.safe_load(cleaned_response)
+            except Exception as ye:
+                parse_error = ye if parse_error is None else parse_error
+
+        if scenarios_data is None:
+            raise AdapterError(f"Failed to parse scenarios: {parse_error}") from parse_error
+
+        if not isinstance(scenarios_data, list):
+            raise AdapterError("Expected list of scenarios")
+
+        # 转换为Scenario对象（使用 Pydantic 验证）
+        scenarios = []
+        for i, item in enumerate(scenarios_data):
+            # 确保有默认 id
+            if "id" not in item:
+                item["id"] = f"scenario-{i}"
+            scenario = Scenario.model_validate(item)
+            scenarios.append(scenario)
+        return scenarios
 
     async def verify_step(
         self,

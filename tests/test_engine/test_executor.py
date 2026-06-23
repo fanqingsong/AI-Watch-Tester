@@ -528,27 +528,28 @@ class TestErrorHandling:
 
 
 class TestSynonymMapping:
-    def test_email_has_korean_synonyms(self) -> None:
+    def test_email_has_synonyms(self) -> None:
         syns = _SYNONYMS.get("email", [])
-        assert "이메일" in syns
+        assert "e-mail" in syns
+        assert "email address" in syns
 
-    def test_password_has_korean_synonyms(self) -> None:
+    def test_password_has_synonyms(self) -> None:
         syns = _SYNONYMS.get("password", [])
-        assert "비밀번호" in syns
+        assert "pass" in syns
+        assert "pwd" in syns
 
-    def test_korean_maps_back_to_english(self) -> None:
-        assert "email" in _SYNONYMS.get("이메일", [])
-        assert "password" in _SYNONYMS.get("비밀번호", [])
+    def test_synonym_mapping_is_bidirectional(self) -> None:
+        assert "login" in _SYNONYMS.get("sign in", [])
 
     def test_login_synonyms(self) -> None:
         syns = _SYNONYMS.get("login", [])
-        assert "로그인" in syns
         assert "sign in" in syns
+        assert "log in" in syns
 
 
 class TestSynonymFallback:
     @pytest.mark.asyncio
-    async def test_synonym_fallback_finds_korean_text(
+    async def test_synonym_fallback_finds_alternative_text(
         self,
         mock_matcher: MagicMock,
         mock_humanizer: MagicMock,
@@ -556,9 +557,9 @@ class TestSynonymFallback:
         mock_comparator: MagicMock,
         tmp_path: Path,
     ) -> None:
-        """When 'Email' is not found, synonym '이메일' should be tried."""
+        """When 'Email' is not found, synonym 'e-mail' should be tried."""
         engine = MagicMock()
-        # First call (original "Email") returns None, second call ("이메일") returns coords
+        # First call (original "Email") returns None, second call ("e-mail") returns coords
         engine.find_text_position = AsyncMock(side_effect=[None, (150, 250)])
         engine.click = AsyncMock()
         engine.type_text = AsyncMock()
@@ -617,7 +618,7 @@ class TestScrollToTopFallback:
     ) -> None:
         """When text not found, scroll to top + retry should succeed."""
         engine = MagicMock()
-        # "login" has 3 synonyms: 로그인, sign in, log in
+        # "login" has synonyms: sign in, log in, log-in
         # First 4 calls (original + 3 synonyms) all return None → scroll_to_top,
         # then 5th call (after scroll, original text) returns coords
         engine.find_text_position = AsyncMock(side_effect=[None, None, None, None, (200, 300)])

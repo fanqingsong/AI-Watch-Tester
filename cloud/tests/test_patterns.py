@@ -46,9 +46,9 @@ def test_match_form_fields() -> None:
         "forms": [{
             "selector": "#login-form",
             "fields": [
-                {"name": "email", "type": "email", "placeholder": "이메일", "selector": "#email"},
+                {"name": "email", "type": "email", "placeholder": "email", "selector": "#email"},
                 {"name": "password", "type": "password",
-                 "placeholder": "비밀번호", "selector": "#pw"},
+                 "placeholder": "password", "selector": "#pw"},
             ],
         }],
         "nav_menus": [],
@@ -68,11 +68,11 @@ def test_match_accordion_observations() -> None:
     pages: list[dict] = [{"forms": [], "nav_menus": [], "links": [], "buttons": []}]
     observations = [
         {
-            "element": {"text": "FAQ 질문 1", "selector": ".faq-item", "type": "accordion"},
+            "element": {"text": "FAQ Question 1", "selector": ".faq-item", "type": "accordion"},
             "observed_change": {"type": "content_expanded"},
         },
         {
-            "element": {"text": "FAQ 질문 2", "selector": ".faq-item-2", "type": "accordion"},
+            "element": {"text": "FAQ Question 2", "selector": ".faq-item-2", "type": "accordion"},
             "observed_change": {"type": "content_expanded"},
         },
     ]
@@ -85,7 +85,7 @@ def test_match_modal_observations() -> None:
     """Modal observations are matched to modal_trigger pattern."""
     pages: list[dict] = [{"forms": [], "nav_menus": [], "links": [], "buttons": []}]
     observations = [{
-        "element": {"text": "로그인", "selector": "a.login-btn", "type": "button"},
+        "element": {"text": "login", "selector": "a.login-btn", "type": "button"},
         "observed_change": {"type": "modal_opened"},
     }]
     matched = match_elements_to_patterns(pages, observations)
@@ -112,8 +112,8 @@ def test_match_deduplication() -> None:
         "forms": [{
             "selector": "#form",
             "fields": [
-                {"name": "email", "type": "email", "placeholder": "이메일", "selector": "#e1"},
-                {"name": "email", "type": "email", "placeholder": "이메일", "selector": "#e1"},
+                {"name": "email", "type": "email", "placeholder": "email", "selector": "#e1"},
+                {"name": "email", "type": "email", "placeholder": "email", "selector": "#e1"},
             ],
         }],
         "nav_menus": [],
@@ -135,7 +135,7 @@ def test_build_pattern_tests_returns_category() -> None:
     matched = [
         {
             "pattern_key": "input[type=email]",
-            "element_info": "이메일",
+            "element_info": "Email",
             "tests": ELEMENT_TEST_PATTERNS["input[type=email]"]["tests"],
             "selector": "#email",
         },
@@ -175,14 +175,14 @@ def test_build_pattern_summary_content() -> None:
     """Summary contains pattern info for AI prompt."""
     matched = [{
         "pattern_key": "input[type=email]",
-        "element_info": "이메일",
-        "tests": [{"name": "빈값 제출"}, {"name": "정상 입력"}],
+        "element_info": "email",
+        "tests": [{"name": "empty submit"}, {"name": "valid input"}],
         "selector": "#email",
     }]
     summary = build_pattern_summary(matched)
     assert "Standard Tests" in summary
     assert "input[type=email]" in summary
-    assert "이메일" in summary
+    assert "email" in summary
     assert "BUSINESS LOGIC" in summary
 
 

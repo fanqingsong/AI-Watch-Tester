@@ -829,7 +829,7 @@ def _classify_observed_field(field: dict) -> str:
     label = (field.get("label") or "").lower()
     hint = f"{f_type} {selector} {placeholder} {label}"
 
-    # Check confirm password first (label/placeholder usually has "확인"/"confirm")
+    # Check confirm password first (label/placeholder usually has "confirm")
     for kw in _FIELD_TYPE_HINTS["confirm_password"]:
         if kw in hint:
             return "confirm_password"
@@ -1124,7 +1124,8 @@ def _make_step(
     value: str = "",
 ) -> object:
     """Create a StepConfig object for injected steps."""
-    from aat.core.models import ActionType, StepConfig, TargetSpec
+    from aat.core.enums import ActionType
+    from aat.core.scenario_models import StepConfig, TargetSpec
 
     target = None
     if target_text or target_selector:
@@ -1373,7 +1374,7 @@ def enforce_multi_step_order(
                 # Set assert_type to url_contains on the new step
                 new_step = new_steps[-1]
                 if hasattr(new_step, "assert_type"):
-                    from aat.core.models import AssertType
+                    from aat.core.enums import AssertType
                     new_step.__dict__["assert_type"] = (
                         AssertType.URL_CONTAINS
                     )
@@ -1396,7 +1397,7 @@ def enforce_multi_step_order(
                 value="/login",
             )
             if hasattr(assert_step, "assert_type"):
-                from aat.core.models import AssertType
+                from aat.core.enums import AssertType
                 assert_step.__dict__["assert_type"] = (
                     AssertType.URL_CONTAINS
                 )

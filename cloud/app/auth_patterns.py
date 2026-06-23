@@ -18,68 +18,68 @@ logger = logging.getLogger(__name__)
 
 REGISTRATION_PATTERNS: dict[str, dict[str, Any]] = {
     "single_page": {
-        "description": "단일 페이지 회원가입 (모든 필드가 한 화면에)",
+        "description": "Single-page signup (all fields on one screen)",
         "indicators": ["form with 3+ input fields", "password confirm field"],
         "fields_min": 3,
         "crawl_strategy": "collect_all_fields",
         "testable": True,
     },
     "multi_step": {
-        "description": "멀티스텝 회원가입 (다음 버튼으로 단계 진행)",
+        "description": "Multi-step signup (advance via next button)",
         "indicators": ["next/continue button", "step indicator", "progress bar"],
-        "next_button_texts": ["다음", "Next", "Continue", "계속", "진행"],
+        "next_button_texts": ["next", "Next", "Continue", "proceed"],
         "crawl_strategy": "fill_and_advance",
         "testable": True,
     },
     "social_only": {
-        "description": "소셜 로그인만 가능 (이메일 가입 불가)",
+        "description": "Social login only (email signup unavailable)",
         "indicators": ["google/kakao/naver/github button only", "no email input"],
         "crawl_strategy": "detect_only",
         "testable": False,
-        "limitation": "소셜 인증(OAuth)만 지원 — 자동 테스트 불가",
+        "limitation": "OAuth only — automated testing not supported",
     },
     "social_plus_email": {
-        "description": "소셜 + 이메일 가입 모두 가능",
+        "description": "Social + email signup both available",
         "indicators": ["social buttons + email input"],
         "crawl_strategy": "collect_all_fields",
         "testable": True,
     },
     "email_verification": {
-        "description": "이메일 인증 필요 (인증코드 입력 단계)",
-        "indicators": ["verification code input", "인증번호", "verify"],
+        "description": "Email verification required (verification code step)",
+        "indicators": ["verification code input", "verification code", "verify"],
         "crawl_strategy": "collect_all_fields",
         "testable": "partial",
-        "limitation": "이메일 인증 단계는 자동 테스트 불가 — 폼 제출까지만 테스트",
+        "limitation": "Email verification step not automatable — test up to form submit only",
     },
     "invite_only": {
-        "description": "초대 코드 필요",
-        "indicators": ["invite code input", "초대 코드", "invitation"],
+        "description": "Invite code required",
+        "indicators": ["invite code input", "invite code", "invitation"],
         "crawl_strategy": "collect_all_fields",
         "testable": "partial",
-        "limitation": "초대 코드가 필요 — 코드 없이 가입 흐름만 테스트",
+        "limitation": "Invite code required — test signup flow only without code",
     },
     "phone_otp": {
-        "description": "휴대폰 인증 (SMS OTP)",
-        "indicators": ["phone input + verify button", "인증번호 발송"],
+        "description": "Phone authentication (SMS OTP)",
+        "indicators": ["phone input + verify button", "send verification code"],
         "crawl_strategy": "collect_all_fields",
         "testable": "partial",
-        "limitation": "SMS 인증 단계는 자동 테스트 불가 — 폼 제출까지만 테스트",
+        "limitation": "SMS verification step not automatable — test up to form submit only",
     },
     "captcha": {
-        "description": "CAPTCHA 포함",
+        "description": "Includes CAPTCHA",
         "indicators": ["recaptcha", "hcaptcha", "turnstile", "captcha iframe"],
         "crawl_strategy": "collect_all_fields",
         "testable": False,
-        "limitation": "CAPTCHA 감지 — 자동 테스트 불가",
+        "limitation": "CAPTCHA detected — automated testing not supported",
     },
     "terms_agreement": {
-        "description": "약관 동의 필수 (체크박스)",
-        "indicators": ["terms checkbox", "이용약관", "개인정보"],
+        "description": "Terms agreement required (checkbox)",
+        "indicators": ["terms checkbox", "terms of service", "privacy policy"],
         "crawl_strategy": "collect_all_fields",
         "testable": True,
     },
     "modal_registration": {
-        "description": "모달/팝업 기반 가입",
+        "description": "Modal/popup-based signup",
         "indicators": ["modal with form fields after button click"],
         "crawl_strategy": "collect_all_fields",
         "testable": True,
@@ -92,37 +92,37 @@ REGISTRATION_PATTERNS: dict[str, dict[str, Any]] = {
 
 LOGIN_PATTERNS: dict[str, dict[str, Any]] = {
     "email_password": {
-        "description": "이메일 + 비밀번호 로그인",
+        "description": "Email + password login",
         "indicators": ["email input + password input + submit"],
         "testable": True,
     },
     "username_password": {
-        "description": "아이디 + 비밀번호 로그인",
+        "description": "Username + password login",
         "indicators": ["text input (id/username) + password input + submit"],
         "testable": True,
     },
     "social_only": {
-        "description": "소셜 로그인만 가능",
+        "description": "Social login only",
         "indicators": ["social buttons only, no form inputs"],
         "testable": False,
-        "limitation": "소셜 인증만 지원 — 자동 테스트 불가",
+        "limitation": "Social authentication only — automated testing not supported",
     },
     "social_plus_form": {
-        "description": "소셜 + 이메일/아이디 로그인",
+        "description": "Social + email/username login",
         "indicators": ["social buttons + email/id input"],
         "testable": True,
     },
     "phone_otp": {
-        "description": "전화번호 OTP 로그인",
+        "description": "Phone number OTP login",
         "indicators": ["phone input + send code button"],
         "testable": False,
-        "limitation": "SMS 인증 필요 — 자동 테스트 불가",
+        "limitation": "SMS verification required — automated testing not supported",
     },
     "passwordless": {
-        "description": "비밀번호 없는 로그인 (매직링크 등)",
+        "description": "Passwordless login (magic link, etc.)",
         "indicators": ["email only, no password field"],
         "testable": False,
-        "limitation": "이메일 매직링크 방식 — 자동 테스트 불가",
+        "limitation": "Email magic link method — automated testing not supported",
     },
 }
 
@@ -147,7 +147,7 @@ def detect_auth_pattern(
     has_email = any(
         f.get("type") == "email"
         or "email" in (f.get("name", "") + f.get("placeholder", "") + f.get("label", "")).lower()
-        or "이메일" in (f.get("placeholder", "") + f.get("label", ""))
+        or "email" in (f.get("placeholder", "") + f.get("label", ""))
         for f in fields
     )
     has_password = any(f.get("type") == "password" for f in fields)
@@ -180,7 +180,7 @@ def detect_auth_pattern(
     # --- Registration detection ---
 
     # Also check form fields for a "Next" button (supplements HTML hint)
-    _next_keywords = {"다음", "next", "continue", "계속", "진행"}
+    _next_keywords = {"next", "continue", "proceed"}
     has_next_in_fields = any(
         f.get("type") == "submit_button"
         and f.get("context") == "form"
@@ -357,7 +357,7 @@ async def collect_page_html_hints(page: Any) -> dict:
         }
 
         // Next/Continue button
-        const nextTexts = ['다음', 'next', 'continue', '계속', '진행'];
+        const nextTexts = ['next', 'continue', 'proceed'];
         document.querySelectorAll('button, input[type="submit"], a.btn, a.button').forEach(el => {
             const text = (el.textContent || el.value || '').trim().toLowerCase();
             if (nextTexts.some(nt => text.includes(nt))) {
@@ -368,7 +368,7 @@ async def collect_page_html_hints(page: Any) -> dict:
         // Terms checkbox
         const bodyText = document.body ? document.body.innerText.toLowerCase() : '';
         const termsKeywords = [
-            '이용약관', '개인정보', 'terms of service',
+            ['terms of service', 'privacy policy'],
             'privacy policy', 'terms and conditions',
         ];
         if (document.querySelector('input[type="checkbox"]')) {
@@ -383,7 +383,7 @@ async def collect_page_html_hints(page: Any) -> dict:
             const name = (el.name || '').toLowerCase();
             const label = (el.getAttribute('aria-label') || '').toLowerCase();
             const hint = ph + ' ' + name + ' ' + label;
-            if (hint.includes('초대') || hint.includes('invite') || hint.includes('invitation')) {
+            if (hint.includes('invite') || hint.includes('invite') || hint.includes('invitation')) {
                 hints.has_invite_code = true;
             }
         });
@@ -391,7 +391,7 @@ async def collect_page_html_hints(page: Any) -> dict:
         // Phone verification
         const hasTel = !!document.querySelector('input[type="tel"]');
         if (hasTel) {
-            const verifyTexts = ['인증', 'verify', '발송', 'send code', 'otp'];
+            const verifyTexts = ['verify', 'send code', 'otp'];
             document.querySelectorAll('button').forEach(el => {
                 const text = (el.textContent || '').trim().toLowerCase();
                 if (verifyTexts.some(vt => text.includes(vt))) {
@@ -571,7 +571,7 @@ async def _click_next_button(
     Uses Playwright's page.click() instead of JS b.click() for
     better compatibility with React/MUI synthetic events.
     """
-    _next_kw = ["다음", "next", "continue", "계속", "진행"]
+    _next_kw = ["next", "continue", "proceed"]
 
     # 1) Find the next button via JS, return its index for page.click()
     btn_index = await page.evaluate("""(nextTexts) => {
@@ -714,20 +714,20 @@ def generate_test_data(field: dict) -> str | None:
     name = field.get("name", "").lower()
     hint = f"{ph} {label} {name}"
 
-    if f_type == "email" or "email" in hint or "이메일" in hint:
+    if f_type == "email" or "email" in hint or "email" in hint:
         return _unique_email()
-    if f_type == "password" or "password" in hint or "비밀번호" in hint:
+    if f_type == "password" or "password" in hint or "password" in hint:
         return "TestPass123!"
-    if f_type == "tel" or "phone" in hint or "전화" in hint or "휴대" in hint:
+    if f_type == "tel" or "phone" in hint or "phone" in hint or "mobile" in hint:
         return "01012345678"
-    if "이름" in hint or "name" in hint:
-        return "테스트유저"
+    if "name" in hint or "name" in hint:
+        return "Test User"
     if f_type == "checkbox":
         return "__CHECK__"
     if f_type == "select":
         return "__SELECT_FIRST__"
     if f_type in ("text", "search"):
-        return "테스트 입력"
+        return "test input"
     return None
 
 
@@ -747,15 +747,15 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
 
     limitations = auth_info.get("limitations", [])
     if limitations:
-        parts.append("LIMITATIONS (정직하게 리포트):")
+        parts.append("LIMITATIONS (honest reporting):")
         for lim in limitations:
             parts.append(f"  - {lim}")
-        parts.append("→ 테스트 불가 항목은 SKIP하고 사유를 description에 명시할 것")
+        parts.append("→ SKIP non-testable items and specify reason in description")
 
     steps_data = auth_info.get("multi_step_fields")
     if steps_data and len(steps_data) > 1:
         # Find the last step's submit button text (skip back/previous buttons)
-        _back_kw = ("이전", "previous", "back", "뒤로", "prev")
+        _back_kw = ("previous", "back", "prev")
         last_step = steps_data[-1]
         last_btn_text = ""
         for f in last_step:
@@ -768,30 +768,45 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
             break
 
         parts.append(
-            f"MULTI-STEP FORM: {len(steps_data)} 단계 감지됨\n"
-            "→ 회원가입 시나리오는 반드시 모든 단계를 포함해야 합니다.\n"
-            "→ 각 단계 사이에 '다음'/'Next' 버튼 클릭 + wait 스텝을 넣으세요.\n"
-            "→ 마지막 단계에서 최종 제출 버튼 클릭 + assert를 넣으세요.\n"
-            "→ 선택(optional) 파일 업로드(프로필 사진 등)는 스킵.\n"
-            "→ 필수(required) 파일 업로드는 더미 파일로 테스트.\n"
-            "→ 선택(optional) 텍스트 필드는 스킵해도 됩니다.\n"
-            "STEP ORDER RULE (반드시 준수):\n"
-            "→ 각 필드는 아래 수집된 단계(Step N)에 정확히 맞게 배치할 것.\n"
-            "→ Step 1 필드는 '다음' 클릭 전에, Step 2 필드는 '다음' 클릭 후에.\n"
-            "→ 필드를 다른 단계로 이동하지 마세요.\n"
+            f"MULTI-STEP FORM: {len(steps_data)} steps detected
+"
+            "→ Signup scenarios must include all steps\.
+"
+            "→ Insert 'next' button click + wait steps between each stage\.
+"
+            "→ Insert final submit button click + assert at last stage\.
+"
+            "→ Skip optional file uploads (profile photo, etc.)\.
+\n"
+            "→ Test required file uploads with dummy file\.
+\n"
+            "→ Optional text fields can be skipped\.
+\n"
+            "STEP ORDER RULE (must comply):
+\n"
+            "→ Place each field exactly in the collected step (Step N)\.
+\n"
+            "→ Step 1 fields before 'next' click, Step 2 fields after 'next' click\.
+\n"
+            "→ Do not move fields to different steps\.
+\n"
             "CHECKBOX RULE:\n"
-            "→ '동의', 'agree', '약관', 'terms', 'privacy' 텍스트가 "
-            "포함된 체크박스는 항상 필수로 처리할 것.\n"
-            "→ 이 체크박스들은 반드시 find_and_click 스텝으로 포함하세요.\n"
-            "→ 체크박스가 수집된 단계에 배치하세요 (다른 단계로 옮기지 말 것).\n"
+            "→ "agree", "terms", "privacy" text "
+            "checkboxes are always required\.
+\n"
+            "→ Include these checkboxes as find_and_click steps\.
+\n"
+            "→ Place checkboxes in the collected step (do not move to other step)\.
+\n"
             "SUBMIT BUTTON RULE:\n"
-            "→ 마지막 단계의 제출 버튼은 수집된 필드의 실제 버튼 텍스트를 "
-            "사용할 것."
+            "→ Last stage submit button should use actual button text from collected fields "
+            "(use this exact text)
+"
         )
         if last_btn_text:
             parts.append(
-                f"→ 마지막 단계 제출 버튼: \"{last_btn_text}\" "
-                "(이 텍스트를 정확히 사용하세요)"
+                f"→ Final submit button: \"{last_btn_text}\" "
+                "(use this exact text)"
             )
 
         for i, step_fields in enumerate(steps_data, 1):
@@ -804,13 +819,13 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
                 ftype = f.get("type", "text")
                 req = f.get("required", False)
                 # Agreement checkboxes → force required
-                _agree_kw = ("동의", "agree", "약관", "terms", "privacy")
+                _agree_kw = ("agree", "terms", "privacy")
                 if ftype == "checkbox" and any(
                     kw in (label or "").lower() for kw in _agree_kw
                 ):
                     req = True
                 sel = f.get("selector", "")
-                tag = "필수" if req else "선택"
+                tag = "required" if req else "optional"
                 field_lines.append(
                     f"    - {label} (type={ftype}, {tag})"
                     + (f" [selector: {sel}]" if sel else "")

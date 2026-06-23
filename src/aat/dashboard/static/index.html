@@ -1072,7 +1072,7 @@ async function loadFolderContents(path) {
     if (data.parent && data.parent !== folderBrowsePath) {
       const parentItem = document.createElement('div');
       parentItem.className = 'folder-item parent';
-      parentItem.innerHTML = '⬆ 상위 폴더';
+      parentItem.innerHTML = '⬆ Parent folder';
       parentItem.onclick = () => loadFolderContents(data.parent);
       list.appendChild(parentItem);
     }
@@ -1089,11 +1089,11 @@ async function loadFolderContents(path) {
     } else {
       const empty = document.createElement('div');
       empty.style.cssText = 'padding:8px;color:var(--text-secondary);font-size:11px;text-align:center';
-      empty.textContent = '하위 폴더 없음';
+      empty.textContent = 'No subfolders';
       list.appendChild(empty);
     }
   } catch (e) {
-    addLog('error', `폴더 탐색 실패: ${e.message}`);
+    addLog('error', `Failed to explore folder: ${e.message}`);
   }
 }
 

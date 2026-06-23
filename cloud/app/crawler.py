@@ -675,7 +675,7 @@ async def crawl_site(
     _scan_lang = lang
 
     try:
-        from aat.core.models import EngineConfig
+        from aat.core.config_models import EngineConfig
         from aat.engine.web import WebEngine
     except ImportError as exc:
         return {"error": f"AAT core not installed: {exc}"}

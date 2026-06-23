@@ -546,7 +546,7 @@ class StepExecutor:
         1. placeholder text match (partial)
         2. get_by_label
         3. aria-label match
-        4. Short text prefix match (e.g. "이메일" from "이메일을 입력하세요")
+        4. Short text prefix match (e.g. "Email" from "Enter your email")
         5. input[type] match (email, password) inferred from selector/text
 
         Returns None if page is not a real Playwright page.
@@ -588,8 +588,8 @@ class StepExecutor:
             # 3. aria-label
             locators.append(page.locator(f'[aria-label*="{variant}"]').first)
             # 4. Short prefix match (first meaningful segment)
-            #    e.g. "이메일을 입력하세요" → try "이메일"
-            for sep in ["을 ", "를 ", "을", "를", " "]:
+            #    e.g. "Enter your email" → try "email"
+            for sep in [" your ", " an ", " a ", " ", ""]:
                 if sep in variant:
                     short = variant.split(sep)[0].strip()
                     if short and short != variant:
@@ -862,7 +862,7 @@ class StepExecutor:
 
         # Priority 0: CSS selector (from observation data)
         # When both selector and text are provided, filter by text
-        # to avoid clicking the wrong element (e.g., "로그인" instead of "가입"
+        # to avoid clicking the wrong element (e.g., "Login" instead of "Sign Up"
         # when both share selector "button.MuiButtonBase-root")
         if target.selector and hasattr(self._engine, "page"):
             page = self._engine.page

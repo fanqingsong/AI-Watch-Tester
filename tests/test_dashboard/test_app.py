@@ -325,7 +325,7 @@ class TestScenarioGeneration:
             json={"document_text": ""},
         )
         assert response.status_code == 400
-        assert "비어있습니다" in response.json()["error"]
+        assert "empty" in response.json()["error"].lower()
 
     def test_generate_no_document(self, client: TestClient) -> None:
         response = client.post(
@@ -333,7 +333,7 @@ class TestScenarioGeneration:
             json={},
         )
         assert response.status_code == 400
-        assert "비어있습니다" in response.json()["error"]
+        assert "empty" in response.json()["error"].lower()
 
     def test_generate_success(self, client: TestClient) -> None:
         from aat.core import Scenario, StepConfig
@@ -387,7 +387,7 @@ class TestScenarioGeneration:
             )
 
         assert response.status_code == 500
-        assert "생성 실패" in response.json()["error"]
+        assert "failed" in response.json()["error"].lower()
 
 
 class TestScenarioGuidance:
@@ -398,7 +398,7 @@ class TestScenarioGuidance:
 
         result = _get_scenario_guidance("step\nField required")
         assert "step" in result
-        assert "번호" in result
+        assert "number" in result.lower()
 
     def test_invalid_action_name(self) -> None:
         from aat.dashboard.app import _get_scenario_guidance
@@ -423,7 +423,7 @@ class TestScenarioGuidance:
         from aat.dashboard.app import _get_scenario_guidance
 
         result = _get_scenario_guidance("some unknown error")
-        assert "형식" in result
+        assert "invalid" in result.lower()
 
 
 class TestOneClick:

@@ -103,7 +103,7 @@ async def generate_fix_guide_endpoint(
 
     # Get AI config
     try:
-        from aat.core.models import AIConfig
+        from aat.core.config_models import AIConfig
     except ImportError as exc:
         guide.status = FixGuideStatus.FAILED
         guide.summary = f"AAT core not installed: {exc}"

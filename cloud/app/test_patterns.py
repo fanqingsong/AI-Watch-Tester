@@ -13,173 +13,173 @@ ELEMENT_TEST_PATTERNS: dict[str, dict[str, Any]] = {
     # -- Input fields --
     "input[type=text]": {
         "tests": [
-            {"name": "빈값 제출", "action": "clear → submit", "assert": "에러 메시지 표시 또는 required 경고"},
-            {"name": "정상 입력", "action": "값 입력 → submit", "assert": "에러 없음"},
-            {"name": "최대 길이 초과", "action": "maxlength+1 입력", "assert": "입력 제한 또는 에러"},
+            {"name": "empty submit", "action": "clear then submit", "assert": "error message or required warning"},
+            {"name": "valid input", "action": "enter value → submit", "assert": "no error"},
+            {"name": "max length exceeded", "action": "enter maxlength+1", "assert": "input limit or error"},
         ],
     },
     "input[type=email]": {
         "tests": [
-            {"name": "빈값 제출", "action": "clear → submit", "assert": "required 에러"},
-            {"name": "잘못된 형식", "action": "'abc' 입력 → submit", "assert": "이메일 형식 에러"},
-            {"name": "정상 입력", "action": "test@example.com 입력", "assert": "통과"},
+            {"name": "empty submit", "action": "clear then submit", "assert": "required error"},
+            {"name": "invalid format", "action": "enter 'abc' → submit", "assert": "email format error"},
+            {"name": "valid input", "action": "enter test@example.com", "assert": "success"},
         ],
     },
     "input[type=password]": {
         "tests": [
-            {"name": "빈값 제출", "action": "clear → submit", "assert": "required 에러"},
-            {"name": "정상 입력", "action": "값 입력", "assert": "마스킹 표시"},
+            {"name": "empty submit", "action": "clear then submit", "assert": "required error"},
+            {"name": "valid input", "action": "enter value", "assert": "masked (password hidden)"},
         ],
     },
     "input[type=tel]": {
         "tests": [
-            {"name": "문자 입력", "action": "'abc' 입력", "assert": "숫자만 허용 에러 또는 입력 제한"},
-            {"name": "정상 입력", "action": "010-1234-5678", "assert": "통과"},
+            {"name": "character input", "action": "enter 'abc'", "assert": "numbers only error or input limit"},
+            {"name": "valid input", "action": "010-1234-5678", "assert": "success"},
         ],
     },
     "input[type=number]": {
         "tests": [
-            {"name": "문자 입력", "action": "'abc' 입력", "assert": "입력 불가 또는 에러"},
-            {"name": "min/max 범위 밖", "action": "범위 초과값", "assert": "범위 에러"},
-            {"name": "정상 입력", "action": "범위 내 숫자", "assert": "통과"},
+            {"name": "character input", "action": "enter 'abc'", "assert": "input invalid or error"},
+            {"name": "out of range", "action": "enter out of range value", "assert": "range error"},
+            {"name": "valid input", "action": "enter number in range", "assert": "success"},
         ],
     },
     "input[type=checkbox]": {
         "tests": [
-            {"name": "체크", "action": "클릭", "assert": "checked 상태"},
-            {"name": "체크 해제", "action": "다시 클릭", "assert": "unchecked 상태"},
+            {"name": "check", "action": "click", "assert": "checked state"},
+            {"name": "uncheck", "action": "click again", "assert": "unchecked state"},
         ],
     },
     "input[type=radio]": {
         "tests": [
-            {"name": "선택", "action": "클릭", "assert": "selected 상태"},
-            {"name": "다른 옵션 선택", "action": "다른 라디오 클릭", "assert": "이전 해제, 새 선택"},
+            {"name": "select", "action": "click", "assert": "selected state"},
+            {"name": "select different option", "action": "click different radio", "assert": "previous deselected, new selected"},
         ],
     },
     "input[type=file]": {
         "tests": [
-            {"name": "파일 업로드", "action": "테스트 파일 선택", "assert": "파일명 표시"},
+            {"name": "file upload", "action": "select test file", "assert": "filename displayed"},
         ],
     },
     "input[type=date]": {
         "tests": [
-            {"name": "날짜 선택", "action": "날짜 입력", "assert": "선택된 날짜 표시"},
+            {"name": "date selection", "action": "date input", "assert": "selected date displayed"},
         ],
     },
     "input[type=search]": {
         "tests": [
             {
-                "name": "검색어 입력 후 실행",
-                "action": "키워드 입력 → Enter 또는 검색 버튼",
-                "assert": "검색 결과 표시 또는 페이지 변화",
+                "name": "enter keyword then execute",
+                "action": "enter keyword or click search",
+                "assert": "search results shown or page change",
             },
         ],
     },
     # -- Select / Textarea --
     "select": {
         "tests": [
-            {"name": "옵션 변경", "action": "다른 옵션 선택", "assert": "선택값 변경됨"},
-            {"name": "기본값 확인", "action": "초기 상태", "assert": "기본 옵션 선택됨"},
+            {"name": "change option", "action": "select different option", "assert": "selection changed"},
+            {"name": "verify default value", "action": "initial state", "assert": "default option selected"},
         ],
     },
     "textarea": {
         "tests": [
-            {"name": "빈값 제출", "action": "clear → submit", "assert": "required 에러 (있는 경우)"},
-            {"name": "정상 입력", "action": "여러 줄 텍스트 입력", "assert": "입력된 텍스트 표시"},
+            {"name": "empty submit", "action": "clear then submit", "assert": "required error (if applicable)"},
+            {"name": "valid input", "action": "enter multi-line text", "assert": "entered text displayed"},
         ],
     },
     # -- Buttons / Links --
     "button[type=submit]": {
         "tests": [
-            {"name": "클릭", "action": "클릭", "assert": "폼 제출 또는 다음 단계 이동"},
+            {"name": "click", "action": "click", "assert": "form submit or next stage"},
         ],
     },
     "a[href]": {
         "tests": [
-            {"name": "링크 이동", "action": "클릭", "assert": "페이지 이동 또는 섹션 스크롤"},
-            {"name": "깨진 링크 확인", "action": "HTTP 상태 코드 체크", "assert": "200 OK"},
+            {"name": "link navigation", "action": "click", "assert": "page move or section scroll"},
+            {"name": "broken link check", "action": "HTTP status code check", "assert": "200 OK"},
         ],
     },
     # -- Interactive components --
     "accordion": {
         "tests": [
-            {"name": "펼치기", "action": "클릭", "assert": "숨겨진 콘텐츠 표시"},
-            {"name": "접기", "action": "다시 클릭", "assert": "콘텐츠 숨김"},
+            {"name": "expand", "action": "click", "assert": "content displayed"},
+            {"name": "collapse", "action": "click again", "assert": "content collapsed"},
         ],
     },
     "tab": {
         "tests": [
-            {"name": "탭 전환", "action": "각 탭 클릭", "assert": "해당 탭 콘텐츠 표시, 다른 탭 숨김"},
+            {"name": "tab switch", "action": "click each tab", "assert": "tab content shown, others hidden"},
         ],
     },
     "modal_trigger": {
         "tests": [
-            {"name": "모달 열기", "action": "트리거 버튼 클릭", "assert": "모달 표시"},
-            {"name": "모달 닫기", "action": "X 버튼 또는 배경 클릭", "assert": "모달 닫힘"},
+            {"name": "open modal", "action": "click trigger button", "assert": "modal displayed"},
+            {"name": "close modal", "action": "X button or background click", "assert": "modal closed"},
         ],
     },
     "carousel": {
         "tests": [
-            {"name": "다음 슬라이드", "action": "다음 버튼 클릭", "assert": "슬라이드 변경"},
-            {"name": "이전 슬라이드", "action": "이전 버튼 클릭", "assert": "이전 슬라이드 표시"},
+            {"name": "next slide", "action": "click next button", "assert": "slide changed"},
+            {"name": "previous slide", "action": "click previous button", "assert": "previous slide shown"},
         ],
     },
     "dropdown_menu": {
         "tests": [
-            {"name": "드롭다운 열기", "action": "호버 또는 클릭", "assert": "메뉴 항목 표시"},
-            {"name": "항목 선택", "action": "메뉴 항목 클릭", "assert": "선택 동작 수행"},
+            {"name": "open dropdown", "action": "hover or click", "assert": "menu items displayed"},
+            {"name": "select item", "action": "click menu item", "assert": "selection action executed"},
         ],
     },
     "tooltip": {
         "tests": [
-            {"name": "툴팁 표시", "action": "호버", "assert": "툴팁 텍스트 표시"},
+            {"name": "show tooltip", "action": "hover", "assert": "tooltip text displayed"},
         ],
     },
     # -- Media --
     "video": {
         "tests": [
-            {"name": "재생", "action": "재생 버튼 클릭", "assert": "재생 시작 (paused=false)"},
+            {"name": "play", "action": "click play button", "assert": "playback starts (paused=false)"},
         ],
     },
     "img": {
         "tests": [
-            {"name": "이미지 로드", "action": "확인", "assert": "naturalWidth > 0 (깨진 이미지 아님)"},
+            {"name": "image loaded", "action": "verify", "assert": "naturalWidth > 0 (not broken image)"},
         ],
     },
     # -- Navigation --
     "nav": {
         "tests": [
-            {"name": "각 메뉴 항목 이동", "action": "각 링크 클릭", "assert": "해당 페이지/섹션 표시"},
+            {"name": "navigate each menu item", "action": "click each link", "assert": "destination page/section shown"},
         ],
     },
     # -- Form --
     "form": {
         "tests": [
-            {"name": "빈 폼 제출", "action": "모든 필드 비우고 submit", "assert": "validation 에러 표시"},
-            {"name": "정상 제출", "action": "모든 필수 필드 채우고 submit", "assert": "성공 메시지 또는 페이지 이동"},
+            {"name": "Empty Form Submit", "action": "submit with empty fields", "assert": "validation error shown"},
+            {"name": "normal submit", "action": "fill all required fields and submit", "assert": "success message or page redirect"},
         ],
     },
     # -- Table --
     "table": {
         "tests": [
-            {"name": "데이터 표시 확인", "action": "확인", "assert": "행/열 데이터 존재"},
-            {"name": "정렬 (있는 경우)", "action": "헤더 클릭", "assert": "데이터 정렬 변경"},
+            {"name": "verify data display", "action": "verify", "assert": "row/column data exists"},
+            {"name": "sort (if available)", "action": "click header", "assert": "data sort changed"},
         ],
     },
     # -- Pagination --
     "pagination": {
         "tests": [
-            {"name": "다음 페이지", "action": "다음 버튼 클릭", "assert": "콘텐츠 변경"},
-            {"name": "이전 페이지", "action": "이전 버튼 클릭", "assert": "이전 콘텐츠 표시"},
+            {"name": "next page", "action": "click next button", "assert": "content changed"},
+            {"name": "previous page", "action": "click previous button", "assert": "previous content shown"},
         ],
     },
     # -- File download --
     "file_download": {
         "tests": [
             {
-                "name": "파일 다운로드 링크 확인",
-                "action": "HTTP HEAD 요청",
-                "assert": "200 OK 응답 (파일 존재)",
+                "name": "verify file download link",
+                "action": "HTTP HEAD request",
+                "assert": "200 OK response (file exists)",
             },
         ],
     },
@@ -229,7 +229,7 @@ def match_elements_to_patterns(
                     "context": f"form({form_selector or 'unknown'})",
                 })
 
-        # Note: form-level "빈 폼 제출"/"정상 제출" tests are now generated
+        # Note: form-level "Empty Form Submit"/"normal submit" tests are now generated
         # by build_pattern_tests() as consolidated per-form tests, so we skip
         # the form-level pattern here to avoid duplicates.
 
@@ -332,9 +332,9 @@ def build_pattern_tests(
         # 1. Empty submit (covers all required fields at once)
         tests.append({
             "id": f"p{tid}",
-            "name": f"{summary_label} — {'빈 폼 제출' if ko else 'Empty Form Submit'}",
+            "name": f"{summary_label} — {'Empty Form Submit' if False else 'Empty Form Submit'}",
             "description": (
-                "모든 필드 비우고 제출 → 필수 필드 에러 확인" if ko
+                "fill empty fields → check required error" if False
                 else "Submit with all fields empty → verify required field errors"
             ),
             "priority": "medium",
@@ -349,9 +349,9 @@ def build_pattern_tests(
         # 2. Valid input (covers all fields with correct values)
         tests.append({
             "id": f"p{tid}",
-            "name": f"{summary_label} — {'정상 입력 제출' if ko else 'Valid Input Submit'}",
+            "name": f"{summary_label} — {'Valid Input Submit' if False else 'Valid Input Submit'}",
             "description": (
-                "모든 필드에 올바른 값 입력 → 제출 성공 확인" if ko
+                "fill all valid values → verify success" if False
                 else "Fill all fields with valid values → verify successful submission"
             ),
             "priority": "medium",
@@ -372,9 +372,9 @@ def build_pattern_tests(
         }
         best_field = max(fields, key=lambda f: _TYPE_PRIORITY.get(f["pattern_key"], 0))
         best_tests = ELEMENT_TEST_PATTERNS.get(best_field["pattern_key"], {}).get("tests", [])
-        # Find the "error" test case (not 빈값, not 정상)
+        # Find the "error" test case (not empty submit, not valid input)
         error_test = next(
-            (t for t in best_tests if t["name"] not in ("빈값 제출", "정상 입력")),
+            (t for t in best_tests if t["name"] not in ("empty submit", "valid input")),
             None,
         )
         if error_test:
@@ -419,7 +419,7 @@ def build_pattern_tests(
 
     return {
         "id": "patterns",
-        "name": "UI 요소 테스트" if ko else "Standard Element Tests",
+        "name": "UI Element Tests" if False else "Standard Element Tests",
         "auto_selected": True,
         "tests": tests,
     }

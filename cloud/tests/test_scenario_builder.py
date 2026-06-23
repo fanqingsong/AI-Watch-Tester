@@ -65,8 +65,8 @@ def test_user_data_takes_priority() -> None:
 
 
 def test_placeholder_hint() -> None:
-    val = _generate_test_value({"name": "x", "type": "text", "placeholder": "이름을 입력하세요"}, {})
-    assert val == "테스트유저"
+    val = _generate_test_value({"name": "x", "type": "text", "placeholder": "enter your name"}, {})
+    assert val == "Test User"
 
 
 def test_fallback_value() -> None:
@@ -103,7 +103,7 @@ def test_build_navigated_page_form() -> None:
         change_type="page_navigation",
         el_text="Sign Up",
         fields=[
-            {"name": "name", "type": "text", "selector": "#name", "placeholder": "이름"},
+            {"name": "name", "type": "text", "selector": "#name", "placeholder": "name"},
             {"name": "email", "type": "email", "selector": "#email"},
             {"name": "password", "type": "password", "selector": "#pw"},
             {"type": "submit_button", "selector": "#register", "text": "Register"},

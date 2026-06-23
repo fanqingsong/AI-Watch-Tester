@@ -59,135 +59,55 @@ from app.ws import ws_manager
 router = APIRouter(prefix="/api/tests", tags=["tests"])
 
 # ---------------------------------------------------------------------------
-# Bilingual message system for convert / validation progress
+# Message system for convert / validation progress
 # ---------------------------------------------------------------------------
-_convert_lang: str = "en"
 
-_CONVERT_MESSAGES: dict[str, dict[str, str]] = {
-    "using_scan_data": {
-        "en": "Using existing scan data...",
-        "ko": "기존 스캔 데이터 사용 중...",
-    },
-    "scan_loaded": {
-        "en": "{obs} observations, {pages} pages loaded",
-        "ko": "{obs}개 관찰 데이터, {pages}개 페이지 로드 완료",
-    },
-    "visiting_page": {
-        "en": "Visiting page: {url}",
-        "ko": "페이지 방문 중: {url}",
-    },
-    "extracting_data": {
-        "en": "Extracting page data...",
-        "ko": "페이지 데이터 추출 중...",
-    },
-    "keywords": {
-        "en": "Keywords: {kw}",
-        "ko": "키워드: {kw}",
-    },
-    "observing_elements": {
-        "en": "Observing {n} elements...",
-        "ko": "{n}개 요소 관찰 중...",
-    },
-    "observations_collected": {
-        "en": "{n} observations collected",
-        "ko": "{n}개 관찰 데이터 수집 완료",
-    },
-    "page_visit_failed": {
-        "en": "Page visit failed: {err}",
-        "ko": "페이지 방문 실패: {err}",
-    },
-    "feature_not_found_fallback": {
-        "en": "Could not find the requested feature.",
-        "ko": "요청한 기능을 찾을 수 없습니다.",
-    },
-    "generating_scenarios": {
-        "en": "Generating AI scenarios...",
-        "ko": "AI 시나리오 생성 중...",
-    },
-    "ai_generation_failed": {
-        "en": "AI generation failed: {err}",
-        "ko": "AI 생성 실패: {err}",
-    },
-    "ai_no_scenarios": {
-        "en": "AI failed to generate scenarios.",
-        "ko": "AI가 시나리오를 생성하지 못했습니다.",
-    },
-    "scenarios_generated": {
-        "en": "{n} scenarios generated, validating...",
-        "ko": "{n}개 시나리오 생성됨, 검증 중...",
-    },
-    "validating_scenarios": {
-        "en": "Validating and fixing scenarios...",
-        "ko": "시나리오 검증 및 보정 중...",
-    },
-    "feature_missing_reason": {
-        "en": "Could not find '{label}' feature on the site.",
-        "ko": "사이트에서 '{label}' 기능을 찾지 못했습니다.",
-    },
-    "feature_missing_warn1": {
-        "en": "'{label}' feature not found on the site.",
-        "ko": "'{label}' 기능을 사이트에서 찾지 못했습니다.",
-    },
-    "feature_missing_warn2": {
-        "en": "If '{label}' is on a separate URL, enter that URL directly.",
-        "ko": "'{label}' 페이지가 별도 URL인 경우 해당 URL을 직접 입력해주세요.",
-    },
-    "feature_missing_warn3": {
-        "en": (
-            "Automated testing may be difficult for external services"
-            " (Google, Kakao, etc.)."
-        ),
-        "ko": "외부 서비스(Google, Kakao 등)를 통한 경우 자동 테스트가 어려울 수 있습니다.",
-    },
-    "no_scenarios_generated": {
-        "en": "No scenarios were generated.",
-        "ko": "시나리오가 생성되지 않았습니다.",
-    },
-    "wrong_feature_reason": {
-        "en": (
-            "Requested '{label}' test but scenarios for a different"
-            " feature were generated."
-        ),
-        "ko": "'{label}' 테스트를 요청했지만 다른 기능의 시나리오가 생성되었습니다.",
-    },
-    "wrong_feature_warn1": {
-        "en": "Request: '{label}' test",
-        "ko": "요청: '{label}' 테스트",
-    },
-    "wrong_feature_warn2": {
-        "en": "Generated scenarios test a different feature than requested.",
-        "ko": "생성된 시나리오가 요청과 다른 기능을 테스트합니다.",
-    },
-    "wrong_feature_warn3": {
-        "en": "Attempting to regenerate.",
-        "ko": "재생성을 시도합니다.",
-    },
-    "no_intent_kw": {
-        "en": "Scenarios don't contain keywords related to '{label}'.",
-        "ko": "시나리오에 '{label}' 관련 키워드가 포함되어 있지 않습니다.",
-    },
-    "missing_steps": {
-        "en": "Missing required steps: {steps}",
-        "ko": "필수 스텝 누락: {steps}",
-    },
-    "requirements_not_met": {
-        "en": "Does not meet requirements for '{label}' test.",
-        "ko": "'{label}' 테스트의 필수 요건을 충족하지 않습니다.",
-    },
+_CONVERT_MESSAGES: dict[str, str] = {
+    "using_scan_data": "Using existing scan data...",
+    "scan_loaded": "{obs} observations, {pages} pages loaded",
+    "visiting_page": "Visiting page: {url}",
+    "extracting_data": "Extracting page data...",
+    "keywords": "Keywords: {kw}",
+    "observing_elements": "Observing {n} elements...",
+    "observations_collected": "{n} observations collected",
+    "page_visit_failed": "Page visit failed: {err}",
+    "feature_not_found_fallback": "Could not find the requested feature.",
+    "generating_scenarios": "Generating AI scenarios...",
+    "ai_generation_failed": "AI generation failed: {err}",
+    "ai_no_scenarios": "AI failed to generate scenarios.",
+    "scenarios_generated": "{n} scenarios generated, validating...",
+    "validating_scenarios": "Validating and fixing scenarios...",
+    "feature_missing_reason": "Could not find '{label}' feature on the site.",
+    "feature_missing_warn1": "'{label}' feature not found on the site.",
+    "feature_missing_warn2": "If '{label}' is on a separate URL, enter that URL directly.",
+    "feature_missing_warn3": (
+        "Automated testing may be difficult for external services"
+        " (Google, Kakao, etc.)."
+    ),
+    "no_scenarios_generated": "No scenarios were generated.",
+    "wrong_feature_reason": (
+        "Requested '{label}' test but scenarios for a different"
+        " feature were generated."
+    ),
+    "wrong_feature_warn1": "Request: '{label}' test",
+    "wrong_feature_warn2": "Generated scenarios test a different feature than requested.",
+    "wrong_feature_warn3": "Attempting to regenerate.",
+    "no_intent_kw": "Scenarios don't contain keywords related to '{label}'.",
+    "missing_steps": "Missing required steps: {steps}",
+    "requirements_not_met": "Does not meet requirements for '{label}' test.",
 }
 
-_STEP_NAMES: dict[str, dict[str, str]] = {
-    "page_or_modal": {"en": "Page/modal entry", "ko": "페이지/모달 진입"},
-    "field_input": {"en": "Field input", "ko": "필드 입력"},
-    "submit": {"en": "Submit button click", "ko": "제출 버튼 클릭"},
+_STEP_NAMES: dict[str, str] = {
+    "page_or_modal": "Page/modal entry",
+    "field_input": "Field input",
+    "submit": "Submit button click",
 }
 
 
 def _cmsg(key: str, **kwargs: Any) -> str:
-    """Return a bilingual message based on the current ``_convert_lang``."""
-    entry = _CONVERT_MESSAGES.get(key, {})
-    tpl = entry.get(_convert_lang, entry.get("en", key))
-    return tpl.format(**kwargs) if kwargs else tpl
+    """Return a message and format it with provided kwargs."""
+    entry = _CONVERT_MESSAGES.get(key, key)
+    return entry.format(**kwargs) if kwargs else entry
 
 
 @router.post("", response_model=TestResponse, status_code=201)
@@ -212,7 +132,7 @@ async def create_test(
         if not parsed:
             raise HTTPException(status_code=422, detail="Empty scenario YAML")
         try:
-            from aat.core.models import Scenario
+            from aat.core.scenario_models import Scenario
 
             items = parsed if isinstance(parsed, list) else [parsed]
             scenarios = [Scenario.model_validate(item) for item in items]
@@ -320,7 +240,7 @@ async def update_scenarios(
 
     # Validate with Scenario model
     try:
-        from aat.core.models import Scenario
+        from aat.core.scenario_models import Scenario
 
         items = parsed if isinstance(parsed, list) else [parsed]
         scenarios = [Scenario.model_validate(item) for item in items]
@@ -479,10 +399,10 @@ You are an E2E test scenario generator.
 The user's request below is the SINGLE MOST IMPORTANT instruction.
 Generate scenarios ONLY for what the user asked. Do NOT test other features.
 
-- "회원가입 테스트 해줘" → Generate ONLY signup test scenarios. Do NOT test login,
+- "signup test" → Generate ONLY signup test scenarios. Do NOT test login,
   navigation, about page, blog, help, or any other feature.
-- "로그인 테스트 해줘" → Generate ONLY login test scenarios.
-- "전체 테스트 해줘" / "사이트 테스트 해줘" → Test all features found.
+- "login test" → Generate ONLY login test scenarios.
+- "test all" / "test the site" → Test all features found.
 
 If the user asks for a SPECIFIC feature, your response MUST contain:
   1. Navigate to homepage
@@ -495,8 +415,8 @@ If you generate tests for features the user did NOT ask for, your response is WR
 
 1. **USER REQUEST FIRST**: Generate scenarios ONLY for the user's requested feature.
    The "TEST ALL ELEMENTS" rule ONLY applies when the user asks for broad testing
-   (e.g., "전체 테스트", "사이트 테스트", "모든 기능 테스트").
-   For specific requests like "회원가입 테스트", generate ONLY that feature's test.
+   (e.g., "test all", "test the site", "test everything").
+   For specific requests like "signup test", generate ONLY that feature's test.
 
 2. **FORM INTERACTION IS REQUIRED**: When the user requests a form-based feature
    (signup, login, search, payment), the scenario MUST include:
@@ -513,8 +433,8 @@ If you generate tests for features the user did NOT ask for, your response is WR
    After filling form fields, the NEXT click MUST be SUBMIT[form], NOT SUBMIT[nav].
    - SUBMIT[form] = button INSIDE the form → USE THIS
    - SUBMIT[nav] = navigation menu link → NEVER use after form input
-   Example: SUBMIT[form](button.btn, '다음') and SUBMIT[nav](a.nav, '가입')
-   → After filling email/password, click '다음' (SUBMIT[form]), NOT '가입' (SUBMIT[nav])
+   Example: SUBMIT[form](button.btn, 'Next') and SUBMIT[nav](a.nav, 'Sign Up')
+   → After filling email/password, click 'Next' (SUBMIT[form]), NOT 'Sign Up' (SUBMIT[nav])
 
 4. **USE ONLY OBSERVED DATA**: Every text, selector, URL MUST come from the
    Page Data or Interaction Observations sections above.
@@ -522,11 +442,11 @@ If you generate tests for features the user did NOT ask for, your response is WR
    - NEVER guess button labels or field names.
 
 5. **SELECTOR-FIRST**: Every click/type target MUST include BOTH "selector" AND "text":
-   {{"selector": "a[href='#login']", "text": "로그인"}}
+   {{"selector": "a[href='#login']", "text": "Login"}}
 
 6. **ACCESS PATH**: Include navigation steps matching the observed access path.
-   If observation shows "click '가입' → navigate to /register with form fields",
-   the scenario MUST: navigate homepage → click '가입' → fill form → submit.
+   If observation shows "click 'Sign Up' → navigate to /register with form fields",
+   the scenario MUST: navigate homepage → click 'Sign Up' → fill form → submit.
 
 7. **CASE INSENSITIVE ASSERT**: All assert steps MUST set "case_insensitive": true.
 
@@ -542,7 +462,7 @@ If you generate tests for features the user did NOT ask for, your response is WR
 
 9. **NO-SUBSTITUTION RULE**: If the requested feature does NOT exist in the data,
    return an EMPTY array []. NEVER substitute a different feature.
-   "회원가입" requested but only "로그인" exists → return [], NOT a login test.
+   "Signup" requested but only "Login" exists → return [], NOT a login test.
    CRITICAL: Login and signup are completely DIFFERENT pages with DIFFERENT forms.
    - /login page → login test only. NEVER generate signup tests here.
    - /signup or /register page → signup test only. NEVER generate login tests here.
@@ -596,13 +516,13 @@ If you generate tests for features the user did NOT ask for, your response is WR
     RIGHT: assert url_contains "/inventory" (URL-based verification)
 
     Example for multi-step signup (step 1 → step 2):
-    step N:   find_and_click SUBMIT[form] '다음'
+    step N:   find_and_click SUBMIT[form] 'Next'
     step N+1: wait 1500ms
     step N+2: assert text_visible — text from the NEXT page/step
-              (use assert_texts from observation data, or a keyword like "완료", "인증")
+              (use assert_texts from observation data, or a keyword like "Complete", "Verify")
 
     Example for login:
-    step N:   find_and_click SUBMIT[form] '로그인'
+    step N:   find_and_click SUBMIT[form] 'Login'
     step N+1: wait 1500ms
     step N+2: assert url_not_contains "/login" (verifies user LEFT the login page)
     step N+3: (optional) assert text_visible "Products" (post-login-only text)
@@ -610,8 +530,8 @@ If you generate tests for features the user did NOT ask for, your response is WR
     If you don't know the exact post-submit text, assert url_contains with the
     form page path (e.g., the URL should NO LONGER be the same as before submit).
 
-    WRONG: scenario ends with find_and_click '다음' → NO assert → test "passes"
-    RIGHT: scenario ends with find_and_click '다음' → wait → assert text_visible "..."
+    WRONG: scenario ends with find_and_click 'Next' → NO assert → test "passes"
+    RIGHT: scenario ends with find_and_click 'Next' → wait → assert text_visible "..."
 
 Return the scenarios as a JSON array. Each step target should include:
 - "selector": CSS selector from observation data (preferred)
@@ -620,12 +540,12 @@ Return the scenarios as a JSON array. Each step target should include:
 13. **NEGATIVE CHECK — ERROR DETECTION**:
     After form submission, also consider error states. If the test uses INVALID
     credentials or data, the assert should detect the ERROR message or ERROR page:
-    - assert text_visible with error text (e.g., "Invalid email", "비밀번호가 틀렸습니다")
+    - assert text_visible with error text (e.g., "Invalid email", "Wrong password")
     - assert NOT url_contains "/dashboard" (should NOT navigate away from form)
     For POSITIVE (happy path) tests with valid data, assert that NO error message
     appeared and the page transitioned successfully.
     If the page stays on the same URL after submit AND shows error-like text
-    (e.g., "오류", "error", "invalid", "실패"), the test should be marked FAILED.
+    (e.g., "Error", "error", "invalid", "Failed"), the test should be marked FAILED.
 
 14. **NO LANGUAGE-CHECKING ASSERTS**:
     NEVER generate scenarios that verify the LANGUAGE of the page
@@ -634,7 +554,7 @@ Return the scenarios as a JSON array. Each step target should include:
     Assert values MUST be EXACT text copied from the Page Data or Observations.
     WRONG: assert text_visible "page content is in English"
     WRONG: assert text_visible "Fix it like this" (invented English text)
-    RIGHT: assert text_visible "로그인" (actual text from page data)
+    RIGHT: assert text_visible "Login" (actual text from page data)
     RIGHT: assert text_visible "Welcome back" (actual text from page data)
 
 FINAL CHECK: Before responding, verify:
@@ -690,7 +610,7 @@ async def convert_scenario(
 
     try:
         from aat.adapters import ADAPTER_REGISTRY
-        from aat.core.models import AIConfig, EngineConfig
+        from aat.core.config_models import AIConfig, EngineConfig
         from aat.engine.web import WebEngine
     except ImportError as exc:
         raise HTTPException(
@@ -1515,10 +1435,9 @@ def validate_scenario_relevance(
 
 def _extract_keywords(user_prompt: str) -> list[str]:
     """Extract test-relevant keywords from user prompt."""
-    # Common Korean/English test-related words to filter on
+    # Common English test-related words to filter on
     stop_words = {
-        "테스트", "확인", "해줘", "해주세요", "후", "에서",
-        "되는지", "하고", "test", "check", "verify", "the",
+        "test", "check", "verify", "the",
         "then", "and", "that", "from", "with", "after",
         "before", "click", "type", "go", "to", "if", "is",
         "a", "an", "on", "in", "it", "do", "can", "should",

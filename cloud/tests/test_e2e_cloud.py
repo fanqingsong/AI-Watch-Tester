@@ -66,7 +66,8 @@ from app.scenario_utils import (  # noqa: E402
 )
 
 from aat.adapters import ADAPTER_REGISTRY  # noqa: E402
-from aat.core.models import AIConfig, Scenario  # noqa: E402
+from aat.core.config_models import AIConfig  # noqa: E402
+from aat.core.scenario_models import Scenario  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

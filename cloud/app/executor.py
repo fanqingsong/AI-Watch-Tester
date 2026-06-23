@@ -63,8 +63,8 @@ Analyze the following web page and generate user-perspective E2E test scenarios.
 6. For assertions, verify text that actually appears in the page content
 7. Keep steps concise and actionable
 8. **SELECTOR-FIRST**: Every click/type target MUST include "selector" from Page Elements.
-   WRONG: {{"text": "가입"}}
-   RIGHT: {{"selector": "button.MuiButtonBase-root", "text": "가입"}}
+   WRONG: {{"text": "signup"}}
+   RIGHT: {{"selector": "button.MuiButtonBase-root", "text": "signup"}}
 9. **FORM SUBMIT BUTTON — CRITICAL**:
    After filling form fields (find_and_type steps), the NEXT click MUST be the
    form's own submit button — look for SUBMIT[form] in Page Elements.
@@ -347,7 +347,7 @@ async def generate_scenarios_for_test(
 
     try:
         from aat.adapters import ADAPTER_REGISTRY
-        from aat.core.models import AIConfig, EngineConfig
+        from aat.core.config_models import AIConfig, EngineConfig
         from aat.engine.web import WebEngine
     except ImportError as exc:
         msg = f"AAT core not installed: {exc}. Run 'pip install -e .' from project root."
@@ -490,14 +490,14 @@ async def execute_test(test_id: int, ws: WSManager | None = None) -> dict[str, A
     # -- Import AAT core (lazy to give clear error if missing) --
     try:
         from aat.adapters import ADAPTER_REGISTRY
-        from aat.core.models import (
-            ActionType,
+        from aat.core.config_models import (
             AIConfig,
             EngineConfig,
             HumanizerConfig,
             MatchingConfig,
-            Scenario,
         )
+        from aat.core.enums import ActionType
+        from aat.core.scenario_models import Scenario
         from aat.engine.comparator import Comparator
         from aat.engine.executor import StepExecutor
         from aat.engine.humanizer import Humanizer
