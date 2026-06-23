@@ -181,7 +181,6 @@ class StepExecutor:
         waiter: Waiter,
         comparator: Comparator,
         screenshot_dir: Path | None = None,
-        learned_store: Any = None,
         ai_adapter: Any = None,
         ai_verify_steps: bool = False,
         ai_verify_critical_only: bool = True,
@@ -193,7 +192,6 @@ class StepExecutor:
         self._last_screenshot: bytes | None = None  # for assert_screen_changed
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
-        self._learned_store = learned_store  # for step-level learning
         self._ai_adapter = ai_adapter  # for Vision AI step verification
         self._ai_verify_steps = ai_verify_steps
         self._ai_verify_critical_only = ai_verify_critical_only
@@ -736,38 +734,6 @@ class StepExecutor:
             await self._engine.key_combo("Control", "a")
             await self._engine.press_key("Delete")
 
-        # Auto-save successful coordinates for learning
-        if self._learned_store and x > 0 and y > 0:
-            t_name = ""
-            if step.target:
-                t_name = step.target.text or step.target.selector or ""
-            if t_name:
-                # Wait for UI to settle after action (error messages, etc.)
-                await asyncio.sleep(_get_preset(self._engine)["ui_settle"])
-                # Detect state AFTER action + settle
-                post_state = await self._detect_page_state()
-                self._current_page_state = post_state
-                logger.info(
-                    "Learning: '%s' at (%d,%d) state=%s",
-                    t_name,
-                    x,
-                    y,
-                    post_state,
-                )
-                self._learned_store.save_or_update_by_name(
-                    t_name,
-                    x,
-                    y,
-                    confidence,
-                )
-                self._learned_store.save_state_coords(
-                    t_name,
-                    post_state,
-                    x,
-                    y,
-                    confidence,
-                )
-
         return result
 
     async def _find_and_act(self, step: StepConfig) -> MatchResult:
@@ -790,75 +756,6 @@ class StepExecutor:
         """
         target: TargetSpec = step.target  # type: ignore[assignment]
         target_name = target.text or target.selector or ""
-
-        # Detect page state for state-aware learning
-        self._current_page_state = await self._detect_page_state()
-
-        # Check learned strategies for this target
-        if target_name and self._learned_store:
-            strategies = self._learned_store.get_strategies("find_failed")
-            if strategies:
-                best = strategies[0]
-                if best["success"] > 0:
-                    logger.info(
-                        "[AWT] Strategy hint for '%s': %s (success=%d, fail=%d)",
-                        target_name,
-                        best["strategy"],
-                        best["success"],
-                        best["fail"],
-                    )
-
-        # Priority -1: State-aware learned coordinates
-        if target_name and self._learned_store and step.method.value == "auto":
-            page_state = await self._detect_page_state()
-            coords = self._learned_store.find_state_coords(
-                target_name,
-                page_state,
-            )
-            if coords:
-                lx, ly, lconf = coords
-                logger.info(
-                    "Learned[%s]: '%s' at (%d,%d) conf=%.2f",
-                    page_state,
-                    target_name,
-                    lx,
-                    ly,
-                    lconf,
-                )
-                try:
-                    result = await self._act_at_pos(
-                        step,
-                        lx,
-                        ly,
-                        confidence=lconf,
-                    )
-                    # Success — reinforce
-                    self._learned_store.save_state_coords(
-                        target_name,
-                        page_state,
-                        lx,
-                        ly,
-                        lconf,
-                    )
-                    return result
-                except Exception:
-                    logger.info(
-                        "Learned[%s] coords stale, re-scanning",
-                        page_state,
-                    )
-
-            # Fallback: try state-agnostic learned coords
-            learned = self._learned_store.find_by_name(target_name)
-            if learned and learned.confidence >= 0.8:
-                try:
-                    return await self._act_at_pos(
-                        step,
-                        learned.correct_x,
-                        learned.correct_y,
-                        confidence=learned.confidence,
-                    )
-                except Exception:
-                    logger.info("Learned coords failed, falling through")
 
         # Priority 0: CSS selector (from observation data)
         # When both selector and text are provided, filter by text

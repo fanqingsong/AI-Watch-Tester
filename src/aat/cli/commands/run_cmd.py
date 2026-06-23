@@ -12,7 +12,6 @@ import typer
 
 from aat.core.config import load_config
 from aat.core.diagnosis import (
-    check_learned_hint,
     collect_failure_context,
     format_diagnosis,
     format_skill_diagnosis,
@@ -460,15 +459,8 @@ async def _run(
                 ai_config=config.ai,
             )
         )
-    # Set up LearnedStore for match history tracking
-    learned_store = None
-    try:
-        from aat.learning.store import LearnedStore
-
-        learned_store = LearnedStore(Path(config.data_dir) / "learned.db")
-    except Exception:
-        pass
-    hybrid = HybridMatcher(matchers, config.matching, learned_store=learned_store)
+    # MVP: No learning store
+    hybrid = HybridMatcher(matchers, config.matching)
     humanizer = Humanizer(config.humanizer)
     waiter = Waiter()
     comparator = Comparator()
@@ -695,20 +687,10 @@ async def _run(
                         ptext = format_platform_info(pinfo)
                         if ptext:
                             typer.echo(ptext)
-                            # Load user tips from LearnedStore
-                            try:
-                                from aat.learning.store import LearnedStore
-
-                                ls = LearnedStore(Path(config.data_dir) / "learned.db")
-                                user_tips = ls.get_platform_tips(pinfo["platform"])
-                                for tip in user_tips:
-                                    typer.echo(f"    💡 {tip}")
-                            except Exception:
-                                pass
                     except Exception:
                         pass
 
-                # Track for learning
+                # Track results
                 all_results.append(
                     {
                         "scenario": scenario.id,
@@ -806,16 +788,7 @@ async def _run(
                         diag = await collect_failure_context(
                             engine, result, str(path), config.data_dir
                         )
-                        # Check learned hints
-                        learned_hint = None
-                        try:
-                            from aat.learning.store import LearnedStore
-
-                            store = LearnedStore(Path(config.data_dir) / "learned.db")
-                            learned_hint = check_learned_hint(store, diag.get("failure_type", ""))
-                        except Exception:
-                            pass
-                        typer.echo(format_diagnosis(diag, str(path), learned_hint))
+                        typer.echo(format_diagnosis(diag, str(path)))
 
                         # Skill-mode: structured block for AI coding assistants
                         if skill_mode:
@@ -1063,40 +1036,18 @@ def _learn_from_fixes(
         shutil.copy2(last_path, prev_path)
         return
 
-    # Record learned fixes
-    try:
-        from aat.core.diagnosis import classify_failure
-        from aat.learning.store import LearnedStore
-
-        store = LearnedStore(Path(data_dir) / "learned.db")
-
-        typer.echo()
-        typer.echo(
-            typer.style(
-                f"  🧠 Learned {len(healed)} fix(es) from this run:",
-                fg=typer.colors.GREEN,
-                bold=True,
-            )
+    # MVP: Learning removed - just show fixed steps
+    typer.echo()
+    typer.echo(
+        typer.style(
+            f"  ✓ Fixed {len(healed)} step(s) from this run:",
+            fg=typer.colors.GREEN,
+            bold=True,
         )
+    )
 
-        for h in healed:
-            failure_type = classify_failure(h["prev_error"])
-            fix_desc = (
-                f"Step {h['step']} ({h['action']}): "
-                f"'{h['description']}' — was: {h['prev_error'][:80]}"
-            )
-            store.record_failure(
-                error_type=failure_type,
-                error_message=h["prev_error"],
-                action=h["action"],
-                fix_description=fix_desc,
-            )
-            store.mark_fix_applied(failure_type, fix_desc)
-
-            typer.echo(f"    ✓ {h['scenario']} Step {h['step']}: {h['prev_error'][:60]} → FIXED")
-
-    except Exception as e:
-        typer.echo(f"    (learning failed: {e})")
+    for h in healed:
+        typer.echo(f"    ✓ {h['scenario']} Step {h['step']}: {h['prev_error'][:60]} → FIXED")
 
     # Rotate: current becomes prev for next run
     import shutil

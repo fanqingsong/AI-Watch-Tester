@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aat.core import StepResult
-    from aat.learning.store import LearnedStore
 
 logger = logging.getLogger(__name__)
 
@@ -271,20 +270,6 @@ def format_skill_diagnosis(
         ]
     )
     return "\n".join(lines)
-
-
-def check_learned_hint(
-    store: LearnedStore | None,
-    failure_type: str,
-) -> dict[str, Any] | None:
-    """Check if we've seen this failure before."""
-    if store is None:
-        return None
-    try:
-        return store.find_similar_failure(failure_type)
-    except Exception:
-        return None
-
 
 
 __all__ = [

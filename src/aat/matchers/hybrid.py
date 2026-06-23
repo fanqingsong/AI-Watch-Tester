@@ -25,7 +25,6 @@ from aat.matchers.timing import TimedOperation
 
 if TYPE_CHECKING:
     from aat.core import MatchResult, TargetSpec
-    from aat.learning.store import LearnedStore
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +62,9 @@ class HybridMatcher(BaseMatcher):
         self,
         matchers: list[BaseMatcher],
         config: MatchingConfig | None = None,
-        learned_store: LearnedStore | None = None,
     ) -> None:
         self._matchers = {m.name: m for m in matchers}
         self._config = config or MatchingConfig()
-        self._learned_store = learned_store
 
     # -- BaseMatcher interface ------------------------------------------------
 
@@ -125,20 +122,9 @@ class HybridMatcher(BaseMatcher):
         result: MatchResult | None = None
 
         with TimedOperation() as timer:
-            # Check learned best method first (adaptive)
-            best_method = None
-            if method == "auto" and self._learned_store is not None:
-                best_method = self._learned_store.get_best_method(target_name)
-                if best_method:
-                    logger.info(
-                        "HybridMatcher: learned best method for '%s' → %s",
-                        target_name,
-                        best_method,
-                    )
-
             if method == "auto":
-                # Full 3-tier chain, optionally starting with learned best method
-                result = await self._run_3tier(target, screenshot, best_method)
+                # Full 2-tier chain (template → OCR)
+                result = await self._run_2tier(target, screenshot)
             else:
                 # Specific method requested
                 result = await self._run_specific(target, screenshot, method)
@@ -147,76 +133,45 @@ class HybridMatcher(BaseMatcher):
                         "HybridMatcher: method=%s failed, falling back to full chain",
                         method,
                     )
-                    result = await self._run_3tier(target, screenshot, None)
+                    result = await self._run_2tier(target, screenshot)
 
         # Timer elapsed_ms is set after __exit__
         elapsed_ms = timer.elapsed_ms
         if result is not None:
             result = result.model_copy(update={"elapsed_ms": elapsed_ms})
             self._auto_save_template(target, screenshot, result)
-
-            # Record success to learning DB
-            if learn and self._learned_store is not None:
-                tier = self._method_to_tier(result.method)
-                self._learned_store.record_match(
-                    target_name=target_name,
-                    method=result.method.value,
-                    success=True,
-                    confidence=result.confidence,
-                    elapsed_ms=elapsed_ms,
-                    tier=tier,
-                )
-                logger.info(
-                    "HybridMatcher: ✓ '%s' found via %s (tier %d, %.0fms, conf=%.2f)",
-                    target_name,
-                    result.method.value,
-                    tier,
-                    elapsed_ms,
-                    result.confidence,
-                )
+            logger.info(
+                "HybridMatcher: ✓ '%s' found via %s (%.0fms, conf=%.2f)",
+                target_name,
+                result.method.value,
+                elapsed_ms,
+                result.confidence,
+            )
 
         return result
 
-    async def _run_3tier(
+    async def _run_2tier(
         self,
         target: TargetSpec,
         screenshot: bytes,
-        prioritized_method: str | None = None,
     ) -> MatchResult | None:
-        """Run the 3-tier matching chain.
+        """Run the 2-tier matching chain (MVP).
 
-        Tier 1: Learned → Saved templates → Template matching
+        Tier 1: Saved templates → Template matching
         Tier 2: OCR (enhanced)
-        Tier 3: Vision AI
         """
         target_name = target.text or target.image or "unknown"
 
-        # If a prioritized method is known from history, try it first
-        if prioritized_method:
-            matcher = self._matchers.get(prioritized_method)
-            if matcher:
-                result = await self._try_matcher(matcher, target, screenshot)
-                if result is not None:
-                    return result
-
-        # --- Tier 1: Fast / Deterministic ---
+        # --- Tier 1: Template matching ---
         logger.info("HybridMatcher: Tier 1 — Template matching for '%s'", target_name)
 
-        # 1a. Learned data (hash-based exact match)
-        learned = self._matchers.get("learned")
-        if learned:
-            result = await self._try_matcher(learned, target, screenshot)
-            if result is not None:
-                logger.info("HybridMatcher: Tier 1 ✓ via learned data")
-                return result
-
-        # 1b. Auto-saved template matching
+        # 1a. Auto-saved template matching
         result = await self._try_saved_template(target, screenshot)
         if result is not None:
             logger.info("HybridMatcher: Tier 1 ✓ via saved template")
             return result
 
-        # 1c. Template matching (if target has image)
+        # 1b. Template matching (if target has image)
         template = self._matchers.get("template")
         if template:
             result = await self._try_matcher(template, target, screenshot)
@@ -231,23 +186,6 @@ class HybridMatcher(BaseMatcher):
             result = await self._try_matcher(ocr, target, screenshot)
             if result is not None:
                 logger.info("HybridMatcher: Tier 2 ✓ via OCR")
-                return result
-
-        # Feature matching (between Tier 2 and 3)
-        feature = self._matchers.get("feature")
-        if feature:
-            result = await self._try_matcher(feature, target, screenshot)
-            if result is not None:
-                logger.info("HybridMatcher: Tier 2 ✓ via feature matching")
-                return result
-
-        # --- Tier 3: Vision AI (expensive) ---
-        vision = self._matchers.get("vision_ai")
-        if vision and vision.can_handle(target):
-            logger.info("HybridMatcher: Tier 3 — Vision AI for '%s' (cost incurred)", target_name)
-            result = await self._try_matcher(vision, target, screenshot)
-            if result is not None:
-                logger.info("HybridMatcher: Tier 3 ✓ via Vision AI")
                 return result
 
         logger.info("HybridMatcher: all tiers failed for '%s'", target_name)
@@ -415,15 +353,3 @@ class HybridMatcher(BaseMatcher):
             logger.debug("Saved template matching failed", exc_info=True)
 
         return None
-
-    @staticmethod
-    def _method_to_tier(method: MatchMethod) -> int:
-        """Map MatchMethod to tier number for logging/stats."""
-        tier_map = {
-            MatchMethod.LEARNED: 1,
-            MatchMethod.TEMPLATE: 1,
-            MatchMethod.OCR: 2,
-            MatchMethod.FEATURE: 2,
-            MatchMethod.VISION_AI: 3,
-        }
-        return tier_map.get(method, 0)

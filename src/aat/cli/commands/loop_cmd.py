@@ -332,14 +332,7 @@ async def _loop(
                 ai_config=config.ai,
             )
         )
-    learned_store = None
-    try:
-        from aat.learning.store import LearnedStore
-
-        learned_store = LearnedStore(Path(config.data_dir) / "learned.db")
-    except Exception:
-        pass
-    hybrid = HybridMatcher(matchers, config.matching, learned_store=learned_store)
+    hybrid = HybridMatcher(matchers, config.matching)
 
     # Assemble executor
     humanizer = Humanizer(config.humanizer)
@@ -351,7 +344,6 @@ async def _loop(
         humanizer,
         waiter,
         comparator,
-        learned_store=learned_store,
     )
 
     # Assemble AI adapter
