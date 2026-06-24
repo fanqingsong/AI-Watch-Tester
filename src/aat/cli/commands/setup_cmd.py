@@ -16,8 +16,36 @@ PROVIDERS = [
     ("openai", "OpenAI (GPT-4o)", "sk-...", "gpt-4o"),
     ("gemini", "Gemini (Google) — generous free tier", "AI...", "gemini-2.0-flash"),
     ("deepseek", "DeepSeek (cost-optimized)", "sk-...", "deepseek-chat"),
+    ("zhipuai", "ZhipuAI (智谱AI) — Chinese optimized", "", "glm-4.7"),  # 保持 glm-4.7 作为稳定默认
     ("ollama", "Ollama (free, offline — no API key)", None, "codellama:7b"),
 ]
+
+# Provider-specific model choices
+PROVIDER_MODELS = {
+    "zhipuai": [
+        ("glm-5.1", "GLM-5.1 (latest, most powerful)"),
+        ("glm-4.7", "GLM-4.7 (stable, recommended)"),
+        ("glm-4-flash", "GLM-4 Flash (fast, cost-effective)"),
+        ("glm-4", "GLM-4 (balanced)"),
+        ("glm-4-plus", "GLM-4 Plus (powerful)"),
+        ("glm-4-0520", "GLM-4 0520 version"),
+    ],
+    "claude": [
+        ("claude-sonnet-4-20250514", "Claude Sonnet 4 (latest)"),
+        ("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"),
+    ],
+    "openai": [
+        ("gpt-4o", "GPT-4o (latest)"),
+        ("gpt-4o-mini", "GPT-4o Mini (fast, cost-effective)"),
+    ],
+    "gemini": [
+        ("gemini-2.0-flash", "Gemini 2.0 Flash (latest)"),
+        ("gemini-1.5-flash", "Gemini 1.5 Flash"),
+    ],
+    "deepseek": [
+        ("deepseek-chat", "DeepSeek Chat"),
+    ],
+}
 
 VISION_PROVIDERS = [
     ("gemini", "Gemini Flash (free tier)", "AI...", "gemini-2.0-flash"),
@@ -176,7 +204,6 @@ def setup_command(
 
     provider_key, provider_label, key_hint, default_model = PROVIDERS[idx]
     cfg.ai.provider = provider_key
-    cfg.ai.model = default_model
 
     # API key input (skip for Ollama)
     if key_hint is not None:
@@ -194,6 +221,36 @@ def setup_command(
         typer.echo()
         typer.echo("  ✓ Ollama doesn't require an API key — free and offline!")
         cfg.ai.api_key = ""
+
+    # Model selection (if provider has multiple models)
+    if provider_key in PROVIDER_MODELS:
+        typer.echo()
+        typer.echo(f"  🤖 {provider_label} Models:")
+        typer.echo()
+
+        models = PROVIDER_MODELS[provider_key]
+        for i, (model_id, model_desc) in enumerate(models, 1):
+            default_mark = " (default)" if model_id == default_model else ""
+            current_mark = " (current)" if cfg.ai.model == model_id else ""
+            typer.echo(f"    [{i}] {model_desc}{default_mark}{current_mark}")
+
+        model_choice = typer.prompt("  Choose model", default=str(1))
+
+        try:
+            model_idx = int(model_choice) - 1
+            if 0 <= model_idx < len(models):
+                selected_model, _ = models[model_idx]
+                cfg.ai.model = selected_model
+                typer.echo(f"  ✓ Selected model: {selected_model}")
+            else:
+                typer.echo(f"  Invalid choice. Using default: {default_model}")
+                cfg.ai.model = default_model
+        except ValueError:
+            typer.echo(f"  Invalid choice. Using default: {default_model}")
+            cfg.ai.model = default_model
+    else:
+        # Use default model for providers without multiple options
+        cfg.ai.model = default_model
 
     # Verify connection
     typer.echo()

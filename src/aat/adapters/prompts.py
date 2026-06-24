@@ -8,6 +8,10 @@ This module contains common prompt templates used across multiple AI adapters
 # Core prompt templates (shared across all adapters)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Core prompt templates (shared across all adapters)
+# ---------------------------------------------------------------------------
+
 _SYSTEM_ANALYZE_FAILURE = """\
 You are an expert QA engineer. Analyze the following test failure and return \
 a JSON object with these fields:
@@ -31,6 +35,21 @@ _SYSTEM_GENERATE_SCENARIOS = """\
 You are an expert QA engineer. Given a specification document, generate test \
 scenarios as a JSON array.
 
+## URL EXTRACTION INSTRUCTIONS
+CRITICAL: You MUST extract the base URL from the specification document:
+1. Look for sections like "## 测试页面", "Test Page", "URL:", "- URL:"
+2. Extract the URL from these sections
+3. Use this EXACT URL for all navigate actions
+4. Do NOT use placeholders like {{url}} or similar
+
+Example:
+If the specification says:
+  ## 测试页面
+  - URL: http://localhost:5173/
+
+Then your navigate action should be:
+  {"step": 1, "action": "navigate", "value": "http://localhost:5173/", "description": "Go to login"}
+
 Each scenario must follow this EXACT format:
 {"id": "SC-001", "name": "Short name", "description": "What this tests", \
 "tags": ["tag1"], "steps": [...], "expected_result": []}
@@ -43,8 +62,8 @@ Leave as empty array [] if no specific assertion is needed.
 Each step MUST have "step" (integer from 1) and "description" (non-empty).
 
 VALID ACTIONS (use ONLY these):
-- "navigate" — requires "value" with URL. Example:
-  {"step": 1, "action": "navigate", "value": "{{url}}/login", "description": "Go to login"}
+- "navigate" — requires "value" with FULL URL. Example:
+  {"step": 1, "action": "navigate", "value": "http://localhost:5173/", "description": "Go to login"}
 - "find_and_click" — requires "target" with "text". Example:
   {"step": 2, "action": "find_and_click", "target": {"text": "Login"}, \
 "description": "Click login", "humanize": true}
@@ -68,14 +87,16 @@ BUSINESS FLOW ORDERING:
 (e.g., sign up BEFORE login, login BEFORE dashboard)
 - Add "depends_on" field (array of scenario IDs) when a scenario \
 requires another to pass first. Example:
-  {"id": "SC-002", "depends_on": ["SC-001"], ...}
+{"id": "SC-002", "depends_on": ["SC-001"], ...}
 - SC-001 should have no dependencies. Later scenarios depend on earlier ones.
 
 CRITICAL RULES:
 - "click" is INVALID. Use "find_and_click"
 - "type" is INVALID. Use "find_and_type"
 - target must NOT have "role" or "url" fields. Only "text"
-- Use {{url}} for base URL in navigate actions
+- EXTRACT THE ACTUAL URL FROM THE SPECIFICATION DOCUMENT
+- Look for "## 测试页面", "Test Page", "URL:", "- URL:" or similar sections
+- Use the COMPLETE URL, not placeholders
 - Do NOT include "variables" with hardcoded URLs
 
 Return ONLY a valid JSON array, no markdown fences."""
@@ -97,7 +118,6 @@ You are a QA verification assistant. A browser screenshot was taken AFTER a test
 Determine if the step succeeded based on what you see in the screenshot.
 Consider: Did the expected UI change happen? Is the page correct? Are there error messages?
 Return ONLY valid JSON: {"passed": true, "reason": "brief one-sentence explanation"}"""
-
 
 __all__ = [
     "_SYSTEM_ANALYZE_FAILURE",
