@@ -119,31 +119,38 @@ async def _scan(
         # 3. Collect elements
         elements: list[dict[str, Any]] = []
 
-        # 3a. DOM elements (non-Flutter or hybrid)
-        # Setup console listener to capture debug messages
-        console_messages = []
+        # 3a. Accessibility tree (primary source - semantic, filters decorative elements)
+        typer.echo("[AWT] Collecting accessibility elements...")
+        a11y_elements = await _collect_accessibility_elements(page)
+        elements.extend(a11y_elements)
 
-        def on_console(msg):
-            if msg.type == "log":
-                console_messages.append(msg.text)
-                typer.echo(f"  [Browser Console] {msg.text}")
+        # 3b. DOM fallback (only if accessibility returns no results)
+        if not a11y_elements:
+            typer.echo("[AWT] No accessibility elements, using DOM fallback")
+            # Setup console listener to capture debug messages
+            console_messages = []
 
-        page.on("console", on_console)
+            def on_console(msg):
+                if msg.type == "log":
+                    console_messages.append(msg.text)
+                    typer.echo(f"  [Browser Console] {msg.text}")
 
-        dom_elements = await _collect_dom_elements(page)
-        elements.extend(dom_elements)
+            page.on("console", on_console)
 
-        # Remove console listener
-        page.remove_listener("console", on_console)
+            dom_elements = await _collect_dom_elements(page)
+            elements.extend(dom_elements)
 
-        # 3b. Flutter Semantics elements
+            # Remove console listener
+            page.remove_listener("console", on_console)
+
+        # 3c. Flutter Semantics elements
         if is_flutter:
             sem_elements = await _collect_semantics_elements(page)
             elements.extend(sem_elements)
             sem_labels = await get_all_semantics_labels(page)
             typer.echo(f"[AWT] Semantics labels: {len(sem_labels)}")
 
-        # 3c. OCR elements
+        # 3d. OCR elements
         ocr_elements = await _collect_ocr_elements(ss_bytes)
         # Deduplicate: skip OCR results that overlap with DOM/Semantics
         for ocr_el in ocr_elements:
@@ -314,6 +321,124 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
         }""")
         return elements  # type: ignore[return-value]
     except Exception:
+        return []
+
+
+async def _collect_accessibility_elements(
+    page: Any,
+    interesting_only: bool = True,
+) -> list[dict[str, Any]]:
+    """Collect elements using Playwright accessibility snapshot.
+
+    Advantages over DOM collection:
+    - Automatically filters decorative elements (footer, logo, icon-only)
+    - Provides semantic roles (button, textbox, link)
+    - Unique ref identifiers (e5, e10, e20) stable within snapshot
+    - User-centric labels (e.g., "textbox 'What needs...'" not just "<input>")
+
+    Args:
+        page: Playwright Page object
+        interesting_only: Only include interactive elements (default True)
+
+    Returns:
+        List of elements with snapshot_ref and semantic information
+    """
+    try:
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Call Playwright accessibility snapshot
+        snapshot = await page.accessibility.snapshot(interesting_only=interesting_only)
+
+        elements: list[dict[str, Any]] = []
+        _ref_counter = 0
+
+        def flatten_tree(
+            node: dict[str, Any],
+            parent_ref: str | None = None,
+            depth: int = 0,
+        ) -> None:
+            """Recursively flatten accessibility tree into element list."""
+            nonlocal _ref_counter
+
+            if not node:
+                return
+
+            # Extract role and name
+            role = node.get("role", "")
+            name = node.get("name", "")
+
+            # Skip non-interactive text nodes
+            if not node.get("focusable", False) and not role:
+                # Still recurse into children
+                for child in node.get("children", []):
+                    flatten_tree(child, parent_ref, depth + 1)
+                return
+
+            # Generate unique local ref
+            _ref_counter += 1
+            local_ref = f"e{_ref_counter}"
+
+            # Get bounding box if available
+            box = node.get("boundingBox")
+            if box:
+                x = box.get("x", 0)
+                y = box.get("y", 0)
+                width = box.get("width", 0)
+                height = box.get("height", 0)
+
+                # Only include visible elements
+                if width < 4 or height < 4:
+                    return
+                if x < 0 or y < 0:
+                    return
+
+                # Filter footer elements (bottom 15% of viewport)
+                viewport_height = 720  # TODO: Get from config
+                if y > viewport_height * 0.85:
+                    return
+
+                # Build element record
+                element = {
+                    "label": name or role or f"{role}_element",
+                    "type": "accessibility",  # Special type marker
+                    "role": role,
+                    "snapshot_ref": local_ref,
+                    "accessible_name": name,
+                    "parent_ref": parent_ref,
+                    "selector": f"[ref={local_ref}]",  # Pseudo-selector for debugging
+                    "x": round(x + width / 2),
+                    "y": round(y + height / 2),
+                    "width": round(width),
+                    "height": round(height),
+                    "source": "accessibility",
+                }
+
+                # Add optional fields from node
+                if node.get("disabled"):
+                    element["disabled"] = True
+                if node.get("checked"):
+                    element["checked"] = True
+                if node.get("expanded"):
+                    element["expanded"] = True
+                if node.get("selected"):
+                    element["selected"] = True
+
+                elements.append(element)
+
+            # Recursively process children
+            for child in node.get("children", []):
+                flatten_tree(child, local_ref, depth + 1)
+
+        # Start flattening
+        flatten_tree(snapshot)
+
+        logger.info("[Accessibility] Collected %d elements", len(elements))
+        return elements
+
+    except Exception as e:
+        logger.warning("Accessibility snapshot failed: %s", e)
         return []
 
 
