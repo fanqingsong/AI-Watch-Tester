@@ -301,7 +301,7 @@ def _generate_scenario(
     buttons = [
         e
         for e in elements
-        if e.get("type") in ("button", "a", "semantics")
+        if e.get("type") in ("button", "a", "semantics", "label", "svg")  # Added "label" and "svg"
         and e.get("source") in ("dom", "semantics")
         and e.get("x", 0) > 100
         and e.get("role", "") != "textbox"
@@ -718,6 +718,8 @@ def _next_scenario_id() -> str:
 
 def _extract_keywords(description: str) -> list[str]:
     """Extract meaningful keywords from test description."""
+    import re
+
     # Remove common filler words
     fillers = {
         "test",
@@ -734,9 +736,21 @@ def _extract_keywords(description: str) -> list[str]:
         "from",
         "to",
         "by",
+        "in",
+        "on",
+        "at",
+        "of",
+        "is",
+        "then",
+        "box",
     }
-    words = description.replace("-", " ").replace("→", " ").split()
-    return [w for w in words if w.lower() not in fillers and len(w) > 1]
+    # Remove punctuation and split
+    cleaned = re.sub(r"[,:;''\"" "()]", " ", description)
+    words = cleaned.replace("-", " ").replace("→", " ").split()
+    keywords = [
+        w.strip() for w in words if w.strip().lower() not in fillers and len(w.strip()) > 1
+    ]
+    return keywords
 
 
 def _find_matching_elements(
