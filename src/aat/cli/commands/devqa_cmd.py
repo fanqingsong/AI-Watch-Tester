@@ -313,7 +313,7 @@ def _generate_scenario(
     # --- Form filling: add input steps before button clicks ---
     if intent in ("login", "signup", "search") or inputs:
         for inp_idx, inp in enumerate(inputs):
-            value = _infer_input_value(inp, intent, account)
+            value = _infer_input_value(inp, intent, account, description)
             if not value:
                 continue
 
@@ -558,8 +558,18 @@ def _infer_input_value(
     inp: dict[str, Any],
     intent: str,
     account: dict[str, str],
+    description: str = "",
 ) -> str:
     """Infer a test value for an input field."""
+    # Try to extract quoted value from description first
+    # e.g., "type 'AI NEWS'" → "AI NEWS"
+    import re
+
+    quoted_values = re.findall(r"['\"]([^'\"]+)['\"]", description)
+    if quoted_values:
+        # Use the first quoted value as input
+        return quoted_values[0]
+
     # Check input_type from scan data first
     input_type = (inp.get("input_type") or "").lower()
     if input_type in _INPUT_TYPE_MAP:
@@ -726,9 +736,41 @@ def _find_matching_elements(
     keyword: str,
     elements: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find elements whose label contains the keyword."""
+    """Find elements whose label contains the keyword or a synonym."""
+    # Button/action keyword synonyms
+    SYNONYMS: dict[str, list[str]] = {
+        "send": ["search", "submit", "go", "find", "查询"],
+        "submit": ["confirm", "save", "apply", "提交", "确认"],
+        "search": ["find", "look", "search", "搜索", "查找"],
+        "click": ["press", "tap", "点击"],
+        "ok": ["confirm", "done", "完成", "确定"],
+        "cancel": ["close", "dismiss", "取消", "关闭"],
+        "next": ["forward", "continue", "继续", "下一步"],
+        "back": ["return", "previous", "返回", "后退"],
+    }
+
     kw = keyword.lower()
+
+    # Direct match first
     matches = [el for el in elements if kw in el.get("label", "").lower()]
+
+    # If no direct match, try synonyms
+    if not matches and kw in SYNONYMS:
+        for synonym in SYNONYMS[kw]:
+            matches = [el for el in elements if synonym in el.get("label", "").lower()]
+            if matches:
+                break
+
+    # Also check selector and type
+    if not matches:
+        matches = [
+            el
+            for el in elements
+            if kw in el.get("selector", "").lower()
+            or kw in el.get("input_type", "").lower()
+            or kw in el.get("type", "").lower()
+        ]
+
     # Prefer semantics > dom > ocr
     source_priority = {"semantics": 0, "dom": 1, "ocr": 2}
     matches.sort(key=lambda e: source_priority.get(e.get("source", "ocr"), 9))
