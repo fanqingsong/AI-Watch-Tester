@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
+from aat.learning.base import BaseLearningStore
 from aat.core import (
     FIND_ACTIONS,
     ActionType,
@@ -210,7 +211,7 @@ class StepExecutor:
         waiter: Waiter,
         comparator: Comparator,
         screenshot_dir: Path | None = None,
-        learned_store: Any = None,
+        learned_store: BaseLearningStore | None = None,
         ai_adapter: Any = None,
         ai_verify_steps: bool = False,
         ai_verify_critical_only: bool = True,
@@ -1013,12 +1014,12 @@ class StepExecutor:
         if target_name and self._learned_store:
             fail_count = self._learned_store.get_target_failure_count(target_name)
             if fail_count >= 3:
-                best = self._learned_store.get_best_method(target_name)
+                best_method = self._learned_store.get_best_method(target_name)
                 logger.warning(
                     "Target '%s' has %d failures. Best method: %s",
                     target_name,
                     fail_count,
-                    best or "none found",
+                    best_method or "none found",
                 )
 
         # Priority 0.8: Flutter Semantics (CanvasKit apps)

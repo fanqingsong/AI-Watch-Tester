@@ -11,6 +11,7 @@ from typing import Any
 
 from aat.core.exceptions import LearningError
 from aat.core.learning_models import LearnedElement
+from aat.learning.base import BaseLearningStore
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ def _row_to_element(row: sqlite3.Row) -> LearnedElement:
     )
 
 
-class LearnedStore:
+class LearnedStore(BaseLearningStore):
     """SQLite-backed store for learned element positions."""
 
     def __init__(self, db_path: Path) -> None:
