@@ -954,7 +954,7 @@ async def generate_plan(
     # --- Debug logging ---
     logger.debug("=== detected_features === %s", features)
     logger.debug("=== observations count === %d", len(observations))
-    login_obs = [o for o in observations if in str(o)]
+    login_obs = [o for o in observations if "login" in str(o).lower()]
     if login_obs:
         logger.debug("=== login-related observations === %d items", len(login_obs))
         for lo in login_obs:
@@ -1072,11 +1072,8 @@ def _generate_default_plan(
     if broken:
         basic_tests.append({
             "id": f"t{tid}",
-            "name": "Broken Link Check" if ko else "Broken Link Check",
-            "description": (
-                f"Found {len(broken)} broken links"
-                else f"Verify {len(broken)} broken link(s) are fixed"
-            ),
+            "name": "Broken Link Check",
+            "description": f"Found {len(broken)} broken links",
             "priority": "high",
             "estimated_time": 10 * len(broken),
             "requires_auth": False,
@@ -1095,11 +1092,8 @@ def _generate_default_plan(
         if all_links:
             basic_tests.append({
                 "id": f"t{tid}",
-                "name": "Link Health Check" if ko else "Link Health Check",
-                "description": (
-                    f"Checking {len(all_links)} links on page respond normally"
-                    else f"Verify {len(all_links)} page links return valid responses"
-                ),
+                "name": "Link Health Check",
+                "description": f"Checking {len(all_links)} links on page respond normally",
                 "priority": "medium",
                 "estimated_time": max(5, 2 * len(all_links)),
                 "requires_auth": False,
