@@ -343,8 +343,15 @@ def _generate_scenario(
     keywords = _extract_keywords(description)
     clicked_labels: set[str] = set()
 
+    typer.echo(f"[DEBUG] Keywords extracted: {keywords}")
+    typer.echo(f"[DEBUG] Available buttons: {[b['label'] for b in buttons[:5]]}")
+
     for kw in keywords:
+        typer.echo(f"[DEBUG] Trying to match keyword: '{kw}'")
         matched = _find_matching_elements(kw, buttons)
+        typer.echo(
+            f"[DEBUG] Matched {len(matched)} elements for '{kw}': {[m['label'] for m in matched[:3]]}"
+        )
         for el in matched[:1]:
             label = el["label"]
             if label in clicked_labels:
