@@ -194,7 +194,7 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
         elements: list[dict[str, Any]] = await page.evaluate("""() => {
             const results = [];
             const selectors = [
-                'a', 'button', 'input', 'textarea', 'select',
+                'a', 'button', 'input', 'textarea', 'select', 'label',
                 '[role="button"]', '[role="link"]', '[role="tab"]',
                 '[role="menuitem"]', '[role="checkbox"]', '[role="switch"]',
                 '[onclick]', '[tabindex]',
@@ -258,7 +258,15 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                                     parentTag, parentId, parentClass, parentText
                                 });
 
-                                label = parentText || parentId || parentClass || 'svg_icon';
+                                // Use explicit checks to avoid empty string blocking fallback
+                                label = 'svg_icon';  // default
+                                if (parentText && parentText.length > 0) {
+                                    label = parentText;
+                                } else if (parentId && parentId.length > 0) {
+                                    label = parentId;
+                                } else if (parentClass && parentClass.length > 0) {
+                                    label = parentClass;
+                                }
                             }
                         } else if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
                             label = 'input_field';
