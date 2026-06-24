@@ -1226,29 +1226,31 @@ class StepExecutor:
         page = self._engine.page
 
         try:
-            # Re-capture current accessibility snapshot
-            snapshot = await page.accessibility.snapshot(interesting_only=True)
+            import re
 
-            def find_ref_in_tree(node: dict[str, Any], target_ref: str) -> Any | None:
-                """Recursively find target ref in accessibility tree."""
-                if not node:
-                    return None
+            # Re-capture current accessibility snapshot (Playwright 1.60+ API)
+            snapshot_str = await page.aria_snapshot(mode="ai", boxes=True)
 
-                # Check current node's ref (Playwright assigns ref to nodes)
-                node_ref = node.get("ref")
-                if node_ref == target_ref:
-                    return node
+            # Parse the snapshot string to find the target ref
+            # Format: - role "name" [attributes] [ref=e6] [box=x,y,w,h]
+            target_line = None
+            target_role = None
+            target_name = None
 
-                # Recursively search children
-                for child in node.get("children", []):
-                    result = find_ref_in_tree(child, target_ref)
-                    if result:
-                        return result
+            for line in snapshot_str.strip().split('\n'):
+                if f'[ref={snapshot_ref}]' in line:
+                    target_line = line
+                    # Extract role (first word after dash)
+                    role_match = re.search(r'-\s+(\S+)', line)
+                    if role_match:
+                        target_role = role_match.group(1)
+                    # Extract accessible name (quoted string)
+                    name_match = re.search(r'"([^"]*)"', line)
+                    if name_match:
+                        target_name = name_match.group(1)
+                    break
 
-                return None
-
-            target_node = find_ref_in_tree(snapshot, snapshot_ref)
-            if not target_node:
+            if not target_line:
                 logger.warning(
                     "[Executor] Snapshot ref '%s' not found - page may have changed",
                     snapshot_ref,
@@ -1256,31 +1258,38 @@ class StepExecutor:
                 return None
 
             # Verify role if provided
-            if role and target_node.get("role") != role:
+            if role and target_role != role:
                 logger.warning(
                     "[Executor] Role mismatch for ref '%s': expected '%s', got '%s'",
                     snapshot_ref,
                     role,
-                    target_node.get("role"),
+                    target_role,
                 )
 
-            # Create locator using accessible name and role
-            name = target_node.get("name")
-            node_role = target_node.get("role")
-
-            if name and node_role:
-                # Most reliable: role + name
-                return page.get_by_role(node_role, name=name, exact=True)
-            elif node_role:
-                return page.get_by_role(node_role)
-            elif name:
-                return page.get_by_text(name, exact=True)
+            # Create semantic locator using role and name
+            if target_role and target_name:
+                # Most precise: role + exact name
+                locator = page.get_by_role(target_role, name=target_name, exact=True)
+                logger.info(
+                    "[Executor] Using locator: get_by_role(%s, name=%s, exact=True)",
+                    target_role,
+                    target_name,
+                )
+            elif target_role:
+                # Fallback: role only
+                locator = page.get_by_role(target_role)
+                logger.info("[Executor] Using locator: get_by_role(%s)", target_role)
+            elif target_name:
+                # Last resort: text only
+                locator = page.get_by_text(target_name, exact=True)
+                logger.info(
+                    "[Executor] Using locator: get_by_text(%s, exact=True)", target_name
+                )
             else:
-                logger.warning(
-                    "[Executor] Snapshot ref '%s' has no name or role",
-                    snapshot_ref,
-                )
+                logger.warning("[Executor] No valid role or name for ref '%s'", snapshot_ref)
                 return None
+
+            return locator
 
         except Exception as e:
             logger.exception(

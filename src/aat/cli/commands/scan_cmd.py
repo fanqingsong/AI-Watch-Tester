@@ -345,99 +345,97 @@ async def _collect_accessibility_elements(
     """
     try:
         import logging
+        import re
 
         logger = logging.getLogger(__name__)
 
-        # Call Playwright accessibility snapshot
-        snapshot = await page.accessibility.snapshot(interesting_only=interesting_only)
+        # Call Playwright aria_snapshot (Playwright 1.60+ API)
+        # mode="ai" gives us ref=e5 style references
+        # boxes=True gives us bounding box coordinates
+        snapshot_str = await page.aria_snapshot(mode="ai", boxes=True)
 
         elements: list[dict[str, Any]] = []
-        _ref_counter = 0
 
-        def flatten_tree(
-            node: dict[str, Any],
-            parent_ref: str | None = None,
-            depth: int = 0,
-        ) -> None:
-            """Recursively flatten accessibility tree into element list."""
-            nonlocal _ref_counter
+        # Parse the aria snapshot string format:
+        # - role "name" [attributes] [ref=e5] [box=x,y,w,h]
+        # Examples:
+        # - searchbox "输入搜索词" [active] [ref=e6] [box=356,149,549,42]
+        # - button "Submit" [box=942,170,0,0]
+        lines = snapshot_str.strip().split('\n')
 
-            if not node:
-                return
+        for line in lines:
+            # Parse role, name, ref, and box from each line
+            # Pattern: - role "name" [attributes] [ref=e#] [box=x,y,w,h]
+            # or: - role [attributes] [ref=e#] [box=x,y,w,h]
 
-            # Extract role and name
-            role = node.get("role", "")
-            name = node.get("name", "")
+            # Skip empty lines or non-element lines
+            if not line.strip().startswith('-'):
+                continue
 
-            # Skip non-interactive text nodes
-            if not node.get("focusable", False) and not role:
-                # Still recurse into children
-                for child in node.get("children", []):
-                    flatten_tree(child, parent_ref, depth + 1)
-                return
+            # Extract role (first word after dash, accounting for leading spaces)
+            role_match = re.search(r'-\s+(\S+)', line)
+            if not role_match:
+                continue
+            role = role_match.group(1)
 
-            # Generate unique local ref
-            _ref_counter += 1
-            local_ref = f"e{_ref_counter}"
+            # Extract accessible name (quoted string if present)
+            name_match = re.search(r'"([^"]*)"', line)
+            name = name_match.group(1) if name_match else ""
 
-            # Get bounding box if available
-            box = node.get("boundingBox")
-            if box:
-                x = box.get("x", 0)
-                y = box.get("y", 0)
-                width = box.get("width", 0)
-                height = box.get("height", 0)
+            # Extract ref (e.g., ref=e6)
+            ref_match = re.search(r'\[ref=(e\d+)\]', line)
+            ref = ref_match.group(1) if ref_match else None
 
-                # Only include visible elements
-                if width < 4 or height < 4:
-                    return
-                if x < 0 or y < 0:
-                    return
+            # Extract box coordinates (e.g., box=356,149,549,42)
+            box_match = re.search(r'\[box=(\d+),(\d+),(\d+),(\d+)\]', line)
+            if not box_match:
+                continue  # Skip elements without bounding box
 
-                # Filter footer elements (bottom 15% of viewport)
-                viewport_height = 720  # TODO: Get from config
-                if y > viewport_height * 0.85:
-                    return
+            x, y, width, height = map(int, box_match.groups())
 
-                # Build element record
-                element = {
-                    "label": name or role or f"{role}_element",
-                    "type": "accessibility",  # Special type marker
-                    "role": role,
-                    "snapshot_ref": local_ref,
-                    "accessible_name": name,
-                    "parent_ref": parent_ref,
-                    "selector": f"[ref={local_ref}]",  # Pseudo-selector for debugging
-                    "x": round(x + width / 2),
-                    "y": round(y + height / 2),
-                    "width": round(width),
-                    "height": round(height),
-                    "source": "accessibility",
-                }
+            # Skip elements with invalid coordinates
+            if x < 0 or y < 0:
+                continue
 
-                # Add optional fields from node
-                if node.get("disabled"):
-                    element["disabled"] = True
-                if node.get("checked"):
-                    element["checked"] = True
-                if node.get("expanded"):
-                    element["expanded"] = True
-                if node.get("selected"):
-                    element["selected"] = True
+            # Skip tiny elements (<4px) UNLESS they're buttons/links with valid coordinates
+            # Buttons/links with 0x0 size but valid coordinates might be hidden submit buttons
+            # or elements with incomplete accessibility tree data
+            if width < 4 or height < 4:
+                if role not in ("button", "link", "submit"):
+                    continue
 
-                elements.append(element)
+            # Filter footer elements (bottom 15% of viewport)
+            viewport_height = 720  # TODO: Get from config
+            if y > viewport_height * 0.85:
+                continue
 
-            # Recursively process children
-            for child in node.get("children", []):
-                flatten_tree(child, local_ref, depth + 1)
+            # Skip generic containers without refs (probably layout elements)
+            if role == "generic" and not ref:
+                continue
 
-        # Start flattening
-        flatten_tree(snapshot)
+            # Build element record
+            element = {
+                "label": name or role or f"{role}_element",
+                "type": "accessibility",
+                "role": role,
+                "snapshot_ref": ref,
+                "accessible_name": name,
+                "selector": f"[ref={ref}]" if ref else f"[role={role}]",
+                "x": round(x + width / 2),
+                "y": round(y + height / 2),
+                "width": round(width),
+                "height": round(height),
+                "source": "accessibility",
+            }
 
+            elements.append(element)
+
+        typer.echo(f"[Accessibility] Collected {len(elements)} elements")
         logger.info("[Accessibility] Collected %d elements", len(elements))
         return elements
 
     except Exception as e:
+        typer.echo(f"[Accessibility] Exception occurred: {type(e).__name__}: {e}")
         logger.warning("Accessibility snapshot failed: %s", e)
         return []
 

@@ -305,7 +305,7 @@ def _generate_scenario(
         in ("button", "a", "semantics", "label", "svg", "accessibility")  # Added "accessibility"
         and e.get("source") in ("dom", "semantics", "accessibility")  # Added "accessibility"
         and e.get("x", 0) > 100
-        and e.get("role", "") != "textbox"
+        and e.get("role", "") not in ("textbox", "searchbox", "combobox")  # Exclude text input roles
         and e.get("y", 0) < 600  # Exclude footer elements (usually at bottom of page)
     ]
 
@@ -361,15 +361,29 @@ def _generate_scenario(
             clicked_labels.add(label)
 
             is_submit = _is_submit_button(el, intent)
+
+            # Build target with accessibility priority
+            target: dict[str, Any] = {"text": label}
+
+            # Priority 0: Accessibility snapshot_ref (most reliable)
+            if el.get("snapshot_ref") and el.get("source") == "accessibility":
+                target["snapshot_ref"] = el["snapshot_ref"]
+                if el.get("role"):
+                    target["role"] = el["role"]
+            # Priority 1: DOM selector
+            elif el.get("selector") and el["source"] == "dom":
+                target["selector"] = el["selector"]
+            # Priority 2: Semantics (Flutter)
+            elif el.get("source") == "semantics" and el.get("selector"):
+                target["selector"] = el["selector"]
+
             click_step: dict[str, Any] = {
                 "step": step_num,
                 "action": "find_and_click",
-                "target": {"text": label},
+                "target": target,
                 "region": "main",
                 "description": f'Click "{label}"',
             }
-            if el.get("selector") and el["source"] == "dom":
-                click_step["target"]["selector"] = el["selector"]
             if is_submit:
                 click_step["critical"] = True
 
@@ -392,13 +406,30 @@ def _generate_scenario(
     # --- Fallback: if no keywords matched, use prominent buttons ---
     if not clicked_labels:
         for el in buttons[:3]:
+            label = el["label"]
+
+            # Build target with accessibility priority
+            target: dict[str, Any] = {"text": label}
+
+            # Priority 0: Accessibility snapshot_ref (most reliable)
+            if el.get("snapshot_ref") and el.get("source") == "accessibility":
+                target["snapshot_ref"] = el["snapshot_ref"]
+                if el.get("role"):
+                    target["role"] = el["role"]
+            # Priority 1: DOM selector
+            elif el.get("selector") and el.get("source") == "dom":
+                target["selector"] = el["selector"]
+            # Priority 2: Semantics (Flutter)
+            elif el.get("source") == "semantics" and el.get("selector"):
+                target["selector"] = el["selector"]
+
             steps.append(
                 {
                     "step": step_num,
                     "action": "find_and_click",
-                    "target": {"text": el["label"]},
+                    "target": target,
                     "region": "main",
-                    "description": f'Click "{el["label"]}"',
+                    "description": f'Click "{label}"',
                 }
             )
             step_num += 1
@@ -460,8 +491,9 @@ def _classify_inputs(
         el_type = el.get("type", "")
         role = el.get("role", "")
 
-        # DOM inputs, Flutter Semantics, or Accessibility textboxes
-        if el_type in ("input", "textarea") or role == "textbox" or el_type == "accessibility" and role == "textbox":
+        # DOM inputs, Flutter Semantics, or Accessibility text inputs
+        # Include: textbox, searchbox, combobox, and other text input roles
+        if el_type in ("input", "textarea") or role in ("textbox", "searchbox", "combobox"):
             inputs.append(el)
 
     # Sort by y-coordinate (form order: top to bottom)
