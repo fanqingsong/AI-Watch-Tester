@@ -301,8 +301,9 @@ def _generate_scenario(
     buttons = [
         e
         for e in elements
-        if e.get("type") in ("button", "a", "semantics", "label", "svg")  # Added "label" and "svg"
-        and e.get("source") in ("dom", "semantics")
+        if e.get("type")
+        in ("button", "a", "semantics", "label", "svg", "accessibility")  # Added "accessibility"
+        and e.get("source") in ("dom", "semantics", "accessibility")  # Added "accessibility"
         and e.get("x", 0) > 100
         and e.get("role", "") != "textbox"
         and e.get("y", 0) < 600  # Exclude footer elements (usually at bottom of page)
@@ -450,7 +451,7 @@ def _classify_inputs(
 ) -> list[dict[str, Any]]:
     """Classify input elements from scan data.
 
-    Handles both DOM inputs and Flutter Semantics textboxes.
+    Handles DOM inputs, Flutter Semantics textboxes, and Accessibility textboxes.
     Sorted by y-coordinate (top to bottom) for form order.
     """
     inputs: list[dict[str, Any]] = []
@@ -459,7 +460,8 @@ def _classify_inputs(
         el_type = el.get("type", "")
         role = el.get("role", "")
 
-        if el_type in ("input", "textarea") or role == "textbox":
+        # DOM inputs, Flutter Semantics, or Accessibility textboxes
+        if el_type in ("input", "textarea") or role == "textbox" or el_type == "accessibility" and role == "textbox":
             inputs.append(el)
 
     # Sort by y-coordinate (form order: top to bottom)
@@ -482,6 +484,17 @@ def _build_input_target(
     extra: dict[str, Any] = {}
     source = inp.get("source", "")
     label = str(inp.get("label", ""))
+    role = inp.get("role", "")
+    snapshot_ref = inp.get("snapshot_ref", "")
+
+    # --- Priority 0: Snapshot reference (accessibility-based) ---
+    if snapshot_ref and source == "accessibility":
+        target["snapshot_ref"] = snapshot_ref
+        if role:
+            target["role"] = role
+        if label:
+            target["text"] = label
+        return target, extra
 
     # --- Priority 1: Semantics aria-label (Flutter) ---
     if source == "semantics" and label:
@@ -637,8 +650,21 @@ def _input_description(inp: dict[str, Any]) -> str:
 
 
 def _is_submit_button(el: dict[str, Any], intent: str) -> bool:
-    """Check if element is a form submit button."""
+    """Check if element is a form submit button.
+
+    Supports:
+    - DOM elements (via label)
+    - Accessibility elements (via accessible_name or role)
+    - Flutter Semantics elements (via label)
+    """
+    # Check both label and accessible_name
     label = (el.get("label") or "").lower()
+    accessible_name = (el.get("accessible_name") or "").lower()
+    role = (el.get("role") or "").lower()
+
+    # Combine all text sources
+    combined_text = f"{label} {accessible_name} {role}"
+
     submit_words = [
         "login",
         "sign in",
@@ -652,8 +678,15 @@ def _is_submit_button(el: dict[str, Any], intent: str) -> bool:
         "send",
         "ok",
         "continue",
+        # Chinese translations
+        "提交",
+        "确认",
+        "发送",
+        "搜索",
+        "登录",
+        "注册",
     ]
-    return any(w in label for w in submit_words)
+    return any(w in combined_text for w in submit_words)
 
 
 # -- Flow validation ----------------------------------------------------------
@@ -758,7 +791,15 @@ def _find_matching_elements(
     keyword: str,
     elements: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find elements whose label contains the keyword or a synonym."""
+    """Find elements whose label contains the keyword or a synonym.
+
+    Priority order:
+    1. accessibility source with role (most reliable - filters decorative elements)
+    2. accessibility source with accessible_name
+    3. semantics source with role
+    4. dom source with semantic selector
+    5. other sources
+    """
     # Button/action keyword synonyms (include Chinese translations)
     SYNONYMS: dict[str, list[str]] = {
         "send": ["search", "submit", "go", "find", "查询", "搜索"],
@@ -773,31 +814,54 @@ def _find_matching_elements(
 
     kw = keyword.lower()
 
-    # Direct match first
-    matches = [el for el in elements if kw in el.get("label", "").lower()]
+    # Direct match in label or accessible_name
+    matches = [
+        el
+        for el in elements
+        if kw in el.get("label", "").lower() or kw in el.get("accessible_name", "").lower()
+    ]
 
     # If no direct match, try synonyms
     if not matches and kw in SYNONYMS:
         for synonym in SYNONYMS[kw]:
-            matches = [el for el in elements if synonym in el.get("label", "").lower()]
+            matches = [
+                el
+                for el in elements
+                if synonym in el.get("label", "").lower()
+                or synonym in el.get("accessible_name", "").lower()
+            ]
             if matches:
                 break
 
-    # Also check selector and type
+    # Also check selector, role, and type
     if not matches:
         matches = [
             el
             for el in elements
             if kw in el.get("selector", "").lower()
+            or kw in el.get("role", "").lower()
             or kw in el.get("input_type", "").lower()
             or kw in el.get("type", "").lower()
         ]
 
-    # Priority: semantics > dom > ocr
-    source_priority = {"semantics": 0, "dom": 1, "ocr": 2}
+    # Priority: accessibility > semantics > dom > ocr
+    source_priority = {
+        "accessibility": 0,  # NEW: highest priority (filters decorative)
+        "semantics": 1,
+        "dom": 2,
+        "ocr": 3,
+    }
 
-    # Type priority: button/label > svg > a (avoid matching svg icons when button exists)
-    type_priority = {"button": 0, "label": 0, "semantics": 0, "input": 1, "svg": 2, "a": 3}
+    # Type priority: button/label > input > svg > a
+    type_priority = {
+        "button": 0,
+        "label": 0,
+        "textbox": 0,
+        "input": 1,
+        "accessibility": 1,  # special type marker
+        "svg": 2,
+        "a": 3,
+    }
 
     matches.sort(
         key=lambda e: (
