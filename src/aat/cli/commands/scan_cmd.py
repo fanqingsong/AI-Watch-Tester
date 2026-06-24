@@ -120,8 +120,21 @@ async def _scan(
         elements: list[dict[str, Any]] = []
 
         # 3a. DOM elements (non-Flutter or hybrid)
+        # Setup console listener to capture debug messages
+        console_messages = []
+
+        def on_console(msg):
+            if msg.type == "log":
+                console_messages.append(msg.text)
+                typer.echo(f"  [Browser Console] {msg.text}")
+
+        page.on("console", on_console)
+
         dom_elements = await _collect_dom_elements(page)
         elements.extend(dom_elements)
+
+        # Remove console listener
+        page.remove_listener("console", on_console)
 
         # 3b. Flutter Semantics elements
         if is_flutter:
@@ -220,17 +233,32 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                             // Try to get aria-label from button parent
                             const buttonParent = el.closest('button, a, [role="button"]');
                             if (buttonParent) {
-                                label = (
-                                    buttonParent.getAttribute('aria-label') ||
-                                    buttonParent.getAttribute('title') ||
-                                    buttonParent.textContent?.trim()?.substring(0, 40) ||
-                                    buttonParent.getAttribute('id') ||
-                                    'svg_button'
-                                );
+                                // Get parent's attributes first
+                                const parentLabel = buttonParent.getAttribute('aria-label');
+                                const parentTitle = buttonParent.getAttribute('title');
+                                const parentId = buttonParent.getAttribute('id');
+                                const parentClass = buttonParent.className;
+                                const parentText = buttonParent.textContent?.trim()?.substring(0, 40);
+
+                                // Debug: log to console (won't appear in output but helpful for debugging)
+                                console.log('[SVG Debug] Found button parent:', {
+                                    parentLabel, parentTitle, parentId, parentClass, parentText
+                                });
+
+                                label = parentLabel || parentTitle || parentText || parentId || parentClass || 'svg_button';
                             } else {
-                                // Fallback to direct parent text
-                                const parentText = el.parentElement?.textContent?.trim()?.substring(0, 40);
-                                label = parentText || 'svg_icon';
+                                // No button parent - check direct parent
+                                const directParent = el.parentElement;
+                                const parentTag = directParent?.tagName.toLowerCase();
+                                const parentId = directParent?.getAttribute('id');
+                                const parentClass = directParent?.className;
+                                const parentText = directParent?.textContent?.trim()?.substring(0, 40);
+
+                                console.log('[SVG Debug] No button parent, checking direct parent:', {
+                                    parentTag, parentId, parentClass, parentText
+                                });
+
+                                label = parentText || parentId || parentClass || 'svg_icon';
                             }
                         } else if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
                             label = 'input_field';
@@ -258,8 +286,8 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                         selector: selector,
                         x: Math.round(rect.x + rect.width / 2),
                         y: Math.round(rect.y + rect.height / 2),
-                        width: Math.round(el.width || rect.width),
-                        height: Math.round(el.height || rect.height),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height),
                         source: 'dom',
                     });
                 }
