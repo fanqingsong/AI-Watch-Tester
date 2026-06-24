@@ -17,7 +17,6 @@ from .enums import (
     LabelPosition,
     MatchMethod,
     ScreenRegion,
-    StepStatus,
 )
 
 # Python 3.10 compatibility: StrEnum was added in Python 3.11
@@ -91,19 +90,34 @@ class IconHint(BaseModel):
 
 
 class TargetSpec(BaseModel):
-    """Match target. At least one of image, text, selector, icon is required."""
+    """Match target. At least one of image, text, selector, snapshot_ref, icon is required."""
 
     image: str | None = Field(default=None, description="Target image relative path")
     text: str | None = Field(default=None, description="OCR fallback text")
-    selector: str | None = Field(default=None, description="CSS selector (highest priority)")
+    selector: str | None = Field(default=None, description="CSS selector")
     icon: IconHint | None = Field(default=None, description="Icon hint (future)")
+    snapshot_ref: str | None = Field(
+        default=None,
+        description="Playwright accessibility snapshot reference (e.g., 'e5')",
+    )
+    role: str | None = Field(
+        default=None,
+        description="ARIA role for semantic targeting (e.g., 'button', 'textbox')",
+    )
     match_method: MatchMethod | None = Field(default=None)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
     def at_least_one_target(self) -> TargetSpec:
-        if not self.image and not self.text and not self.icon and not self.selector:
-            msg = "TargetSpec requires at least one of: image, text, selector, icon"
+        methods = [
+            self.snapshot_ref,
+            self.selector,
+            self.text,
+            self.image,
+            self.icon,
+        ]
+        if not any(m for m in methods if m is not None):
+            msg = "TargetSpec requires at least one of: snapshot_ref, selector, text, image, icon"
             raise ValueError(msg)
         return self
 
