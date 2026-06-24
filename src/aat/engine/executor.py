@@ -17,6 +17,14 @@ from typing import TYPE_CHECKING, Any
 import cv2
 import numpy as np
 
+from aat.core import (
+    FIND_ACTIONS,
+    ActionType,
+    ScreenRegion,
+    StepResult,
+    StepStatus,
+    compute_region_bounds,
+)
 from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
 from aat.engine.image_diff import compute_change_ratio
 from aat.engine.ocr import (
@@ -27,14 +35,6 @@ from aat.engine.ocr import (
     ocr_screenshot,
 )
 from aat.learning.base import BaseLearningStore
-from aat.core import (
-    FIND_ACTIONS,
-    ActionType,
-    ScreenRegion,
-    StepResult,
-    StepStatus,
-    compute_region_bounds,
-)
 
 if TYPE_CHECKING:
     from aat.core import MatchResult, StepConfig, TargetSpec
@@ -827,7 +827,7 @@ class StepExecutor:
             MatchError: If target not found.
         """
         target: TargetSpec = step.target  # type: ignore[assignment]
-        target_name = target.text or target.selector or ""
+        target_name = target.snapshot_ref or target.text or target.selector or ""
 
         # Detect page state for state-aware learning
         self._current_page_state = await self._detect_page_state()
@@ -845,6 +845,35 @@ class StepExecutor:
                         best["success"],
                         best["fail"],
                     )
+
+        # Priority 0: Snapshot reference (accessibility-based)
+        if target.snapshot_ref:
+            logger.info("[Executor] Using snapshot ref: %s", target.snapshot_ref)
+            locator = await self._locator_from_snapshot_ref(target.snapshot_ref, target.role)
+            if locator:
+                try:
+                    box = await locator.bounding_box()
+                    if box:
+                        x = box["x"] + box["width"] / 2
+                        y = box["y"] + box["height"] / 2
+                        logger.info(
+                            "[Executor] Snapshot ref '%s' resolved to (%d, %d)",
+                            target.snapshot_ref,
+                            int(x),
+                            int(y),
+                        )
+                        return await self._act_at_pos(step, x, y, confidence=1.0)
+                except Exception as e:
+                    logger.warning(
+                        "[Executor] Snapshot ref '%s' failed: %s, falling back",
+                        target.snapshot_ref,
+                        e,
+                    )
+            else:
+                logger.warning(
+                    "[Executor] Snapshot ref '%s' not resolved, using fallback",
+                    target.snapshot_ref,
+                )
 
         # Priority -1: State-aware learned coordinates
         if target_name and self._learned_store and step.method.value == "auto":
@@ -1176,6 +1205,90 @@ class StepExecutor:
             abs_y,
             match_result.confidence,
         )
+
+    async def _locator_from_snapshot_ref(
+        self,
+        snapshot_ref: str,
+        role: str | None = None,
+    ) -> Any | None:
+        """Resolve accessibility snapshot reference to Playwright Locator.
+
+        Args:
+            snapshot_ref: Snapshot reference (e.g., 'e5', 'e10')
+            role: Optional ARIA role for verification (e.g., 'button', 'textbox')
+
+        Returns:
+            Playwright Locator object, or None if ref is invalid/changed
+        """
+        if not hasattr(self._engine, "page"):
+            return None
+
+        page = self._engine.page
+
+        try:
+            # Re-capture current accessibility snapshot
+            snapshot = await page.accessibility.snapshot(interesting_only=True)
+
+            def find_ref_in_tree(node: dict[str, Any], target_ref: str) -> Any | None:
+                """Recursively find target ref in accessibility tree."""
+                if not node:
+                    return None
+
+                # Check current node's ref (Playwright assigns ref to nodes)
+                node_ref = node.get("ref")
+                if node_ref == target_ref:
+                    return node
+
+                # Recursively search children
+                for child in node.get("children", []):
+                    result = find_ref_in_tree(child, target_ref)
+                    if result:
+                        return result
+
+                return None
+
+            target_node = find_ref_in_tree(snapshot, snapshot_ref)
+            if not target_node:
+                logger.warning(
+                    "[Executor] Snapshot ref '%s' not found - page may have changed",
+                    snapshot_ref,
+                )
+                return None
+
+            # Verify role if provided
+            if role and target_node.get("role") != role:
+                logger.warning(
+                    "[Executor] Role mismatch for ref '%s': expected '%s', got '%s'",
+                    snapshot_ref,
+                    role,
+                    target_node.get("role"),
+                )
+
+            # Create locator using accessible name and role
+            name = target_node.get("name")
+            node_role = target_node.get("role")
+
+            if name and node_role:
+                # Most reliable: role + name
+                return page.get_by_role(node_role, name=name, exact=True)
+            elif node_role:
+                return page.get_by_role(node_role)
+            elif name:
+                return page.get_by_text(name, exact=True)
+            else:
+                logger.warning(
+                    "[Executor] Snapshot ref '%s' has no name or role",
+                    snapshot_ref,
+                )
+                return None
+
+        except Exception as e:
+            logger.exception(
+                "[Executor] Failed to resolve snapshot ref '%s': %s",
+                snapshot_ref,
+                e,
+            )
+            return None
 
     async def _do_click(
         self,
