@@ -759,11 +759,11 @@ def _find_matching_elements(
     elements: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Find elements whose label contains the keyword or a synonym."""
-    # Button/action keyword synonyms
+    # Button/action keyword synonyms (include Chinese translations)
     SYNONYMS: dict[str, list[str]] = {
-        "send": ["search", "submit", "go", "find", "查询"],
-        "submit": ["confirm", "save", "apply", "提交", "确认"],
-        "search": ["find", "look", "search", "搜索", "查找"],
+        "send": ["search", "submit", "go", "find", "查询", "搜索"],
+        "submit": ["confirm", "save", "apply", "提交", "确认", "发送"],
+        "search": ["find", "look", "find", "查询", "搜索", "查找"],
         "click": ["press", "tap", "点击"],
         "ok": ["confirm", "done", "完成", "确定"],
         "cancel": ["close", "dismiss", "取消", "关闭"],
