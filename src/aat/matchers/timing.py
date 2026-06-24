@@ -7,10 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import TYPE_CHECKING, Callable
-
-if TYPE_CHECKING:
-    from collections.abc import Coroutine
+from typing import Callable
 
 
 class TimedOperation:
@@ -60,42 +57,7 @@ def timed_operation() -> Callable[[], float]:
     yield get_elapsed
 
 
-def timed_async[
-    **P
-](func: Callable[P, Coroutine[None, None, None]]) -> Callable[P, Coroutine[None, None, None]]:
-    """Decorator to time async functions.
-
-    Note: This is for side-effect timing (logging), not return value timing.
-    For matchers, use the TimedOperation context manager instead.
-
-    Example:
-        @timed_async
-        async def process():
-            await something()
-
-    Args:
-        func: Async function to time.
-
-    Returns:
-        Wrapped async function that logs elapsed time.
-    """
-
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:  # noqa: ANN401
-        import logging
-
-        logger = logging.getLogger(__name__)
-        start = time.perf_counter()
-        try:
-            await func(*args, **kwargs)
-        finally:
-            elapsed = (time.perf_counter() - start) * 1000.0
-            logger.debug("%s completed in %.2fms", func.__name__, elapsed)
-
-    return wrapper
-
-
 __all__ = [
     "TimedOperation",
     "timed_operation",
-    "timed_async",
 ]
