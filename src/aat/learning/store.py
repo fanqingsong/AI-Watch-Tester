@@ -1,151 +1,40 @@
-"""LearnedStore — SQLite-based learning data storage."""
+"""LearnedStore — SQLite-based learning data storage.
+
+This module now exposes a thin facade over six single-concern repositories
+(see :mod:`aat.learning.repos`). The facade preserves the exact public API
+that callers depend on (same constructor signature, same method names and
+signatures) while delegating each method to the repository that owns the
+underlying table. SQL, parameters, and control flow are reproduced verbatim
+from the previous monolithic implementation.
+"""
 
 from __future__ import annotations
 
 import json
-import logging
 import sqlite3
-from datetime import datetime, timezone
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 from typing import Any
 
 from aat.core.exceptions import LearningError
 from aat.core.learning_models import LearnedElement
 from aat.learning.base import BaseLearningStore
-
-logger = logging.getLogger(__name__)
-
-_CREATE_TABLE = """\
-CREATE TABLE IF NOT EXISTS learned_elements (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    scenario_id     TEXT NOT NULL,
-    step_number     INTEGER NOT NULL,
-    target_name     TEXT NOT NULL,
-    screenshot_hash TEXT NOT NULL,
-    correct_x       INTEGER NOT NULL,
-    correct_y       INTEGER NOT NULL,
-    cropped_image   TEXT NOT NULL,
-    confidence      REAL DEFAULT 1.0,
-    use_count       INTEGER DEFAULT 0,
-    created_at      TEXT NOT NULL,
-    updated_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_TARGET = (
-    "CREATE INDEX IF NOT EXISTS idx_learned_target "
-    "ON learned_elements(scenario_id, step_number, target_name);"
+from aat.learning.repos import (
+    ElementRepo,
+    FailureRepo,
+    MatchHistoryRepo,
+    PlatformRepo,
+    StateCoordsRepo,
+    StrategyRepo,
 )
-
-_CREATE_IDX_HASH = (
-    "CREATE INDEX IF NOT EXISTS idx_learned_hash ON learned_elements(screenshot_hash);"
-)
-
-_CREATE_TABLE_FAILURES = """\
-CREATE TABLE IF NOT EXISTS failure_patterns (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    error_type      TEXT NOT NULL,
-    error_message   TEXT NOT NULL,
-    url_pattern     TEXT DEFAULT '',
-    action          TEXT DEFAULT '',
-    fix_description TEXT DEFAULT '',
-    fix_applied     INTEGER DEFAULT 0,
-    hit_count       INTEGER DEFAULT 1,
-    created_at      TEXT NOT NULL,
-    updated_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_FAILURES = (
-    "CREATE INDEX IF NOT EXISTS idx_failure_type ON failure_patterns(error_type, action);"
-)
-
-_CREATE_TABLE_PLATFORMS = """\
-CREATE TABLE IF NOT EXISTS platform_patterns (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    platform_key    TEXT NOT NULL,
-    tip             TEXT NOT NULL,
-    source          TEXT DEFAULT 'builtin',
-    created_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_PLATFORMS = (
-    "CREATE INDEX IF NOT EXISTS idx_platform_key ON platform_patterns(platform_key);"
-)
-
-_CREATE_TABLE_MATCH_HISTORY = """\
-CREATE TABLE IF NOT EXISTS match_history (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    target_name     TEXT NOT NULL,
-    method          TEXT NOT NULL,
-    success         INTEGER NOT NULL DEFAULT 1,
-    confidence      REAL DEFAULT 0.0,
-    elapsed_ms      REAL DEFAULT 0.0,
-    tier            INTEGER DEFAULT 1,
-    created_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_MATCH_HISTORY = (
-    "CREATE INDEX IF NOT EXISTS idx_match_target ON match_history(target_name, method);"
-)
-
-_CREATE_TABLE_STATE_COORDS = """\
-CREATE TABLE IF NOT EXISTS state_coords (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    target_name     TEXT NOT NULL,
-    page_state      TEXT NOT NULL DEFAULT 'normal',
-    correct_x       INTEGER NOT NULL,
-    correct_y       INTEGER NOT NULL,
-    confidence      REAL DEFAULT 1.0,
-    use_count       INTEGER DEFAULT 0,
-    created_at      TEXT NOT NULL,
-    updated_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_STATE_COORDS = (
-    "CREATE INDEX IF NOT EXISTS idx_state_coords ON state_coords(target_name, page_state);"
-)
-
-_CREATE_TABLE_STRATEGIES = """\
-CREATE TABLE IF NOT EXISTS test_strategies (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    situation       TEXT NOT NULL,
-    strategy        TEXT NOT NULL,
-    success_count   INTEGER DEFAULT 0,
-    fail_count      INTEGER DEFAULT 0,
-    created_at      TEXT NOT NULL,
-    updated_at      TEXT NOT NULL
-);
-"""
-
-_CREATE_IDX_STRATEGIES = (
-    "CREATE INDEX IF NOT EXISTS idx_strategy_situation ON test_strategies(situation);"
-)
-
-
-def _row_to_element(row: sqlite3.Row) -> LearnedElement:
-    """Convert a sqlite3.Row to a LearnedElement."""
-    return LearnedElement(
-        id=row["id"],
-        scenario_id=row["scenario_id"],
-        step_number=max(1, row["step_number"]),
-        target_name=row["target_name"],
-        screenshot_hash=row["screenshot_hash"],
-        correct_x=row["correct_x"],
-        correct_y=row["correct_y"],
-        cropped_image_path=row["cropped_image"],
-        confidence=row["confidence"],
-        use_count=row["use_count"],
-        created_at=datetime.fromisoformat(row["created_at"]),
-        updated_at=datetime.fromisoformat(row["updated_at"]),
-    )
 
 
 class LearnedStore(BaseLearningStore):
-    """SQLite-backed store for learned element positions."""
+    """SQLite-backed store for learned element positions.
+
+    Facade composing the six per-table repositories. The public surface is
+    identical to the previous monolithic implementation; each method delegates
+    to the appropriate repository.
+    """
 
     def __init__(self, db_path: Path) -> None:
         """Open or create the SQLite database at *db_path*."""
@@ -153,91 +42,31 @@ class LearnedStore(BaseLearningStore):
             self._conn = sqlite3.connect(str(db_path))
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL;")
-            self._conn.execute(_CREATE_TABLE)
-            self._conn.execute(_CREATE_IDX_TARGET)
-            self._conn.execute(_CREATE_IDX_HASH)
-            self._conn.execute(_CREATE_TABLE_FAILURES)
-            self._conn.execute(_CREATE_IDX_FAILURES)
-            self._conn.execute(_CREATE_TABLE_PLATFORMS)
-            self._conn.execute(_CREATE_IDX_PLATFORMS)
-            self._conn.execute(_CREATE_TABLE_MATCH_HISTORY)
-            self._conn.execute(_CREATE_IDX_MATCH_HISTORY)
-            self._conn.execute(_CREATE_TABLE_STATE_COORDS)
-            self._conn.execute(_CREATE_IDX_STATE_COORDS)
-            self._conn.execute(_CREATE_TABLE_STRATEGIES)
-            self._conn.execute(_CREATE_IDX_STRATEGIES)
+
+            self._elements = ElementRepo(self._conn)
+            self._failures = FailureRepo(self._conn)
+            self._platforms = PlatformRepo(self._conn)
+            self._match_history = MatchHistoryRepo(self._conn)
+            self._state_coords = StateCoordsRepo(self._conn)
+            self._strategies = StrategyRepo(self._conn)
+
+            self._elements.init_schema()
+            self._failures.init_schema()
+            self._platforms.init_schema()
+            self._match_history.init_schema()
+            self._state_coords.init_schema()
+            self._strategies.init_schema()
+
             self._conn.commit()
         except sqlite3.Error as exc:
             msg = f"Failed to open database: {db_path}"
             raise LearningError(msg) from exc
 
-    # -- CRUD ----------------------------------------------------------------
+    # -- Element coordinates (learned_elements) -------------------------------
 
     def save(self, element: LearnedElement) -> LearnedElement:
         """Insert or update an element. Returns element with id populated."""
-        now = datetime.now().isoformat()
-        try:
-            if element.id is not None:
-                self._conn.execute(
-                    """\
-                    UPDATE learned_elements
-                    SET scenario_id=?, step_number=?, target_name=?,
-                        screenshot_hash=?, correct_x=?, correct_y=?,
-                        cropped_image=?, confidence=?, use_count=?,
-                        updated_at=?
-                    WHERE id=?
-                    """,
-                    (
-                        element.scenario_id,
-                        element.step_number,
-                        element.target_name,
-                        element.screenshot_hash,
-                        element.correct_x,
-                        element.correct_y,
-                        element.cropped_image_path,
-                        element.confidence,
-                        element.use_count,
-                        now,
-                        element.id,
-                    ),
-                )
-                self._conn.commit()
-                return element.model_copy(
-                    update={"updated_at": datetime.fromisoformat(now)},
-                )
-
-            cursor = self._conn.execute(
-                """\
-                INSERT INTO learned_elements
-                    (scenario_id, step_number, target_name, screenshot_hash,
-                     correct_x, correct_y, cropped_image, confidence,
-                     use_count, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    element.scenario_id,
-                    element.step_number,
-                    element.target_name,
-                    element.screenshot_hash,
-                    element.correct_x,
-                    element.correct_y,
-                    element.cropped_image_path,
-                    element.confidence,
-                    element.use_count,
-                    element.created_at.isoformat(),
-                    now,
-                ),
-            )
-            self._conn.commit()
-            return element.model_copy(
-                update={
-                    "id": cursor.lastrowid,
-                    "updated_at": datetime.fromisoformat(now),
-                },
-            )
-        except sqlite3.Error as exc:
-            msg = f"Failed to save element: {exc}"
-            raise LearningError(msg) from exc
+        return self._elements.save(element)
 
     def find_by_target(
         self,
@@ -246,40 +75,11 @@ class LearnedStore(BaseLearningStore):
         target_name: str,
     ) -> LearnedElement | None:
         """Find element by scenario + step + target name."""
-        try:
-            row = self._conn.execute(
-                """\
-                SELECT * FROM learned_elements
-                WHERE scenario_id=? AND step_number=? AND target_name=?
-                ORDER BY confidence DESC
-                LIMIT 1
-                """,
-                (scenario_id, step_number, target_name),
-            ).fetchone()
-            if row is None:
-                return None
-            return _row_to_element(row)
-        except sqlite3.Error as exc:
-            msg = f"find_by_target failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._elements.find_by_target(scenario_id, step_number, target_name)
 
     def find_by_name(self, target_name: str) -> LearnedElement | None:
         """Find the most recently used element by target name."""
-        try:
-            row = self._conn.execute(
-                """\
-                SELECT * FROM learned_elements
-                WHERE target_name=?
-                ORDER BY use_count DESC, updated_at DESC
-                LIMIT 1
-                """,
-                (target_name,),
-            ).fetchone()
-            if row is None:
-                return None
-            return _row_to_element(row)
-        except sqlite3.Error:
-            return None
+        return self._elements.find_by_name(target_name)
 
     def save_or_update_by_name(
         self,
@@ -289,108 +89,23 @@ class LearnedStore(BaseLearningStore):
         confidence: float = 1.0,
     ) -> None:
         """Save or update learned coordinates by target name."""
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            # Duplicate coordinate check: warn if another target has same coords
-            dup_row = self._conn.execute(
-                "SELECT target_name FROM learned_elements "
-                "WHERE correct_x=? AND correct_y=? AND target_name!=? "
-                "LIMIT 1",
-                (x, y, target_name),
-            ).fetchone()
-            if dup_row:
-                logger.warning(
-                    "Duplicate coords (%d,%d): '%s' conflicts with '%s'",
-                    x,
-                    y,
-                    target_name,
-                    dup_row["target_name"],
-                )
-
-            existing = self.find_by_name(target_name)
-            if existing and existing.id is not None:
-                # Update if coordinates changed
-                if existing.correct_x != x or existing.correct_y != y:
-                    self._conn.execute(
-                        """\
-                        UPDATE learned_elements
-                        SET correct_x=?, correct_y=?, confidence=?,
-                            use_count=use_count+1, updated_at=?
-                        WHERE id=?
-                        """,
-                        (x, y, confidence, now, existing.id),
-                    )
-                else:
-                    self._conn.execute(
-                        "UPDATE learned_elements "
-                        "SET use_count=use_count+1, updated_at=? WHERE id=?",
-                        (now, existing.id),
-                    )
-                self._conn.commit()
-            else:
-                self._conn.execute(
-                    """\
-                    INSERT INTO learned_elements
-                        (scenario_id, step_number, target_name,
-                         screenshot_hash, correct_x, correct_y,
-                         cropped_image, confidence, use_count,
-                         created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    ("_auto", 1, target_name, "", x, y, "", confidence, 1, now, now),
-                )
-                self._conn.commit()
-        except sqlite3.Error:
-            pass
+        self._elements.save_or_update_by_name(target_name, x, y, confidence)
 
     def find_by_hash(self, screenshot_hash: str) -> list[LearnedElement]:
         """Find all elements matching a screenshot hash."""
-        try:
-            rows = self._conn.execute(
-                "SELECT * FROM learned_elements WHERE screenshot_hash=?",
-                (screenshot_hash,),
-            ).fetchall()
-            return [_row_to_element(r) for r in rows]
-        except sqlite3.Error as exc:
-            msg = f"find_by_hash failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._elements.find_by_hash(screenshot_hash)
 
     def delete(self, element_id: int) -> bool:
         """Delete element by id. Returns True if a row was deleted."""
-        try:
-            cursor = self._conn.execute(
-                "DELETE FROM learned_elements WHERE id=?",
-                (element_id,),
-            )
-            self._conn.commit()
-            return cursor.rowcount > 0
-        except sqlite3.Error as exc:
-            msg = f"delete failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._elements.delete(element_id)
 
     def list_all(self) -> list[LearnedElement]:
         """Return all stored elements."""
-        try:
-            rows = self._conn.execute(
-                "SELECT * FROM learned_elements ORDER BY id",
-            ).fetchall()
-            return [_row_to_element(r) for r in rows]
-        except sqlite3.Error as exc:
-            msg = f"list_all failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._elements.list_all()
 
     def increment_use_count(self, element_id: int) -> None:
         """Increment use_count by 1 for the given element."""
-        now = datetime.now().isoformat()
-        try:
-            self._conn.execute(
-                "UPDATE learned_elements SET use_count=use_count+1, updated_at=? WHERE id=?",
-                (now, element_id),
-            )
-            self._conn.commit()
-        except sqlite3.Error as exc:
-            msg = f"increment_use_count failed: {exc}"
-            raise LearningError(msg) from exc
+        self._elements.increment_use_count(element_id)
 
     # -- Failure Patterns ----------------------------------------------------
 
@@ -403,100 +118,25 @@ class LearnedStore(BaseLearningStore):
         fix_description: str = "",
     ) -> None:
         """Record failure pattern. Increment hit_count if same error_type + action exists."""
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            cursor = self._conn.execute(
-                "SELECT id FROM failure_patterns WHERE error_type = ? AND action = ? LIMIT 1",
-                (error_type, action),
-            )
-            row = cursor.fetchone()
-
-            if row:
-                self._conn.execute(
-                    "UPDATE failure_patterns"
-                    " SET hit_count = hit_count + 1, updated_at = ?, error_message = ?"
-                    " WHERE id = ?",
-                    (now, error_message, row["id"]),
-                )
-            else:
-                self._conn.execute(
-                    """\
-                    INSERT INTO failure_patterns
-                        (error_type, error_message, url_pattern, action,
-                         fix_description, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (error_type, error_message, url_pattern, action, fix_description, now, now),
-                )
-            self._conn.commit()
-        except sqlite3.Error as exc:
-            msg = f"record_failure failed: {exc}"
-            raise LearningError(msg) from exc
+        self._failures.record_failure(
+            error_type,
+            error_message,
+            url_pattern,
+            action,
+            fix_description,
+        )
 
     def find_similar_failure(self, error_type: str, action: str = "") -> dict[str, Any] | None:
         """Return failure pattern of same type with fix applied."""
-        try:
-            cursor = self._conn.execute(
-                """\
-                SELECT error_type, error_message, fix_description, hit_count
-                FROM failure_patterns
-                WHERE error_type = ? AND fix_applied = 1
-                ORDER BY hit_count DESC
-                LIMIT 1
-                """,
-                (error_type,),
-            )
-            row = cursor.fetchone()
-            if row:
-                return {
-                    "error_type": row["error_type"],
-                    "error_message": row["error_message"],
-                    "fix_description": row["fix_description"],
-                    "hit_count": row["hit_count"],
-                }
-            return None
-        except sqlite3.Error as exc:
-            msg = f"find_similar_failure failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._failures.find_similar_failure(error_type, action)
 
     def mark_fix_applied(self, error_type: str, fix_description: str) -> None:
         """Mark fix applied for failure pattern of given error_type."""
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            self._conn.execute(
-                "UPDATE failure_patterns"
-                " SET fix_applied = 1, fix_description = ?, updated_at = ?"
-                " WHERE error_type = ?",
-                (fix_description, now, error_type),
-            )
-            self._conn.commit()
-        except sqlite3.Error as exc:
-            msg = f"mark_fix_applied failed: {exc}"
-            raise LearningError(msg) from exc
+        self._failures.mark_fix_applied(error_type, fix_description)
 
     def get_failure_stats(self) -> list[dict[str, Any]]:
         """Return failure pattern statistics by hit_count descending (max 20)."""
-        try:
-            cursor = self._conn.execute(
-                """\
-                SELECT error_type, hit_count, fix_applied, fix_description
-                FROM failure_patterns
-                ORDER BY hit_count DESC
-                LIMIT 20
-                """
-            )
-            return [
-                {
-                    "error_type": row["error_type"],
-                    "hit_count": row["hit_count"],
-                    "fix_applied": bool(row["fix_applied"]),
-                    "fix_description": row["fix_description"],
-                }
-                for row in cursor.fetchall()
-            ]
-        except sqlite3.Error as exc:
-            msg = f"get_failure_stats failed: {exc}"
-            raise LearningError(msg) from exc
+        return self._failures.get_failure_stats()
 
     # -- Import / Export -----------------------------------------------------
 
@@ -537,37 +177,15 @@ class LearnedStore(BaseLearningStore):
         source: str = "user",
     ) -> None:
         """Add a custom platform-specific tip."""
-        now = datetime.now(timezone.utc).isoformat()
-        self._conn.execute(
-            "INSERT INTO platform_patterns "
-            "(platform_key, tip, source, created_at) VALUES (?, ?, ?, ?)",
-            (platform_key, tip, source, now),
-        )
-        self._conn.commit()
+        self._platforms.add_platform_tip(platform_key, tip, source)
 
     def get_platform_tips(self, platform_key: str) -> list[str]:
         """Get all tips for a platform (builtin + user-added)."""
-        cursor = self._conn.execute(
-            "SELECT tip FROM platform_patterns WHERE platform_key = ? ORDER BY id",
-            (platform_key,),
-        )
-        return [row["tip"] for row in cursor.fetchall()]
+        return self._platforms.get_platform_tips(platform_key)
 
     def list_platform_patterns(self) -> list[dict[str, Any]]:
         """List all platform patterns grouped by platform."""
-        cursor = self._conn.execute(
-            "SELECT platform_key, tip, source, created_at "
-            "FROM platform_patterns ORDER BY platform_key, id"
-        )
-        return [
-            {
-                "platform": row["platform_key"],
-                "tip": row["tip"],
-                "source": row["source"],
-                "created_at": row["created_at"],
-            }
-            for row in cursor.fetchall()
-        ]
+        return self._platforms.list_platform_patterns()
 
     # -- Match History ---------------------------------------------------------
 
@@ -581,88 +199,29 @@ class LearnedStore(BaseLearningStore):
         tier: int = 1,
     ) -> None:
         """Record a match attempt result for learning."""
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            self._conn.execute(
-                """\
-                INSERT INTO match_history
-                    (target_name, method, success, confidence, elapsed_ms, tier, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (target_name, method, 1 if success else 0, confidence, elapsed_ms, tier, now),
-            )
-            self._conn.commit()
-        except sqlite3.Error as exc:
-            logger.warning("record_match failed: %s", exc)
+        self._match_history.record_match(
+            target_name,
+            method,
+            success,
+            confidence,
+            elapsed_ms,
+            tier,
+        )
 
     def get_best_method(self, target_name: str) -> str | None:
         """Get the most successful method for a target (by success rate, then speed).
 
         Returns method name or None if no history.
         """
-        try:
-            cursor = self._conn.execute(
-                """\
-                SELECT method,
-                       SUM(success) AS wins,
-                       COUNT(*) AS total,
-                       AVG(elapsed_ms) AS avg_ms
-                FROM match_history
-                WHERE target_name = ?
-                GROUP BY method
-                HAVING wins > 0
-                ORDER BY CAST(wins AS REAL) / total DESC, avg_ms ASC
-                LIMIT 1
-                """,
-                (target_name,),
-            )
-            row = cursor.fetchone()
-            if row:
-                return str(row["method"])
-        except sqlite3.Error as exc:
-            logger.warning("get_best_method failed: %s", exc)
-        return None
+        return self._match_history.get_best_method(target_name)
 
     def get_match_stats(self) -> list[dict[str, Any]]:
         """Get match history stats grouped by target and method."""
-        try:
-            cursor = self._conn.execute(
-                """\
-                SELECT target_name, method,
-                       SUM(success) AS wins,
-                       COUNT(*) AS total,
-                       AVG(confidence) AS avg_conf,
-                       AVG(elapsed_ms) AS avg_ms
-                FROM match_history
-                GROUP BY target_name, method
-                ORDER BY target_name, wins DESC
-                """
-            )
-            return [
-                {
-                    "target": row["target_name"],
-                    "method": row["method"],
-                    "wins": row["wins"],
-                    "total": row["total"],
-                    "avg_confidence": round(row["avg_conf"], 3),
-                    "avg_ms": round(row["avg_ms"], 1),
-                }
-                for row in cursor.fetchall()
-            ]
-        except sqlite3.Error as exc:
-            logger.warning("get_match_stats failed: %s", exc)
-            return []
+        return self._match_history.get_match_stats()
 
     def get_target_failure_count(self, target_name: str) -> int:
         """Count failures for a specific target."""
-        try:
-            row = self._conn.execute(
-                "SELECT COUNT(*) AS cnt FROM match_history WHERE target_name=? AND success=0",
-                (target_name,),
-            ).fetchone()
-            return row["cnt"] if row else 0
-        except sqlite3.Error:
-            return 0
+        return self._match_history.get_target_failure_count(target_name)
 
     # -- State-aware coordinates -----------------------------------------------
 
@@ -675,22 +234,7 @@ class LearnedStore(BaseLearningStore):
 
         Returns (x, y, confidence) or None.
         """
-        try:
-            row = self._conn.execute(
-                """\
-                SELECT correct_x, correct_y, confidence
-                FROM state_coords
-                WHERE target_name=? AND page_state=?
-                ORDER BY use_count DESC
-                LIMIT 1
-                """,
-                (target_name, page_state),
-            ).fetchone()
-            if row:
-                return row["correct_x"], row["correct_y"], row["confidence"]
-        except sqlite3.Error:
-            pass
-        return None
+        return self._state_coords.find_state_coords(target_name, page_state)
 
     def save_state_coords(
         self,
@@ -701,38 +245,7 @@ class LearnedStore(BaseLearningStore):
         confidence: float = 1.0,
     ) -> None:
         """Save or update coordinates for target + state combination."""
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            row = self._conn.execute(
-                "SELECT id, correct_x, correct_y FROM state_coords "
-                "WHERE target_name=? AND page_state=?",
-                (target_name, page_state),
-            ).fetchone()
-
-            if row:
-                if row["correct_x"] != x or row["correct_y"] != y:
-                    self._conn.execute(
-                        "UPDATE state_coords "
-                        "SET correct_x=?, correct_y=?, confidence=?, "
-                        "use_count=use_count+1, updated_at=? WHERE id=?",
-                        (x, y, confidence, now, row["id"]),
-                    )
-                else:
-                    self._conn.execute(
-                        "UPDATE state_coords SET use_count=use_count+1, updated_at=? WHERE id=?",
-                        (now, row["id"]),
-                    )
-            else:
-                self._conn.execute(
-                    "INSERT INTO state_coords "
-                    "(target_name, page_state, correct_x, correct_y, "
-                    "confidence, use_count, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-                    (target_name, page_state, x, y, confidence, now, now),
-                )
-            self._conn.commit()
-        except sqlite3.Error:
-            pass
+        self._state_coords.save_state_coords(target_name, page_state, x, y, confidence)
 
     # -- Test strategies --------------------------------------------------------
 
@@ -746,74 +259,15 @@ class LearnedStore(BaseLearningStore):
 
         If the same situation+strategy exists, update counts.
         """
-        now = datetime.now(timezone.utc).isoformat()
-        try:
-            row = self._conn.execute(
-                "SELECT id, success_count, fail_count FROM test_strategies "
-                "WHERE situation=? AND strategy=?",
-                (situation, strategy),
-            ).fetchone()
-
-            if row:
-                if success:
-                    self._conn.execute(
-                        "UPDATE test_strategies "
-                        "SET success_count=success_count+1, updated_at=? "
-                        "WHERE id=?",
-                        (now, row["id"]),
-                    )
-                else:
-                    self._conn.execute(
-                        "UPDATE test_strategies "
-                        "SET fail_count=fail_count+1, updated_at=? "
-                        "WHERE id=?",
-                        (now, row["id"]),
-                    )
-            else:
-                self._conn.execute(
-                    "INSERT INTO test_strategies "
-                    "(situation, strategy, success_count, fail_count, "
-                    "created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        situation,
-                        strategy,
-                        1 if success else 0,
-                        0 if success else 1,
-                        now,
-                        now,
-                    ),
-                )
-            self._conn.commit()
-        except sqlite3.Error:
-            pass
+        self._strategies.learn_strategy(situation, strategy, success)
 
     def get_strategies(self, situation: str) -> list[dict[str, Any]]:
         """Get strategies for a situation, sorted by success rate."""
-        try:
-            rows = self._conn.execute(
-                """\
-                SELECT strategy, success_count, fail_count
-                FROM test_strategies
-                WHERE situation=?
-                ORDER BY
-                    CAST(success_count AS REAL) /
-                    MAX(success_count + fail_count, 1) DESC,
-                    success_count DESC
-                """,
-                (situation,),
-            ).fetchall()
-            return [
-                {
-                    "strategy": r["strategy"],
-                    "success": r["success_count"],
-                    "fail": r["fail_count"],
-                }
-                for r in rows
-            ]
-        except sqlite3.Error:
-            return []
+        return self._strategies.get_strategies(situation)
 
     def close(self) -> None:
         """Close the database connection."""
         self._conn.close()
+
+
+__all__ = ["LearnedStore"]
