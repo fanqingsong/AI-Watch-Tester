@@ -305,6 +305,7 @@ def _generate_scenario(
         and e.get("source") in ("dom", "semantics")
         and e.get("x", 0) > 100
         and e.get("role", "") != "textbox"
+        and e.get("y", 0) < 600  # Exclude footer elements (usually at bottom of page)
     ]
 
     # Detect intent from description
