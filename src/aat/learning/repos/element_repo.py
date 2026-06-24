@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aat.core.exceptions import LearningError
 from aat.core.learning_models import LearnedElement
@@ -278,6 +278,30 @@ class ElementRepo:
             return [_row_to_element(r) for r in rows]
         except sqlite3.Error as exc:
             msg = f"list_all failed: {exc}"
+            raise LearningError(msg) from exc
+
+    def list_top_elements(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return the most-used elements as dicts (target_name, use_count, updated_at).
+
+        Ordered by use_count descending. This is the read path for the
+        ``aat learned list`` CLI command.
+        """
+        try:
+            rows = self._conn.execute(
+                "SELECT target_name, use_count, updated_at "
+                "FROM learned_elements ORDER BY use_count DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [
+                {
+                    "target_name": r["target_name"],
+                    "use_count": r["use_count"],
+                    "updated_at": r["updated_at"],
+                }
+                for r in rows
+            ]
+        except sqlite3.Error as exc:
+            msg = f"list_top_elements failed: {exc}"
             raise LearningError(msg) from exc
 
     def increment_use_count(self, element_id: int) -> None:

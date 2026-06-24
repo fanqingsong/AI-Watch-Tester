@@ -103,6 +103,10 @@ class LearnedStore(BaseLearningStore):
         """Return all stored elements."""
         return self._elements.list_all()
 
+    def list_top_elements(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return the most-used elements as dicts (for the ``aat learned list`` CLI)."""
+        return self._elements.list_top_elements(limit)
+
     def increment_use_count(self, element_id: int) -> None:
         """Increment use_count by 1 for the given element."""
         self._elements.increment_use_count(element_id)
@@ -264,6 +268,25 @@ class LearnedStore(BaseLearningStore):
     def get_strategies(self, situation: str) -> list[dict[str, Any]]:
         """Get strategies for a situation, sorted by success rate."""
         return self._strategies.get_strategies(situation)
+
+    def clear_all_data(self) -> None:
+        """Delete every row from all six learning tables.
+
+        Used by the ``aat learned clear`` CLI command. Clears ALL tables
+        (learned_elements, failure_patterns, platform_patterns, match_history,
+        state_coords, test_strategies) so the store fully owns its data and the
+        CLI no longer reaches into ``_conn``.
+        """
+        for table in (
+            "learned_elements",
+            "failure_patterns",
+            "platform_patterns",
+            "match_history",
+            "state_coords",
+            "test_strategies",
+        ):
+            self._conn.execute(f"DELETE FROM {table}")  # noqa: S608
+        self._conn.commit()
 
     def close(self) -> None:
         """Close the database connection."""

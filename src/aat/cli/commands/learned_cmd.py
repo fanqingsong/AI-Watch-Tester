@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -36,12 +37,9 @@ def learned_list(
     store = LearnedStore(db_path)
 
     # Elements
+    rows: list[dict[str, Any]] = []
     try:
-        cursor = store._conn.execute(
-            "SELECT target_name, use_count, updated_at "
-            "FROM learned_elements ORDER BY use_count DESC LIMIT 20"
-        )
-        rows = cursor.fetchall()
+        rows = store.list_top_elements(20)
         if rows:
             typer.echo("\n  Learned Elements:")
             typer.echo(f"  {'Target':<30} {'Uses':>5} {'Last Used':<20}")
@@ -106,8 +104,5 @@ def learned_clear(
     from aat.learning.store import LearnedStore
 
     store = LearnedStore(db_path)
-    store._conn.execute("DELETE FROM learned_elements")
-    store._conn.execute("DELETE FROM failure_patterns")
-    store._conn.execute("DELETE FROM platform_patterns")
-    store._conn.commit()
+    store.clear_all_data()
     typer.echo(typer.style("  ✓ All learned data cleared.", fg=typer.colors.GREEN))
