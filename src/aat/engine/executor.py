@@ -98,6 +98,35 @@ _CONCISE_SKIP_ACTIONS: frozenset[ActionType] = frozenset(
     }
 )
 
+# Login/auth URL substrings — if the browser lands here unexpectedly, the
+# session has expired or authentication is required. This is the single
+# source of truth for login-redirect detection; every call site must go
+# through ``is_login_redirect`` so the pattern set stays consistent.
+# It is a superset of all previously hard-coded pattern lists (including
+# ``accounts/login`` and ``/auth`` which were missing from the post-step
+# checks), so existing detections still fire and the documented gap is closed.
+_LOGIN_URL_SUBSTRINGS: frozenset[str] = frozenset(
+    {
+        "nidlogin",
+        "/login",
+        "/signin",
+        "account/login",
+        "accounts/login",
+        "/auth",
+    }
+)
+
+
+def is_login_redirect(url: str) -> bool:
+    """Return True if ``url`` looks like a login/auth page.
+
+    Case-insensitive substring match against :data:`_LOGIN_URL_SUBSTRINGS`.
+    """
+    if not url:
+        return False
+    lowered = url.lower()
+    return any(pat in lowered for pat in _LOGIN_URL_SUBSTRINGS)
+
 
 _SYNONYMS: dict[str, list[str]] = {
     "email": ["e-mail", "email address", "mail"],
@@ -1886,15 +1915,9 @@ class StepExecutor:
             selector,
         )
 
-    # Login/auth URL patterns — if we land here unexpectedly, session expired
-    _LOGIN_URL_PATTERNS: tuple[str, ...] = (
-        "nidlogin",
-        "/login",
-        "/signin",
-        "account/login",
-        "accounts/login",
-        "/auth",
-    )
+    # Login/auth URL patterns — delegates to the module-level SSOT.
+    # Kept as a class attribute for backwards compatibility / introspection.
+    _LOGIN_URL_PATTERNS: tuple[str, ...] = tuple(_LOGIN_URL_SUBSTRINGS)
 
     async def _check_post_navigate_redirect(self, step: StepConfig) -> None:
         """After navigate, detect unexpected login/auth redirects.
@@ -1905,9 +1928,9 @@ class StepExecutor:
         if not hasattr(self._engine, "page"):
             return
 
-        target = (step.value or "").lower()
+        target = step.value or ""
         # If this step intentionally navigates to a login page, mark it and skip redirect check
-        if any(p in target for p in self._LOGIN_URL_PATTERNS):
+        if is_login_redirect(target):
             self._intentional_login_page = True
             return
         # Navigating away from login page — reset flag
@@ -1919,27 +1942,26 @@ class StepExecutor:
             # — skip check if it looks like an awaitable (mock/test environment)
             if callable(url_val) or hasattr(url_val, "__await__"):
                 return
-            current_url = str(url_val).lower()
+            current_url = str(url_val)
         except Exception:
             return
 
-        for pattern in self._LOGIN_URL_PATTERNS:
-            if pattern in current_url:
-                ss_path = self._screenshot_dir / f"redirect_step{step.step}.png"
-                ss_path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    ss_bytes = await self._engine.screenshot()
-                    Path(str(ss_path)).write_bytes(ss_bytes)
-                except Exception:
-                    pass
-                raise StepExecutionError(
-                    f"Unexpected redirect to login page after navigate: "
-                    f"{current_url!r}. "
-                    "Session expired or authentication required. "
-                    f"Screenshot: {ss_path}",
-                    step=step.step,
-                    action="navigate",
-                )
+        if is_login_redirect(current_url):
+            ss_path = self._screenshot_dir / f"redirect_step{step.step}.png"
+            ss_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                ss_bytes = await self._engine.screenshot()
+                Path(str(ss_path)).write_bytes(ss_bytes)
+            except Exception:
+                pass
+            raise StepExecutionError(
+                f"Unexpected redirect to login page after navigate: "
+                f"{current_url.lower()!r}. "
+                "Session expired or authentication required. "
+                f"Screenshot: {ss_path}",
+                step=step.step,
+                action="navigate",
+            )
 
     async def _maybe_activate_flutter_semantics(self) -> None:
         """Auto-activate Flutter Semantics after navigation (if Flutter)."""
@@ -2392,9 +2414,7 @@ class StepExecutor:
         if not needs_ocr:
             # Still run URL-based login redirect check (no OCR needed)
             if not self._intentional_login_page:
-                on_login_page = any(
-                    kw in page_url for kw in ("nidlogin", "/login", "/signin", "account/login")
-                )
+                on_login_page = is_login_redirect(page_url)
                 if on_login_page:
                     ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
                     ss_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2485,9 +2505,7 @@ class StepExecutor:
             if hasattr(self._engine, "page"):
                 with contextlib.suppress(Exception):
                     current_url = self._engine.page.url.lower()
-            on_login_page = any(
-                kw in current_url for kw in ("nidlogin", "/login", "/signin", "account/login")
-            )
+            on_login_page = is_login_redirect(current_url)
             if on_login_page:
                 ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
                 ss_path.parent.mkdir(parents=True, exist_ok=True)

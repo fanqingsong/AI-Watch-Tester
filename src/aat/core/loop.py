@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aat.core.cost import log_cost
+from aat.core.diagnosis import classify_test_result
 from aat.core.exceptions import LoopError
 from aat.core import (
     ApprovalMode,
@@ -124,7 +125,7 @@ class DevQALoop:
                     )
 
                 # Failed — classify and analyze
-                failure_type = self._classify_failure(test_result)
+                failure_type = classify_test_result(test_result)
                 logger.info("Failure classified as: %s", failure_type)
                 analysis = await self._adapter.analyze_failure(test_result)
                 log_cost(
@@ -500,31 +501,6 @@ class DevQALoop:
             output_tokens=len(fix_text) // 4,
             data_dir=self._config.data_dir,
         )
-
-    @staticmethod
-    def _classify_failure(test_result: TestResult) -> str:
-        """Classify failures into actionable categories."""
-        for step_result in test_result.steps:
-            if step_result.status.value == "passed":
-                continue
-            err = (step_result.error_message or "").lower()
-
-            if "not visible" in err or "not found" in err:
-                return "element_not_found"
-            if "timeout" in err:
-                return "timeout"
-            if "navigation" in err or "goto" in err:
-                return "navigation_error"
-            if "401" in err or "403" in err or "auth" in err:
-                return "auth_error"
-            if any(k in err for k in ("500 internal", "internal server error", "502", "503")):
-                return "server_error"
-            if "selector" in err:
-                return "selector_changed"
-            if "assert" in err:
-                return "assertion_failed"
-
-        return "unknown"
 
     async def _read_source_files(
         self,

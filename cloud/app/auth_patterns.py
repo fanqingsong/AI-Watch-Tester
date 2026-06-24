@@ -233,7 +233,7 @@ def detect_auth_pattern(
 
     # 8) Default: single_page
     if not detected:
-        detected = "single_page" if len(input_fields) >= 3 else "single_page"
+        detected = "single_page"
 
     patterns = REGISTRATION_PATTERNS
     pattern_data = patterns.get(detected, {})
@@ -768,40 +768,24 @@ def build_auth_context_for_ai(auth_info: dict) -> str:
             break
 
         parts.append(
-            f"MULTI-STEP FORM: {len(steps_data)} steps detected
-"
-            "→ Signup scenarios must include all steps\.
-"
-            "→ Insert 'next' button click + wait steps between each stage\.
-"
-            "→ Insert final submit button click + assert at last stage\.
-"
-            "→ Skip optional file uploads (profile photo, etc.)\.
-\n"
-            "→ Test required file uploads with dummy file\.
-\n"
-            "→ Optional text fields can be skipped\.
-\n"
-            "STEP ORDER RULE (must comply):
-\n"
-            "→ Place each field exactly in the collected step (Step N)\.
-\n"
-            "→ Step 1 fields before 'next' click, Step 2 fields after 'next' click\.
-\n"
-            "→ Do not move fields to different steps\.
-\n"
-            "CHECKBOX RULE:\n"
-            "→ "agree", "terms", "privacy" text "
-            "checkboxes are always required\.
-\n"
-            "→ Include these checkboxes as find_and_click steps\.
-\n"
-            "→ Place checkboxes in the collected step (do not move to other step)\.
-\n"
-            "SUBMIT BUTTON RULE:\n"
-            "→ Last stage submit button should use actual button text from collected fields "
-            "(use this exact text)
-"
+            f"""MULTI-STEP FORM: {len(steps_data)} steps detected
+→ Signup scenarios must include all steps.
+→ Insert 'next' button click + wait steps between each stage.
+→ Insert final submit button click + assert at last stage.
+→ Skip optional file uploads (profile photo, etc.).
+→ Test required file uploads with dummy file.
+→ Optional text fields can be skipped.
+STEP ORDER RULE (must comply):
+→ Place each field exactly in the collected step (Step N).
+→ Step 1 fields before 'next' click, Step 2 fields after 'next' click.
+→ Do not move fields to different steps.
+CHECKBOX RULE:
+→ "agree", "terms", "privacy" text checkboxes are always required.
+→ Include these checkboxes as find_and_click steps.
+→ Place checkboxes in the collected step (do not move to other step).
+SUBMIT BUTTON RULE:
+→ Last stage submit button should use actual button text from collected fields (use this exact text)
+"""
         )
         if last_btn_text:
             parts.append(

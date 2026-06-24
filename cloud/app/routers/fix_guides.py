@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tests", tags=["fix-guides"])
 
+# Default model per AI provider.
+# NOTE: This is intentionally a SEPARATE map from app.scenario_utils.DEFAULT_AI_MODELS.
+# This router consumes the *user-config* provider namespace (anthropic/openai/...),
+# whose keys are defined by the Literal in app/schemas.py (note "anthropic", not
+# "claude"), and whose OpenAI default is gpt-4o (not gpt-4o-mini). scenario_utils
+# instead consumes settings.ai_provider (AAT-core env-var namespace: "claude").
+# Do NOT collapse these two without first unifying the provider-naming convention.
 _DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-4-20250514",
     "deepseek": "deepseek-chat",

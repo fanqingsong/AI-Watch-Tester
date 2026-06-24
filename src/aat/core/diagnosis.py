@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aat.core import StepResult
+    from aat.core import StepResult, TestResult
     from aat.learning.store import LearnedStore
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,43 @@ def classify_failure(error_message: str) -> str:
         return "selector_changed"
     if "assert" in err or "text_visible" in err:
         return "assertion_failed"
+    return "unknown"
+
+
+def classify_test_result(result: TestResult) -> str:
+    """Classify a whole ``TestResult`` into an actionable category.
+
+    This is the canonical owner of the per-step classification used by the
+    DevQA loop. It iterates the result's steps (skipping passed ones) and
+    returns the first matching category, or ``"unknown"`` if none match.
+
+    The matching rules here intentionally mirror the legacy loop-local
+    classification exactly (same category strings for identical inputs).
+    Note this is a NARROWER match than :func:`classify_failure`, which
+    additionally recognises ``"timed out"``, ``"net::"`` and
+    ``"text_visible"`` — those extras are deliberately NOT applied here so
+    the loop's behaviour stays identical.
+    """
+    for step_result in result.steps:
+        if step_result.status.value == "passed":
+            continue
+        err = (step_result.error_message or "").lower()
+
+        if "not visible" in err or "not found" in err:
+            return "element_not_found"
+        if "timeout" in err:
+            return "timeout"
+        if "navigation" in err or "goto" in err:
+            return "navigation_error"
+        if "401" in err or "403" in err or "auth" in err:
+            return "auth_error"
+        if any(k in err for k in ("500 internal", "internal server error", "502", "503")):
+            return "server_error"
+        if "selector" in err:
+            return "selector_changed"
+        if "assert" in err:
+            return "assertion_failed"
+
     return "unknown"
 
 
@@ -289,5 +326,9 @@ def check_learned_hint(
 
 __all__ = [
     "classify_failure",
-    "collect_context",
+    "classify_test_result",
+    "collect_failure_context",
+    "format_diagnosis",
+    "format_skill_diagnosis",
+    "check_learned_hint",
 ]

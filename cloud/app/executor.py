@@ -21,17 +21,19 @@ from sqlalchemy import select
 from app.config import settings
 from app.database import async_session
 from app.models import Test
+from app.scenario_utils import DEFAULT_AI_MODELS as _DEFAULT_MODELS
 from app.ws import WSManager
 
 logger = logging.getLogger(__name__)
 
-# Default model per AI provider
-_DEFAULT_MODELS: dict[str, str] = {
-    "claude": "claude-sonnet-4-20250514",
-    "deepseek": "deepseek-chat",
-    "openai": "gpt-4o-mini",
-    "ollama": "codellama:7b",
-}
+# Default model per AI provider.
+# Canonical source: app.scenario_utils.DEFAULT_AI_MODELS (single source of
+# truth, shared with routers/scan.py and routers/tests.py). This executor
+# consumes settings.ai_provider, which uses AAT-core provider keys
+# (claude/deepseek/openai/ollama/zhipuai) — same namespace as scenario_utils.
+# NOTE: routers/fix_guides.py intentionally keeps its own _DEFAULT_MODELS
+# because it consumes the user-config provider namespace (anthropic/...),
+# not settings.ai_provider — see cloud/app/schemas.py.
 
 # ---------------------------------------------------------------------------
 # AI scenario generation prompt

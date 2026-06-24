@@ -37,7 +37,7 @@ mcp = FastMCP(
         "        → Show the scenario to the user.\n"
         "        → Ask: 'Should I run this test?'\n"
         "        → WAIT for user approval.\n\n"
-        "Step 3: Call aat_run_skill_mode ONLY after user approves.\n"
+        "Step 3: Call aat_run ONLY after user approves.\n"
         "        → If a step fails, STOP and report to user.\n"
         "        → Ask: 'Should I fix the scenario or source code?'\n"
         "        → WAIT for user instruction. Do NOT auto-fix.\n\n"
@@ -46,7 +46,7 @@ mcp = FastMCP(
         "If the user has a spec document, plan file (e.g. GSD PLAN.md), or PRD:\n"
         "  → Call aat_generate_from_doc with the document path.\n"
         "  → Show the generated scenarios to the user.\n"
-        "  → WAIT for approval, then run with aat_run_skill_mode.\n\n"
+        "  → WAIT for approval, then run with aat_run.\n\n"
         "⛔ NEVER use aat_run without showing the scenario to the user first.\n"
         "⛔ NEVER auto-fix code or scenarios without user permission.\n"
         "⛔ There is NO --auto-approve or -y flag. Human approval is always required.\n\n"
@@ -97,15 +97,6 @@ async def _run_cmd(cmd: list[str], timeout: int = 120) -> dict[str, str | int]:
         }
 
 
-def _find_aat() -> str:
-    """Find the aat executable path."""
-    # Check common locations
-    for candidate in ["aat", "python -m aat"]:
-        if os.system(f"which {candidate.split()[0]} > /dev/null 2>&1") == 0:  # noqa: S605
-            return candidate
-    return "aat"
-
-
 def _format_result(result: dict[str, str | int]) -> str:
     """Format command result for MCP response."""
     parts = []
@@ -151,6 +142,7 @@ async def aat_run(
     scenario_file: str,
     verbosity: str = "concise",
     screenshots: str = "before-after",
+    skill_mode: bool = True,
 ) -> str:
     """STEP 3: Run AWT test scenarios (requires prior user approval).
 
@@ -162,60 +154,28 @@ async def aat_run(
     If a test step fails, STOP and report to the user. Ask what to fix.
     Do NOT auto-retry or auto-fix without user permission.
 
+    ``skill_mode`` (default True) enables structured failure diagnosis:
+    on failure the output includes a ``=== AWT SKILL DEVQA ===`` block with
+    SCENARIO, FAILED_STEP, ERROR, SCREENSHOT path and POSSIBLE_CAUSE.
+
     Args:
         scenario_file: Path to a YAML scenario file or directory containing scenarios.
         verbosity: 'concise' (skip wait/screenshot steps, faster) or
                    'detailed' (all steps including screenshots and waits). Default: 'concise'.
         screenshots: 'all' (every step), 'before-after' (action boundaries only, ~70% fewer files),
                      'on-failure' (only on failure, best for CI/CD). Default: 'before-after'.
+        skill_mode: If True (default), run in skill mode (``--skill-mode``) with structured
+                    failure diagnosis. Set False for a plain run.
     """
-    result = await _run_cmd(
-        [
-            "aat", "run", "--skill-mode", "--fast", "--learn",
-            f"--verbosity={verbosity}",
-            f"--screenshots={screenshots}",
-            scenario_file,
-        ],
-        timeout=180,
-    )
-    return _format_result(result)
-
-
-@mcp.tool()
-async def aat_run_skill_mode(
-    scenario_file: str,
-    verbosity: str = "concise",
-    screenshots: str = "before-after",
-) -> str:
-    """STEP 3 (alternative): Run AWT in skill mode with structured failure diagnosis.
-
-    Same rules as aat_run — requires prior user approval.
-
-    ⚠️ IMPORTANT: Only call this AFTER the user has approved the scenario.
-
-    On failure, outputs a structured === AWT SKILL DEVQA === block with:
-    SCENARIO, FAILED_STEP, ERROR, SCREENSHOT path, POSSIBLE_CAUSE.
-
-    On failure:
-    1. Read the SCREENSHOT file to see browser state
-    2. Report the failure to the user with possible cause
-    3. Ask: "Should I fix the scenario or the source code?"
-    4. WAIT for user instruction — do NOT auto-fix
-
-    Args:
-        scenario_file: Path to a YAML scenario file or directory.
-        verbosity: 'concise' (faster) or 'detailed' (all steps). Default: 'concise'.
-        screenshots: 'all', 'before-after', or 'on-failure'. Default: 'before-after'.
-    """
-    result = await _run_cmd(
-        [
-            "aat", "run", "--skill-mode", "--fast", "--learn",
-            f"--verbosity={verbosity}",
-            f"--screenshots={screenshots}",
-            scenario_file,
-        ],
-        timeout=180,
-    )
+    cmd = [
+        "aat", "run", "--fast", "--learn",
+        f"--verbosity={verbosity}",
+        f"--screenshots={screenshots}",
+    ]
+    if skill_mode:
+        cmd.insert(2, "--skill-mode")
+    cmd.append(scenario_file)
+    result = await _run_cmd(cmd, timeout=180)
     return _format_result(result)
 
 

@@ -19,8 +19,7 @@ pip install mcp[cli]
 |------|-------------|
 | `aat_devqa` | **All-in-one**: scan→scenario generation→await approval→execute→auto-fix full loop |
 | `aat_scan` | **Step 1**: URL scan, collect interactive elements (generates scan_result.json) |
-| `aat_run` | **Step 3**: Execute scenario file (only call after user approval) |
-| `aat_run_skill_mode` | **Step 3**: Execute in skill mode (includes structured failure diagnosis) |
+| `aat_run` | **Step 3**: Execute scenario file (only call after user approval); `skill_mode=True` (default) adds structured failure diagnosis |
 | `aat_doctor` | Environment diagnostics (Python, Playwright, Tesseract, AI connection) |
 | `aat_list_scenarios` | List scenario files in current directory |
 | `aat_validate` | YAML scenario schema validation |
@@ -32,7 +31,7 @@ When using AWT tools, you must follow this order:
 
 1. **`aat_scan`** → Summarize results to user → **Wait for approval**
 2. Write scenario YAML → Show to user → **Wait for approval**
-3. **`aat_run` or `aat_run_skill_mode`** → Execute only after approval → Report failure → **Wait for instructions**
+3. **`aat_run`** → Execute only after approval (skill mode is on by default) → Report failure → **Wait for instructions**
 4. Report results
 
 **Prohibited:** `-y`/`--auto-approve` (flag doesn't exist), execute without user approval, auto code modification
@@ -105,10 +104,10 @@ After MCP registration, in AI tools:
 ```
 "Test the login"               → aat_devqa("login test", url="http://localhost:3000")
 "Show scenario list"          → aat_list_scenarios call
-"Execute login scenario"       → aat_run("scenarios/login.yaml")
+"Execute login scenario"       → aat_run("scenarios/login.yaml")           # skill mode on by default
+"Execute without skill mode"   → aat_run("scenarios/login.yaml", skill_mode=False)
 "Diagnose environment"         → aat_doctor call
 "How much cost incurred?"      → aat_cost call
-"Run test in skill mode"       → aat_run_skill_mode("scenarios/login.yaml")
 ```
 
 ### verbosity / screenshots options
@@ -132,7 +131,7 @@ aat_devqa("signup test", url="http://localhost:3000", screenshots="before-after"
 
 ### DevQA Loop (Skill Mode)
 
-`aat_run_skill_mode` returns a structured block on failure:
+`aat_run(..., skill_mode=True)` (the default) returns a structured block on failure:
 
 ```
 === AWT SKILL DEVQA ===
