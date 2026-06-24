@@ -100,13 +100,9 @@ def main(
 # -- Register commands --------------------------------------------------------
 
 from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
-
-# Visual regression commands
 from aat.cli.commands.baseline_cmd import baseline_app  # noqa: E402
-from aat.cli.commands.cloud_cmd import app as cloud_app  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
 from aat.cli.commands.cost_cmd import cost_app  # noqa: E402
-from aat.cli.commands.dashboard_cmd import dashboard_command  # noqa: E402
 from aat.cli.commands.devqa_cmd import devqa_command  # noqa: E402
 from aat.cli.commands.diff_cmd import diff_command  # noqa: E402
 from aat.cli.commands.doctor_cmd import doctor_command  # noqa: E402
@@ -119,7 +115,6 @@ from aat.cli.commands.loop_cmd import loop_command  # noqa: E402
 from aat.cli.commands.report_cmd import report_app  # noqa: E402
 from aat.cli.commands.run_cmd import run_command  # noqa: E402
 from aat.cli.commands.scan_cmd import scan_command  # noqa: E402
-from aat.cli.commands.serve_cmd import serve_command  # noqa: E402
 from aat.cli.commands.setup_cmd import setup_command  # noqa: E402
 from aat.cli.commands.snapshot_cmd import snapshot_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
@@ -129,9 +124,6 @@ from aat.cli.commands.watch_cmd import watch_command  # noqa: E402
 app.command(name="setup")(setup_command)
 app.command(name="doctor")(doctor_command)
 app.command(name="start")(start_command)
-app.command(name="serve")(serve_command)
-app.command(name="dashboard")(dashboard_command)
-app.add_typer(cloud_app, name="cloud")
 app.command(name="init")(init_command)
 app.add_typer(config_app, name="config")
 app.add_typer(cost_app, name="cost")
