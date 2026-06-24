@@ -18,6 +18,14 @@ import cv2
 import numpy as np
 
 from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
+from aat.engine.image_diff import compute_change_ratio
+from aat.engine.ocr import (
+    PREPROCESS_CLAHE,
+    PREPROCESS_CLAHE_UPSCALE2X,
+    PREPROCESS_OTSU,
+    PREPROCESS_RAW,
+    ocr_screenshot,
+)
 from aat.learning.base import BaseLearningStore
 from aat.core import (
     FIND_ACTIONS,
@@ -1646,34 +1654,27 @@ class StepExecutor:
         if search_text:
             try:
                 ss = await self._engine.screenshot()
-                import pytesseract  # type: ignore[import-untyped]
 
-                arr = np.frombuffer(ss, dtype=np.uint8)
-                img_color = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-                if img_color is not None:
-                    gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-                    # Otsu threshold — improves contrast for modal/overlay text
-                    _, thresh = cv2.threshold(
-                        gray,
-                        0,
-                        255,
-                        cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-                    )
-                    ocr_text: str = pytesseract.image_to_string(
-                        thresh,
-                        lang="kor+eng",
-                        config="--oem 3 --psm 6",
-                    )
-                    if search_text.lower() in ocr_text.lower():
-                        return True
-                    # Second pass: raw grayscale with sparse-text PSM for overlays
-                    ocr_text2: str = pytesseract.image_to_string(
-                        gray,
-                        lang="kor+eng",
-                        config="--oem 3 --psm 11",
-                    )
-                    if search_text.lower() in ocr_text2.lower():
-                        return True
+                # Pass A: Otsu threshold + kor+eng, oem 3, psm 6
+                ocr_text = ocr_screenshot(
+                    ss,
+                    lang="kor+eng",
+                    oem=3,
+                    psm=6,
+                    preprocess=PREPROCESS_OTSU,
+                )
+                if search_text.lower() in ocr_text.lower():
+                    return True
+                # Pass B: raw grayscale (COLOR→gray) + kor+eng, oem 3, psm 11
+                ocr_text2 = ocr_screenshot(
+                    ss,
+                    lang="kor+eng",
+                    oem=3,
+                    psm=11,
+                    preprocess=PREPROCESS_RAW,
+                )
+                if search_text.lower() in ocr_text2.lower():
+                    return True
             except Exception:
                 pass
 
@@ -2432,20 +2433,12 @@ class StepExecutor:
 
         # OCR the post-step screenshot (critical / if_visible only)
         try:
-            import pytesseract  # type: ignore[import-untyped]
-
-            arr = np.frombuffer(screenshot, dtype=np.uint8)
-            img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
-            if img is None:
-                return
-
-            # Quick OCR
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-            img = clahe.apply(img)
-            ocr_text: str = pytesseract.image_to_string(
-                img,
+            ocr_text = ocr_screenshot(
+                screenshot,
                 lang="kor+eng",
-                config="--oem 3 --psm 6",
+                oem=3,
+                psm=6,
+                preprocess=PREPROCESS_CLAHE,
             )
             ocr_lower = ocr_text.lower()
         except Exception:
@@ -2608,22 +2601,12 @@ class StepExecutor:
 
     @staticmethod
     def _compute_change_ratio(before: bytes, after: bytes) -> float:
-        """Compute pixel change ratio between two screenshots."""
-        prev_arr = np.frombuffer(before, dtype=np.uint8)
-        curr_arr = np.frombuffer(after, dtype=np.uint8)
-        prev_img = cv2.imdecode(prev_arr, cv2.IMREAD_GRAYSCALE)
-        curr_img = cv2.imdecode(curr_arr, cv2.IMREAD_GRAYSCALE)
+        """Compute pixel change ratio between two screenshots.
 
-        if prev_img is None or curr_img is None:
-            return 0.0
-
-        if prev_img.shape != curr_img.shape:
-            curr_img = cv2.resize(curr_img, (prev_img.shape[1], prev_img.shape[0]))
-
-        diff = cv2.absdiff(prev_img, curr_img)
-        changed = np.count_nonzero(diff > 25)
-        total = diff.size
-        return changed / total if total > 0 else 0.0
+        Thin wrapper around :func:`aat.engine.image_diff.compute_change_ratio`
+        so callers keep their original signature. Behaviour is identical.
+        """
+        return compute_change_ratio(before, after)
 
     def _get_viewport_size(self) -> tuple[int, int]:
         """Get viewport width and height from engine config."""
@@ -2642,8 +2625,6 @@ class StepExecutor:
         message: str = "",
     ) -> None:
         """Verify text exists on screen via OCR (region-aware)."""
-        import pytesseract  # type: ignore[import-untyped]
-
         screenshot = await self._engine.screenshot()
 
         # Crop to region
@@ -2652,22 +2633,21 @@ class StepExecutor:
             if cropped is not None:
                 screenshot = cropped
 
-        img_arr = np.frombuffer(screenshot, dtype=np.uint8)
-        img = cv2.imdecode(img_arr, cv2.IMREAD_GRAYSCALE)
-        if img is None:
+        # CLAHE + 2x bicubic upscale, default language, oem 3, no psm.
+        ocr_text = ocr_screenshot(
+            screenshot,
+            lang=None,
+            oem=3,
+            psm=None,
+            preprocess=PREPROCESS_CLAHE_UPSCALE2X,
+        )
+        if ocr_text == "" and not self._is_decodable(screenshot):
             raise StepExecutionError(
                 message or "Failed to decode screenshot for text verification",
                 step=0,
                 action="assert_text",
             )
 
-        # Enhanced preprocessing for Canvas text
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        img = clahe.apply(img)
-        h, w = img.shape
-        img = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-
-        ocr_text: str = pytesseract.image_to_string(img, config="--oem 3")
         search = text.strip().lower()
         if search not in ocr_text.lower():
             err = message or (f"Text '{text}' not found in region={region.value} via OCR")
@@ -2678,6 +2658,16 @@ class StepExecutor:
             text,
             region.value,
         )
+
+    @staticmethod
+    def _is_decodable(screenshot: bytes) -> bool:
+        """Return True if the screenshot decodes to a valid OpenCV image."""
+        try:
+            arr = np.frombuffer(screenshot, dtype=np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+            return img is not None
+        except Exception:
+            return False
 
     async def _check_screen_changed(
         self,
@@ -2695,30 +2685,13 @@ class StepExecutor:
 
         vp = self._get_viewport_size()
 
-        # Decode both
-        prev_arr = np.frombuffer(previous, dtype=np.uint8)
-        curr_arr = np.frombuffer(current, dtype=np.uint8)
-        prev_img = cv2.imdecode(prev_arr, cv2.IMREAD_GRAYSCALE)
-        curr_img = cv2.imdecode(curr_arr, cv2.IMREAD_GRAYSCALE)
-
-        if prev_img is None or curr_img is None:
-            return
-
-        # Crop to region
+        # Region crop (absolute pixel rectangle), computed identically to the
+        # legacy implementation; passed to the shared helper.
+        region_rect: tuple[int, int, int, int] | None = None
         if region != ScreenRegion.FULL:
-            rx, ry, rw, rh = compute_region_bounds(region, vp[0], vp[1])
-            prev_img = prev_img[ry : ry + rh, rx : rx + rw]
-            curr_img = curr_img[ry : ry + rh, rx : rx + rw]
+            region_rect = compute_region_bounds(region, vp[0], vp[1])
 
-        # Resize to same dimensions if needed
-        if prev_img.shape != curr_img.shape:
-            curr_img = cv2.resize(curr_img, (prev_img.shape[1], prev_img.shape[0]))
-
-        # Compute pixel difference ratio
-        diff = cv2.absdiff(prev_img, curr_img)
-        changed_pixels = np.count_nonzero(diff > 25)
-        total_pixels = diff.size
-        change_ratio = changed_pixels / total_pixels if total_pixels > 0 else 0
+        change_ratio = compute_change_ratio(previous, current, region=region_rect)
 
         logger.info(
             "assert_screen_changed: %.2f%% pixels changed (threshold=%.2f%%, region=%s)",

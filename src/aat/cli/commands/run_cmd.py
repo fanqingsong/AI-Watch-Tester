@@ -16,6 +16,7 @@ from aat.core.diagnosis import (
     collect_failure_context,
     format_diagnosis,
     format_skill_diagnosis,
+    nav_zone_warnings,
 )
 from aat.core.exceptions import AATError
 from aat.core import FIND_ACTIONS, Scenario, StepResult, StepStatus
@@ -782,16 +783,13 @@ async def _run(
                     and result.match_result.found
                     and step.action in FIND_ACTIONS
                 ):
-                    mr = result.match_result
-                    vw = config.engine.viewport_width
-                    nav_boundary = vw * 0.2
-                    if 0 < mr.x < nav_boundary:
-                        nav_warning = (
-                            f"Step {step.step}: click at x={mr.x} is in "
-                            f"the left 20% (nav zone, x < "
-                            f"{int(nav_boundary)}). "
-                            f"May be nav panel, not main content."
-                        )
+                    zone_warnings = nav_zone_warnings(
+                        step,
+                        result.match_result,
+                        config.engine.viewport_width,
+                    )
+                    if zone_warnings:
+                        nav_warning = zone_warnings[0]
                         nav_warnings.append(nav_warning)
                         typer.echo(
                             typer.style(

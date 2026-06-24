@@ -12,10 +12,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aat.core import StepResult, TestResult
+    from aat.core import MatchResult, StepConfig, StepResult, TestResult
     from aat.learning.base import BaseLearningStore
 
 logger = logging.getLogger(__name__)
+
+# -- Navigation-zone warnings (False-Positive risk) -------------------------
+
+#: Fraction of the viewport width that counts as the left "navigation zone".
+#:
+#: Clicks landing in this strip are flagged because they are more likely to be
+#: nav-panel elements than main-content targets. This is the single source of
+#: truth for the ``0.2`` ratio that was hard-coded in run_cmd's per-step loop.
+NAV_ZONE_RATIO: float = 0.2
 
 # -- Failure classification + checklists -----------------------------------
 
@@ -85,6 +94,45 @@ def classify_failure(error_message: str) -> str:
     if "assert" in err or "text_visible" in err:
         return "assertion_failed"
     return "unknown"
+
+
+def nav_zone_warnings(
+    step: StepConfig,
+    match_result: MatchResult | None,
+    viewport_width: int,
+) -> list[str]:
+    """Return nav-zone warning strings for a step's match position.
+
+    A match is flagged when its x-coordinate lands in the left
+    :data:`NAV_ZONE_RATIO` slice of the viewport (the navigation-panel strip).
+    This is a common source of false positives where a click hits a nav rail
+    instead of the intended main-content target.
+
+    Args:
+        step: The step that produced the match (used for the step number in the
+            warning text and to confirm it is a find action).
+        match_result: The match result for the step. ``None`` or a non-found
+            match produces no warnings.
+        viewport_width: Viewport width in pixels; the nav boundary is
+            ``viewport_width * NAV_ZONE_RATIO``.
+
+    Returns:
+        A list of warning strings — empty when the match is out-of-zone (or
+        absent), with exactly one human-readable string when the match is
+        in-zone. The string format is identical to the legacy run_cmd output.
+    """
+    if match_result is None or not match_result.found:
+        return []
+
+    nav_boundary = viewport_width * NAV_ZONE_RATIO
+    if 0 < match_result.x < nav_boundary:
+        return [
+            f"Step {step.step}: click at x={match_result.x} is in "
+            f"the left 20% (nav zone, x < "
+            f"{int(nav_boundary)}). "
+            f"May be nav panel, not main content."
+        ]
+    return []
 
 
 def classify_test_result(result: TestResult) -> str:
@@ -325,10 +373,12 @@ def check_learned_hint(
 
 
 __all__ = [
+    "NAV_ZONE_RATIO",
     "classify_failure",
     "classify_test_result",
     "collect_failure_context",
     "format_diagnosis",
     "format_skill_diagnosis",
     "check_learned_hint",
+    "nav_zone_warnings",
 ]
