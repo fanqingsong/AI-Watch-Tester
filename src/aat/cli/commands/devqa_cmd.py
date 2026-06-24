@@ -793,9 +793,18 @@ def _find_matching_elements(
             or kw in el.get("type", "").lower()
         ]
 
-    # Prefer semantics > dom > ocr
+    # Priority: semantics > dom > ocr
     source_priority = {"semantics": 0, "dom": 1, "ocr": 2}
-    matches.sort(key=lambda e: source_priority.get(e.get("source", "ocr"), 9))
+
+    # Type priority: button/label > svg > a (avoid matching svg icons when button exists)
+    type_priority = {"button": 0, "label": 0, "semantics": 0, "input": 1, "svg": 2, "a": 3}
+
+    matches.sort(
+        key=lambda e: (
+            source_priority.get(e.get("source", "ocr"), 9),
+            type_priority.get(e.get("type", ""), 5),
+        )
+    )
     return matches
 
 
