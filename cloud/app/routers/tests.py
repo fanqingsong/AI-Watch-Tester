@@ -97,10 +97,10 @@ _CONVERT_MESSAGES: dict[str, str] = {
     "requirements_not_met": "Does not meet requirements for '{label}' test.",
 }
 
-_STEP_NAMES: dict[str, str] = {
-    "page_or_modal": "Page/modal entry",
-    "field_input": "Field input",
-    "submit": "Submit button click",
+_STEP_NAMES: dict[str, dict[str, str]] = {
+    "page_or_modal": {"en": "Page/modal entry", "ko": "페이지/모달 진입"},
+    "field_input": {"en": "Field input", "ko": "필드 입력"},
+    "submit": {"en": "Submit button click", "ko": "제출 버튼 클릭"},
 }
 
 
@@ -605,8 +605,7 @@ async def convert_scenario(
     """
     import json
 
-    global _convert_lang  # noqa: PLW0603
-    _convert_lang = body.language or "en"
+    language: str = body.language or "en"
 
     try:
         from aat.adapters import ADAPTER_REGISTRY
@@ -809,7 +808,7 @@ async def convert_scenario(
 
     # --- Pre-generation: check if the requested feature exists ---
     relevance_pre = validate_scenario_relevance(
-        body.user_prompt, [], observations_raw, pdata_raw,
+        body.user_prompt, [], observations_raw, pdata_raw, language=language,
     )
     if relevance_pre.get("feature_missing"):
         # Feature doesn't exist on site — don't generate wrong scenario
@@ -895,7 +894,7 @@ async def convert_scenario(
 
     # --- Post-generation: validate relevance ---
     relevance = validate_scenario_relevance(
-        body.user_prompt, scenarios, observations_raw, pdata_raw,
+        body.user_prompt, scenarios, observations_raw, pdata_raw, language=language,
     )
 
     # If invalid (wrong scenario), retry once with stronger prompt
@@ -924,6 +923,7 @@ async def convert_scenario(
                 scenarios = retry_scenarios
                 relevance = validate_scenario_relevance(
                     body.user_prompt, scenarios, observations_raw, pdata_raw,
+                    language=language,
                 )
         except Exception as exc:
             logger.warning("Relevance retry failed: %s", exc)
@@ -1338,6 +1338,7 @@ def validate_scenario_relevance(
     scenarios: list,
     observations: list[dict],
     page_data: dict | None = None,
+    language: str = "en",
 ) -> dict:
     """Validate that generated scenarios match the user's request.
 
@@ -1410,7 +1411,7 @@ def validate_scenario_relevance(
             )
         if match_result["missing_steps"]:
             missing_names = [
-                _STEP_NAMES.get(s, {}).get(_convert_lang, s)
+                _STEP_NAMES.get(s, {}).get(language, s)
                 for s in match_result["missing_steps"]
             ]
             warnings.append(
