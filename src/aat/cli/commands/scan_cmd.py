@@ -74,8 +74,8 @@ async def _scan(
 
         await engine.navigate(url)
 
-        # Wait for page to settle (longer for Flutter CanvasKit)
-        await asyncio.sleep(3.0)
+        # Wait for page to settle (longer for Flutter CanvasKit + dynamic content)
+        await asyncio.sleep(5.0)
 
         page = engine.page
 
@@ -183,7 +183,10 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
             const selectors = [
                 'a', 'button', 'input', 'textarea', 'select',
                 '[role="button"]', '[role="link"]', '[role="tab"]',
-                '[role="menuitem"]', '[onclick]', '[tabindex]',
+                '[role="menuitem"]', '[role="checkbox"]', '[role="switch"]',
+                '[onclick]', '[tabindex]',
+                '[type="button"]', '[type="submit"]', '[type="image"]',
+                'svg',  // SVG icon buttons
             ];
             const seen = new Set();
 
@@ -196,14 +199,34 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                     if (rect.width < 4 || rect.height < 4) continue;
                     if (rect.x < 0 || rect.y < 0) continue;
 
-                    const label = (
+                    let label = (
                         el.textContent?.trim()?.substring(0, 80) ||
                         el.getAttribute('aria-label') ||
                         el.getAttribute('placeholder') ||
                         el.getAttribute('title') ||
                         ''
                     );
-                    if (!label) continue;
+                    // For elements without visible text, generate a descriptive label
+                    if (!label || label.length < 1) {
+                        const tagName = el.tagName.toLowerCase();
+                        const type = el.getAttribute('type') || '';
+                        const role = el.getAttribute('role') || '';
+                        if (type === 'submit' || role === 'button' || tagName === 'button') {
+                            label = 'submit_button';
+                        } else if (type === 'image') {
+                            label = 'image_button';
+                        } else if (tagName === 'svg') {
+                            // Try to get nearby text from parent
+                            const parentText = el.parentElement?.textContent?.trim()?.substring(0, 40);
+                            label = parentText || 'svg_icon';
+                        } else if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+                            label = 'input_field';
+                        } else {
+                            label = `${tagName}_${role || type || 'element'}`;
+                        }
+                    }
+                    // Still skip if label is too short (probably noise)
+                    if (label.length < 2) continue;
 
                     results.push({
                         label: label,
