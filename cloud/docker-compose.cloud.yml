@@ -1,91 +1,24 @@
-# AI-Watch-Tester Docker Compose Configuration (LEGACY - REFERENCE ONLY)
+# Cloud SaaS Docker Compose Configuration
 #
-# ⚠️  This file is kept for reference only.
-# 👉 Please use the separated configurations instead:
-#    - AAT: docker-compose.aat.yml
-#    - Cloud: docker-compose.cloud.yml
+# This file defines the Cloud SaaS platform services.
+# Focus: Multi-user testing platform with authentication, database, and web UI
 #
-# This legacy file combines both AAT and Cloud services in one file.
-# For better separation and maintenance, use the dedicated configs above.
-#
-# Quick Start with Separated Configs:
-#   AAT Testing:     docker compose -f docker-compose.aat.yml up -d
-#   Cloud SaaS:      docker compose -f docker-compose.cloud.yml up -d
+# Quick Start:
+#   docker compose -f docker-compose.cloud.yml up -d
+#   Access: http://localhost:3000 (frontend) + http://localhost:8000 (API)
 
 services:
   # ============================================================================
-  # AAT Dashboard - Local Single-User Mode
+  # Cloud Backend - FastAPI Server
   # ============================================================================
-  # Quick, lightweight testing without authentication
-  # Perfect for: Local development, individual testing, quick experiments
-  # Access: http://localhost:9500
-
-  aat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ai-watch-tester:latest
-    container_name: ai-watch-tester
-
-    working_dir: /app
-
-    volumes:
-      # Mount source code for development
-      - .:/app
-      # Mount scenarios directory
-      - ./scenarios:/app/scenarios
-      # Mount AAT cache directory
-      - ./.aat:/app/.aat
-      # Mount Playwright browser cache
-      - ~/.cache/ms-playwright:/root/.cache/ms-playwright
-
-    environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app/src:/app
-      - PATH=/usr/local/bin:/usr/bin:/bin
-
-      # AI Provider Configuration (choose one)
-      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
-      - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4.7}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-
-    # Note: Dashboard functionality has been removed from AAT
-    # This service now runs in CLI mode only
-    # Use: docker compose exec aat aat <command>
-
-    command: >
-      bash -c "
-        echo '========================================' &&
-        echo '🧪 AAT Testing Environment (LEGACY)' &&
-        echo '⚠️  Please use docker-compose.aat.yml instead' &&
-        echo '========================================' &&
-        tail -f /dev/null
-      "
-
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9500"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # ============================================================================
-  # Cloud SaaS - Multi-User Mode
-  # ============================================================================
-  # Full-featured testing platform with authentication and database
+  # Multi-user testing platform with authentication and database
   # Perfect for: Team collaboration, production deployment, managed testing
-  # Access: http://localhost:3000 (frontend) + http://localhost:8000 (API)
+  # Access: http://localhost:8000
 
   cloud-backend:
     build:
-      context: .
-      dockerfile: cloud/Dockerfile
+      context: ./cloud
+      dockerfile: Dockerfile
     image: awt-cloud-backend:latest
     container_name: awt-cloud-backend
 
@@ -141,6 +74,7 @@ services:
         echo '========================================' &&
         echo '🔧 Starting Cloud Backend' &&
         echo '📍 API: http://localhost:8000' &&
+        echo '📍 Docs: http://localhost:8000/docs' &&
         echo '========================================' &&
         mkdir -p screenshots uploads cloud_data &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -156,6 +90,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # ============================================================================
+  # Cloud Frontend - Next.js Web Application
+  # ============================================================================
+  # Modern web interface for the Cloud SaaS platform
+  # Perfect for: Team collaboration, visual test management
+  # Access: http://localhost:3000
 
   cloud-frontend:
     build:
@@ -208,20 +149,38 @@ volumes:
     driver: local
 
 # ============================================================================
+# Quick Reference
 # ============================================================================
-# ⚠️  LEGACY CONFIGURATION - USE SEPARATED FILES INSTEAD
-# ============================================================================
 #
-# This configuration is maintained for backward compatibility only.
-# For new deployments, please use:
+# Environment Variables (.env file recommended):
 #
-# 📁 docker-compose.aat.yml  - AAT testing environment
-# 📁 docker-compose.cloud.yml - Cloud SaaS platform
+# # AI Provider (choose one)
+# ZHIPUAI_API_KEY=your_zhipu_api_key_here
+# ZHIPUAI_MODEL=glm-4.7
+# ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# OPENAI_API_KEY=your_openai_api_key_here
 #
-# Migration Guide:
-#   Old: docker compose up aat -d
-#   New: docker compose -f docker-compose.aat.yml up -d
+# # Cloud SaaS Configuration
+# AWT_ENCRYPTION_KEY=your_generated_encryption_key_here
+# AWT_AI_PROVIDER=zhipuai
+# AWT_AI_API_KEY=your_zhipu_api_key_here
+# AWT_AI_MODEL=glm-4.7
 #
-#   Old: docker compose up cloud-backend cloud-frontend -d
-#   New: docker compose -f docker-compose.cloud.yml up -d
-# ============================================================================
+# Usage Examples:
+#   # Start Cloud SaaS platform
+#   docker compose -f docker-compose.cloud.yml up -d
+#
+#   # View logs
+#   docker compose -f docker-compose.cloud.yml logs -f cloud-backend
+#   docker compose -f docker-compose.cloud.yml logs -f cloud-frontend
+#
+#   # Access services
+#   # Frontend: http://localhost:3000
+#   # Backend API: http://localhost:8000
+#   # API Docs: http://localhost:8000/docs
+#
+#   # Stop services
+#   docker compose -f docker-compose.cloud.yml down
+#
+#   # Rebuild images
+#   docker compose -f docker-compose.cloud.yml build --no-cache

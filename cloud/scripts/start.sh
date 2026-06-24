@@ -36,7 +36,7 @@ AI-Watch-Tester Docker Compose 启动脚本
   ANTHROPIC_API_KEY    - Anthropic API密钥
   OPENAI_API_KEY       - OpenAI API密钥
   ZHIPUAI_API_KEY      - 智谱AI API密钥
-  ZHIPUAI_MODEL        - 智谱AI模型 (默认: glm-4-flash)
+  ZHIPUAI_MODEL        - 智谱AI模型 (默认: glm-4.7)
   OLLAMA_BASE_URL      - Ollama服务地址
 
 示例:

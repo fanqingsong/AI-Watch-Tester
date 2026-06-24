@@ -1,0 +1,106 @@
+# AAT (AI Auto Tester) Docker Compose Configuration
+#
+# This file defines the AAT testing environment service.
+# Focus: Core testing functionality, command-line tools, automated testing
+#
+# Quick Start:
+#   docker compose -f docker-compose.aat.yml up -d
+#   docker compose -f docker-compose.aat.yml exec aat aat --help
+
+services:
+  # ============================================================================
+  # AAT Testing Environment
+  # ============================================================================
+  # Core AAT functionality for automated E2E testing
+  # Perfect for: Local development, individual testing, CI/CD integration
+  # Access: docker compose exec aat aat <command>
+
+  aat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-watch-tester:latest
+    container_name: ai-watch-tester
+
+    working_dir: /app
+
+    volumes:
+      # Mount source code for development
+      - .:/app
+      # Mount scenarios directory
+      - ./scenarios:/app/scenarios
+      # Mount AAT cache directory
+      - ./.aat:/app/.aat
+      # Mount Playwright browser cache
+      - ~/.cache/ms-playwright:/root/.cache/ms-playwright
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/src:/app
+      - PATH=/usr/local/bin:/usr/bin:/bin
+
+      # AI Provider Configuration (choose one)
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
+      - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4.7}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
+    # No ports exposed - AAT is primarily a CLI tool
+    # Use 'docker compose exec' to run commands
+
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '🧪 AAT Testing Environment Ready' &&
+        echo '📍 Use: docker compose exec aat aat <command>' &&
+        echo '========================================' &&
+        echo 'Common commands:' &&
+        echo '  docker compose exec aat aat run test.yaml' &&
+        echo '  docker compose exec aat aat scan --url https://example.com' &&
+        echo '  docker compose exec aat aat generate --spec requirements.md' &&
+        echo '  docker compose exec aat aat --help' &&
+        echo '========================================' &&
+        tail -f /dev/null
+      "
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+# ============================================================================
+# Quick Reference
+# ============================================================================
+#
+# Environment Variables (.env file recommended):
+#
+# # AI Provider (choose one)
+# ZHIPUAI_API_KEY=your_zhipu_api_key_here
+# ZHIPUAI_MODEL=glm-4.7
+# ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# OPENAI_API_KEY=your_openai_api_key_here
+#
+# Usage Examples:
+#   # Start AAT environment
+#   docker compose -f docker-compose.aat.yml up -d
+#
+#   # Run tests
+#   docker compose -f docker-compose.aat.yml exec aat aat run test_scenario.yaml
+#
+#   # Scan pages
+#   docker compose -f docker-compose.aat.yml exec aat aat scan --url https://example.com
+#
+#   # Generate scenarios
+#   docker compose -f docker-compose.aat.yml exec aat aat generate --spec requirements.md
+#
+#   # Interactive shell
+#   docker compose -f docker-compose.aat.yml exec aat bash
+#
+#   # View logs
+#   docker compose -f docker-compose.aat.yml logs -f aat
+#
+#   # Stop environment
+#   docker compose -f docker-compose.aat.yml down
+#
+#   # Rebuild image
+#   docker compose -f docker-compose.aat.yml build --no-cache

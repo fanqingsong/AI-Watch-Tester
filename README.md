@@ -52,36 +52,295 @@ You give AWT a URL. It opens a real Chrome window, reads the page, writes test s
 
 ---
 
-## Start in 5 Minutes
+## Installation — Custom Build
 
-### Option 1 — Agent Skill (works with Claude Code, Cursor, Copilot...)
+> **⚠️ Important**: This is a customized version with ZhipuAI integration and various optimizations. Install from source to use these custom features.
+
+### Quick Start
 
 ```bash
-# One-line install
-npx skills add ksgisang/awt-skill --skill awt -g
+# Clone repository
+git clone https://github.com/ksgisang/AI-Watch-Tester.git
+cd AI-Watch-Tester
 
-# Then just ask your AI tool:
-"Test the login flow on http://localhost:3000"
-"Check if the signup form works"
-"Run regression tests after my last commit"
-# → AWT scans, generates steps, runs them, and reports back
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+make dev
+
+# Verify installation
+aat --version
 ```
 
-### Option 2 — MCP Server (Claude Desktop, Cursor, Windsurf)
+### AI Provider Setup
 
 ```bash
-# Install
+# Interactive setup with ZhipuAI support
+aat setup
+
+# You'll see:
+# 🔑 AI Provider Setup
+#   [1] Claude (Anthropic)
+#   [2] OpenAI (GPT-4o)
+#   [3] Gemini (Google)
+#   [4] DeepSeek
+#   [5] ZhipuAI (智谱AI) — Chinese optimized  # Custom addition!
+#   [6] Ollama (free, offline)
+#   [7] Skip for now
+
+# Choose provider [1]: 5  # Select ZhipuAI
+
+# Enter your ZhipuAI API key when prompted
+```
+
+### Manual Configuration (Alternative)
+
+```bash
+# Create config file manually
+cat > aat.config.yaml << EOF
+ai:
+  provider: zhipuai
+  api_key: "your_zhipuai_api_key_here"
+  model: glm-4.7
+EOF
+
+# Or use config command
+aat config set provider zhipuai
+aat config set api-key your_api_key_here
+aat config set model glm-4.7
+```
+
+### Verify Installation
+
+```bash
+# Check configuration
+aat config
+
+# Test with a simple command
+aat scan --url https://example.com
+
+# Run your first test
+aat run scenarios/test.yaml
+```
+
+---
+
+## CLI Usage — Command Line Testing
+
+### Quick Start
+
+```bash
+# Install AAT (from source)
+cd AI-Watch-Tester
+make dev
+
+# Setup AI provider (interactive)
+aat setup
+
+# Run your first test
+aat run scenarios/my_test.yaml
+```
+
+---
+
+## CLI Usage — Command Line Testing
+
+### Quick Start
+
+```bash
+# Install AAT
 pip install aat-devqa
 
-# Add to Claude Code
-claude mcp add awt -- python mcp/server.py
+# Setup AI provider (interactive)
+aat setup
 
-# Tools available: aat_devqa, aat_run, aat_doctor, aat_list_scenarios,
-#                  aat_validate, aat_generate_from_doc,
-#                  aat_snapshot, aat_diff, aat_watch
+# Run your first test
+aat run scenarios/my_test.yaml
 ```
 
-> **Cloud & Local CLI** versions are available for local development.
+### Core Commands
+
+#### `aat run` — Execute Tests
+```bash
+# Basic usage
+aat run scenarios/test_scenario.yaml
+
+# With options
+aat run test.yaml --speed normal
+aat run test.yaml --verbosity=detailed
+aat run test.yaml --screenshots=before-after
+aat run test.yaml --skill-mode  # AI assistant friendly output
+```
+
+#### `aat scan` — Analyze Web Pages
+```bash
+# Scan a URL
+aat scan --url https://example.com
+
+# Compare with previous scan
+aat scan --url https://example.com --compare previous_scan.json
+
+# With session (for post-login pages)
+aat scan --url https://example.com --session session.json
+```
+
+#### `aat generate` — AI-Generated Tests
+```bash
+# Generate from requirements document
+aat generate --from requirements.md
+
+# Specify output directory
+aat generate --from requirements.md --output scenarios/
+```
+
+### Advanced Features
+
+#### `aat loop` — Self-Healing Tests
+```bash
+# Auto-fix failing tests
+aat loop failing_test.yaml
+
+# With options
+aat loop test.yaml --max-loops 3 --auto-apply
+```
+
+#### `aat devqa` — Fully Automated Testing
+```bash
+# One-command automated testing
+aat devqa "Test user login functionality" --url https://example.com
+
+# Auto-detect port
+aat devqa "Test shopping cart" --url http://localhost:3000
+```
+
+### Visual Regression Testing
+
+#### `aat snapshot` — Capture Baselines
+```bash
+# Create visual baseline
+aat snapshot scenarios/page_test.yaml
+```
+
+#### `aat diff` — Compare Screenshots
+```bash
+# Compare against baseline
+aat diff current_screenshot.png --baseline baseline.png
+
+# Generate diff report
+aat diff scenarios/test.yaml --report diff_report.html
+```
+
+#### `aat watch` — Monitor File Changes
+```bash
+# Auto-run tests on file changes
+aat watch test.yaml
+```
+
+### Configuration & Management
+
+#### `aat config` — Configuration Management
+```bash
+# View current config
+aat config
+
+# Set provider
+aat config set provider anthropic
+aat config set api-key your_key_here
+```
+
+#### `aat validate` — Validate Scenarios
+```bash
+# Validate scenario files
+aat validate scenarios/test.yaml
+```
+
+#### `aat doctor` — System Check
+```bash
+# Check environment and dependencies
+aat doctor
+```
+
+### Analysis & Reporting
+
+#### `aat analyze` — Analyze Requirements
+```bash
+# Analyze spec document
+aat analyze requirements.md
+```
+
+#### `aat report` — View Test Reports
+```bash
+# View latest report
+aat report
+
+# View specific report
+aat report reports/test_report.html
+```
+
+#### `aat cost` — AI Usage Costs
+```bash
+# Check API usage costs
+aat cost
+```
+
+### Development Integration
+
+#### `aat hook` — Git Hooks
+```bash
+# Install pre-commit hook
+aat hook install pre-commit
+```
+
+#### `aat start` — Interactive Guide
+```bash
+# Guided setup and testing
+aat start
+```
+
+### Common Workflows
+
+#### Complete Testing Pipeline
+```bash
+# 1. Setup environment
+aat setup
+
+# 2. Scan target page
+aat scan --url https://example.com
+
+# 3. Generate test scenarios
+aat generate --spec requirements.md
+
+# 4. Validate scenarios
+aat validate scenarios/test.yaml
+
+# 5. Run tests
+aat run scenarios/test.yaml
+
+# 6. Auto-fix if needed
+aat loop scenarios/test.yaml
+```
+
+#### Quick Verification
+```bash
+# Check and test in one command
+aat doctor && aat run test.yaml
+```
+
+#### Development Monitoring
+```bash
+# Watch mode for development
+aat watch test.yaml
+```
+
+### Command Reference
+
+For complete command reference:
+```bash
+aat --help           # List all commands
+aat <command> --help # Command-specific help
+```
 
 ---
 
@@ -94,14 +353,11 @@ Run the full cloud platform (backend + frontend) locally:
 pip install -e .
 cd cloud/frontend && npm install
 
-# Start all services (backend on :8000, frontend on :3000)
-aat cloud start
+# Start backend service
+cd cloud && uvicorn app.main:app --reload
 
-# Or customize ports
-aat cloud start --backend-port 8080 --frontend-port 3001
-
-# Check service status
-aat cloud status
+# In another terminal, start frontend
+cd cloud/frontend && npm run dev
 ```
 
 Open http://localhost:3000 in your browser.
@@ -453,7 +709,7 @@ All modules follow a **plugin registry** pattern — add a new engine, matcher, 
 - Python 3.11+
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract): `brew install tesseract` / `apt install tesseract-ocr`
 
-### Commands
+### Installation Commands
 
 | Command | What it does |
 |---------|-------------|
@@ -464,14 +720,37 @@ All modules follow a **plugin registry** pattern — add a new engine, matcher, 
 | `make test` | Run all tests (pytest) |
 | `make test-cov` | Tests + coverage report |
 
+### Complete Installation
+
 ```bash
+# Clone repository
 git clone https://github.com/ksgisang/AI-Watch-Tester.git
 cd AI-Watch-Tester
+
+# Setup virtual environment
 python -m venv .venv && source .venv/bin/activate
+
+# Install dependencies
 make dev
+
+# Verify installation
 make test        # verify everything works
-aat dashboard    # launch at http://localhost:9500
+aat --version    # check AAT version
+
+# Setup AI provider
+aat setup        # interactive setup with ZhipuAI support
+
+# Run your first test
+aat run scenarios/test.yaml
 ```
+
+### Custom Features
+
+This customized version includes:
+- ✅ **ZhipuAI Integration** - Native support for 智谱AI models
+- ✅ **Enhanced Chinese Support** - Optimized for Chinese applications
+- ✅ **Custom AI Adapters** - Extended provider support
+- ✅ **Performance Optimizations** - Various speed and reliability improvements
 
 ---
 
@@ -519,14 +798,14 @@ AWT's DevQA Loop re-scans the page after a failure, finds the updated element, a
 ```bash
 pip install aat-devqa
 playwright install chromium
-aat dashboard     # opens at http://localhost:9500
+aat run scenarios/test.yaml  # run your first test
 ```
 
 **From source:**
 ```bash
 git clone https://github.com/ksgisang/AI-Watch-Tester.git
 cd AI-Watch-Tester
-make dev && aat dashboard
+make dev && aat run scenarios/test.yaml
 ```
 </details>
 

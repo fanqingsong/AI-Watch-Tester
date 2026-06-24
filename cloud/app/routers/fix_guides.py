@@ -26,7 +26,7 @@ _DEFAULT_MODELS: dict[str, str] = {
     "deepseek": "deepseek-chat",
     "openai": "gpt-4o",
     "ollama": "codellama:7b",
-    "zhipuai": "glm-4-flash",
+    "zhipuai": "glm-4.7",
 }
 
 

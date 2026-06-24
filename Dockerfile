@@ -66,7 +66,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 
 # 智谱AI配置（可选）
 # ENV ZHIPUAI_API_KEY=your_zhipuai_key_here
-# ENV ZHIPUAI_MODEL=glm-4-flash
+# ENV ZHIPUAI_MODEL=glm-4.7
 
 # 默认命令
 CMD ["aat", "--help"]

@@ -35,7 +35,7 @@ if [ -z "$ZHIPUAI_API_KEY" ]; then
     exit 1
 fi
 
-print_info "使用智谱AI (模型: ${ZHIPUAI_MODEL:-glm-4-flash})"
+print_info "使用智谱AI (模型: ${ZHIPUAI_MODEL:-glm-4.7})"
 
 # 启动容器
 docker run -it --rm \
@@ -44,5 +44,5 @@ docker run -it --rm \
     -v "$(pwd)/scenarios:/app/scenarios" \
     -v "$(pwd)/.aat:/app/.aat" \
     -e ZHIPUAI_API_KEY="$ZHIPUAI_API_KEY" \
-    -e ZHIPUAI_MODEL="${ZHIPUAI_MODEL:-glm-4-flash}" \
+    -e ZHIPUAI_MODEL="${ZHIPUAI_MODEL:-glm-4.7}" \
     ai-watch-tester:latest "$@"

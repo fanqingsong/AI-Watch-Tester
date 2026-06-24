@@ -51,8 +51,8 @@ class ZhipuAIAdapter(AIAdapter):
 
         # 智谱AI默认配置（base_url是固定的，不由AIConfig提供）
         self.base_url = "https://open.bigmodel.cn/api/coding/paas/v4/"
-        # 支持的模型：glm-4-flash, glm-4, glm-4-plus, glm-4-0520, glm-4.7, glm-5.1
-        self.model = config.model or "glm-4-flash"  # 默认使用GLM-4-Flash（性价比高）
+        # 支持的模型：glm-4.7, glm-4.7, glm-4, glm-4-plus, glm-4-0520, glm-5.1
+        self.model = config.model or "glm-4.7"  # 默认使用GLM-4.7（最新推荐）
         
         # 初始化OpenAI客户端（智谱AI兼容OpenAI API）
         self.client = AsyncOpenAI(

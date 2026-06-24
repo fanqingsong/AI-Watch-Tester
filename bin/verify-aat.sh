@@ -17,7 +17,7 @@ cat << 'INNER_EOF'
 aat config set ai.provider zhipuai
 
 # 2. 设置模型
-aat config set ai.model glm-4-flash
+aat config set ai.model glm-4.7
 
 # 3. 验证配置
 aat config get ai.provider
