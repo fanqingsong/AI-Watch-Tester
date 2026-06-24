@@ -216,9 +216,22 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                         } else if (type === 'image') {
                             label = 'image_button';
                         } else if (tagName === 'svg') {
-                            // Try to get nearby text from parent
-                            const parentText = el.parentElement?.textContent?.trim()?.substring(0, 40);
-                            label = parentText || 'svg_icon';
+                            // SVG icons are usually inside <button> or <a>
+                            // Try to get aria-label from button parent
+                            const buttonParent = el.closest('button, a, [role="button"]');
+                            if (buttonParent) {
+                                label = (
+                                    buttonParent.getAttribute('aria-label') ||
+                                    buttonParent.getAttribute('title') ||
+                                    buttonParent.textContent?.trim()?.substring(0, 40) ||
+                                    buttonParent.getAttribute('id') ||
+                                    'svg_button'
+                                );
+                            } else {
+                                // Fallback to direct parent text
+                                const parentText = el.parentElement?.textContent?.trim()?.substring(0, 40);
+                                label = parentText || 'svg_icon';
+                            }
                         } else if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
                             label = 'input_field';
                         } else {
@@ -228,16 +241,25 @@ async def _collect_dom_elements(page: Any) -> list[dict[str, Any]]:
                     // Still skip if label is too short (probably noise)
                     if (label.length < 2) continue;
 
+                    let selector = _bestSelector(el);
+                    // For SVG inside button/a, use the button's selector for more reliable clicking
+                    if (el.tagName.toLowerCase() === 'svg') {
+                        const buttonParent = el.closest('button, a, [role="button"]');
+                        if (buttonParent) {
+                            selector = _bestSelector(buttonParent);
+                        }
+                    }
+
                     results.push({
                         label: label,
                         type: el.tagName.toLowerCase(),
                         input_type: el.getAttribute('type') || '',
                         role: el.getAttribute('role') || '',
-                        selector: _bestSelector(el),
+                        selector: selector,
                         x: Math.round(rect.x + rect.width / 2),
                         y: Math.round(rect.y + rect.height / 2),
-                        width: Math.round(rect.width),
-                        height: Math.round(rect.height),
+                        width: Math.round(el.width || rect.width),
+                        height: Math.round(el.height || rect.height),
                         source: 'dom',
                     });
                 }
