@@ -10,7 +10,6 @@ import asyncio
 import contextlib
 import logging
 import time
-import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,7 +25,13 @@ from aat.core import (
     compute_region_bounds,
 )
 from aat.core.exceptions import CriticalStepError, MatchError, StepExecutionError
+from aat.engine.executor_config import (
+    _CONCISE_SKIP_ACTIONS,
+    _get_preset,
+    _get_verbosity,
+)
 from aat.engine.image_diff import compute_change_ratio
+from aat.engine.login_redirect import _LOGIN_URL_SUBSTRINGS, is_login_redirect
 from aat.engine.ocr import (
     PREPROCESS_CLAHE,
     PREPROCESS_CLAHE_UPSCALE2X,
@@ -34,6 +39,13 @@ from aat.engine.ocr import (
     PREPROCESS_RAW,
     ocr_screenshot,
 )
+from aat.engine.step_parsing import (
+    _SYNONYMS,
+    _crop_screenshot,
+    _parse_coordinates,
+    _parse_scroll_params,
+)
+from aat.engine.step_screenshotter import StepScreenshotter
 from aat.learning.base import BaseLearningStore
 
 if TYPE_CHECKING:
@@ -58,151 +70,6 @@ logger = logging.getLogger(__name__)
 #         animation   = post-click delay when no navigation detected
 #         url_poll    = assert_url retry interval
 # ---------------------------------------------------------------------------
-_SPEED_PRESETS: dict[str, dict[str, float]] = {
-    "fast": {"post_step": 0.1, "ui_settle": 0.1, "animation": 0.05, "url_poll": 0.3},
-    "normal": {"post_step": 0.2, "ui_settle": 0.2, "animation": 0.1, "url_poll": 0.5},
-    "slow": {"post_step": 0.5, "ui_settle": 0.5, "animation": 0.3, "url_poll": 1.0},
-}
-_DEFAULT_PRESET = _SPEED_PRESETS["normal"]
-
-
-def _get_preset(engine: object) -> dict[str, float]:
-    """Return speed preset dict from engine config."""
-    speed = getattr(getattr(engine, "_config", None), "speed", "normal")
-    return _SPEED_PRESETS.get(speed or "normal", _DEFAULT_PRESET)
-
-
-def _get_screenshot_mode(engine: object) -> str:
-    """Return screenshot_mode from engine config: all | before-after | on-failure."""
-    return getattr(getattr(engine, "_config", None), "screenshot_mode", "all") or "all"
-
-
-def _get_verbosity(engine: object) -> str:
-    """Return verbosity from engine config: detailed | concise."""
-    return getattr(getattr(engine, "_config", None), "verbosity", "detailed") or "detailed"
-
-
-# Action steps worth capturing before/after screenshots for
-_SCREENSHOT_WORTHY_ACTIONS: frozenset[ActionType] = frozenset(
-    {
-        ActionType.NAVIGATE,
-        ActionType.FIND_AND_CLICK,
-        ActionType.FIND_AND_DOUBLE_CLICK,
-        ActionType.FIND_AND_RIGHT_CLICK,
-        ActionType.FIND_AND_TYPE,
-        ActionType.CLICK_AT,
-        ActionType.TYPE_TEXT,
-        ActionType.PRESS_KEY,
-        ActionType.KEY_COMBO,
-        ActionType.GO_BACK,
-        ActionType.REFRESH,
-    }
-)
-
-# Steps skipped entirely in concise verbosity mode
-_CONCISE_SKIP_ACTIONS: frozenset[ActionType] = frozenset(
-    {
-        ActionType.SCREENSHOT,
-        ActionType.ASSERT_SCREEN_CHANGED,
-    }
-)
-
-# Login/auth URL substrings — if the browser lands here unexpectedly, the
-# session has expired or authentication is required. This is the single
-# source of truth for login-redirect detection; every call site must go
-# through ``is_login_redirect`` so the pattern set stays consistent.
-# It is a superset of all previously hard-coded pattern lists (including
-# ``accounts/login`` and ``/auth`` which were missing from the post-step
-# checks), so existing detections still fire and the documented gap is closed.
-_LOGIN_URL_SUBSTRINGS: frozenset[str] = frozenset(
-    {
-        "nidlogin",
-        "/login",
-        "/signin",
-        "account/login",
-        "accounts/login",
-        "/auth",
-    }
-)
-
-
-def is_login_redirect(url: str) -> bool:
-    """Return True if ``url`` looks like a login/auth page.
-
-    Case-insensitive substring match against :data:`_LOGIN_URL_SUBSTRINGS`.
-    """
-    if not url:
-        return False
-    lowered = url.lower()
-    return any(pat in lowered for pat in _LOGIN_URL_SUBSTRINGS)
-
-
-_SYNONYMS: dict[str, list[str]] = {
-    "email": ["e-mail", "email address", "mail"],
-    "password": ["pass", "pwd"],
-    "login": ["sign in", "log in", "log-in"],
-    "sign in": ["login", "log in"],
-    "register": ["sign up", "signup", "join"],
-    "search": ["find", "search box"],
-    "submit": ["send", "confirm", "ok"],
-    "confirm": ["submit", "ok", "yes"],
-}
-
-
-def _parse_coordinates(value: str | None) -> tuple[int, int]:
-    """Parse 'x,y' coordinate string.
-
-    Args:
-        value: Coordinate string like '100,200'.
-
-    Returns:
-        Tuple of (x, y) integers.
-    """
-    if not value:
-        msg = "click_at requires value in 'x,y' format"
-        raise StepExecutionError(msg, step=0, action="click_at")
-    parts = value.split(",")
-    if len(parts) != 2:
-        msg = f"Invalid coordinate format: '{value}'. Expected 'x,y'"
-        raise StepExecutionError(msg, step=0, action="click_at")
-    try:
-        return int(parts[0].strip()), int(parts[1].strip())
-    except ValueError as e:
-        msg = f"Invalid coordinate values: '{value}'"
-        raise StepExecutionError(msg, step=0, action="click_at") from e
-
-
-_SCROLL_SHORTCUTS = {
-    "down": (640, 360, 500),
-    "up": (640, 360, -500),
-    "down-far": (640, 360, 1500),
-    "up-far": (640, 360, -1500),
-}
-
-
-def _parse_scroll_params(value: str | None) -> tuple[int, int, int]:
-    """Parse scroll parameter: 'x,y,delta' or shortcut ('down', 'up').
-
-    Shortcuts use viewport center (640,360) with 500px delta.
-    """
-    if not value:
-        msg = "scroll requires value: 'x,y,delta' or 'down'/'up'"
-        raise StepExecutionError(msg, step=0, action="scroll")
-
-    # Shortcut support
-    shortcut = _SCROLL_SHORTCUTS.get(value.strip().lower())
-    if shortcut:
-        return shortcut
-
-    parts = value.split(",")
-    if len(parts) != 3:
-        msg = f"Invalid scroll format: '{value}'. Use 'x,y,delta' or 'down'/'up'"
-        raise StepExecutionError(msg, step=0, action="scroll")
-    try:
-        return int(parts[0].strip()), int(parts[1].strip()), int(parts[2].strip())
-    except ValueError as e:
-        msg = f"Invalid scroll values: '{value}'"
-        raise StepExecutionError(msg, step=0, action="scroll") from e
 
 
 class StepExecutor:
@@ -231,6 +98,7 @@ class StepExecutor:
         self._last_screenshot: bytes | None = None  # for assert_screen_changed
         self._comparator = comparator
         self._screenshot_dir = screenshot_dir or Path(".aat/screenshots")
+        self._screenshotter = StepScreenshotter(self._engine, self._screenshot_dir)
         self._learned_store = learned_store  # for step-level learning
         self._ai_adapter = ai_adapter  # for Vision AI step verification
         self._ai_verify_steps = ai_verify_steps
@@ -275,7 +143,7 @@ class StepExecutor:
 
             # 1. screenshot_before
             if step.screenshot_before:
-                screenshots["before"] = await self._save_screenshot("before")
+                screenshots["before"] = await self._screenshotter.save("before")
 
             # Capture screenshot before action (for assert_screen_changed)
             with contextlib.suppress(Exception):
@@ -326,11 +194,13 @@ class StepExecutor:
             await self._verify_post_step(step, post_screenshot)
 
             # 3.5. Save screenshots per screenshot_mode strategy
-            await self._save_step_screenshots(step, post_screenshot, screenshots)
+            await self._screenshotter.save_step(
+                step, post_screenshot, screenshots, last_screenshot=self._last_screenshot
+            )
 
             # 4. screenshot_after (explicit YAML field — always honoured)
             if step.screenshot_after:
-                screenshots["after"] = await self._save_screenshot("after")
+                screenshots["after"] = await self._screenshotter.save("after")
 
             # 5. Check step-level expected results (skip for assert action,
             #    already handled in check_assert)
@@ -368,7 +238,7 @@ class StepExecutor:
 
             # Save failure screenshot for on-failure mode (or always for non-all modes)
             if status == StepStatus.FAILED:
-                await self._save_failure_screenshot(step, fail_result)
+                await self._screenshotter.save_failure(step, fail_result)
 
             self._record_step(step, fail_result)
 
@@ -509,7 +379,7 @@ class StepExecutor:
             await asyncio.sleep(wait_ms / 1000)
 
         elif step.action == ActionType.SCREENSHOT:
-            await self._save_screenshot("manual")
+            await self._screenshotter.save("manual")
 
         elif step.action == ActionType.SCROLL:
             x, y, delta = _parse_scroll_params(step.value)
@@ -1237,11 +1107,11 @@ class StepExecutor:
             target_role = None
             target_name = None
 
-            for line in snapshot_str.strip().split('\n'):
-                if f'[ref={snapshot_ref}]' in line:
+            for line in snapshot_str.strip().split("\n"):
+                if f"[ref={snapshot_ref}]" in line:
                     target_line = line
                     # Extract role (first word after dash)
-                    role_match = re.search(r'-\s+(\S+)', line)
+                    role_match = re.search(r"-\s+(\S+)", line)
                     if role_match:
                         target_role = role_match.group(1)
                     # Extract accessible name (quoted string)
@@ -1282,9 +1152,7 @@ class StepExecutor:
             elif target_name:
                 # Last resort: text only
                 locator = page.get_by_text(target_name, exact=True)
-                logger.info(
-                    "[Executor] Using locator: get_by_text(%s, exact=True)", target_name
-                )
+                logger.info("[Executor] Using locator: get_by_text(%s, exact=True)", target_name)
             else:
                 logger.warning("[Executor] No valid role or name for ref '%s'", snapshot_ref)
                 return None
@@ -1392,70 +1260,6 @@ class StepExecutor:
                 await asyncio.sleep(_get_preset(self._engine)["animation"])
         except Exception:
             logger.debug("Post-click navigation wait failed", exc_info=True)
-            pass
-
-    async def _save_screenshot(self, label: str) -> str:
-        """Save screenshot and return file path.
-
-        Args:
-            label: Screenshot label (before, after, manual).
-
-        Returns:
-            Path string of saved screenshot.
-        """
-        filename = f"{label}_{uuid.uuid4().hex[:8]}.png"
-        path = self._screenshot_dir / filename
-        await self._engine.save_screenshot(path)
-        return str(path)
-
-    async def _save_step_screenshots(
-        self,
-        step: StepConfig,
-        post_screenshot: bytes,
-        screenshots: dict[str, str | None],
-    ) -> None:
-        """Save screenshots according to screenshot_mode strategy.
-
-        Modes:
-            all         — save after-screenshot for every step
-            before-after — save before+after only for meaningful action steps
-            on-failure  — skip here; handled by _save_failure_screenshot on error
-        """
-        mode = _get_screenshot_mode(self._engine)
-        if mode == "on-failure":
-            return  # Only save on failure (handled separately)
-
-        is_worthy = step.action in _SCREENSHOT_WORTHY_ACTIONS
-
-        if mode == "all" or (mode == "before-after" and is_worthy):
-            step_prefix = f"step{step.step:03d}"
-            self._screenshot_dir.mkdir(parents=True, exist_ok=True)
-
-            if mode == "before-after" and self._last_screenshot:
-                before_path = self._screenshot_dir / f"{step_prefix}_before.png"
-                before_path.write_bytes(self._last_screenshot)
-                screenshots["before"] = str(before_path)
-
-            after_path = self._screenshot_dir / f"{step_prefix}_after.png"
-            after_path.write_bytes(post_screenshot)
-            screenshots["after"] = str(after_path)
-
-    async def _save_failure_screenshot(
-        self,
-        step: StepConfig,
-        fail_result: StepResult,
-    ) -> None:
-        """Capture and save a screenshot when a step fails.
-
-        Used by all screenshot_mode values so failures are always recorded.
-        """
-        try:
-            ss = await self._engine.screenshot()
-            self._screenshot_dir.mkdir(parents=True, exist_ok=True)
-            fail_path = self._screenshot_dir / f"step{step.step:03d}_failure.png"
-            fail_path.write_bytes(ss)
-            fail_result.screenshot_after = str(fail_path)
-        except Exception:
             pass
 
     async def _check_assert_url(self, step: StepConfig) -> None:
@@ -2831,42 +2635,6 @@ class StepExecutor:
 
 
 # -- Module-level helpers --------------------------------------------------
-
-
-def _crop_screenshot(
-    screenshot: bytes,
-    region: ScreenRegion,
-    viewport: tuple[int, int],
-) -> tuple[bytes | None, int, int]:
-    """Crop a screenshot to a named region.
-
-    Returns (cropped_png_bytes, offset_x, offset_y).
-    Returns (None, 0, 0) on failure.
-    """
-    try:
-        arr = np.frombuffer(screenshot, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img is None:
-            return None, 0, 0
-
-        h, w = img.shape[:2]
-        rx, ry, rw, rh = compute_region_bounds(region, w, h)
-
-        # Clamp to image bounds
-        rx = max(0, min(rx, w - 1))
-        ry = max(0, min(ry, h - 1))
-        rw = min(rw, w - rx)
-        rh = min(rh, h - ry)
-
-        if rw < 4 or rh < 4:
-            return None, 0, 0
-
-        cropped = img[ry : ry + rh, rx : rx + rw]
-        _, buf = cv2.imencode(".png", cropped)
-        return buf.tobytes(), rx, ry
-    except Exception:
-        logger.debug("Region crop failed", exc_info=True)
-        return None, 0, 0
 
 
 # -- Strategy classification -------------------------------------------------
