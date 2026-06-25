@@ -134,14 +134,20 @@ Execute the following steps in order according to user request:
 ### Step 1: Scan
 Analyze DOM of target URL and understand page structure.
 \`\`\`bash
-npx awt scan $URL --output ./awt-scan-result.json
+aat scan --url "$URL"
 \`\`\`
 
 ### Step 2: Plan
-Automatically generate YAML test scenario based on scan results.
+Generate YAML test scenarios from a spec/requirements document, enriched with
+the real page elements collected during the scan (`--scan` reads
+`.aat/scan_result.json`).
 \`\`\`bash
-npx awt plan ./awt-scan-result.json --output ./scenarios/
+aat generate --from requirements.md --scan --output-dir ./scenarios/
 \`\`\`
+
+> Note: `--from` takes a spec/requirements document (e.g. `requirements.md`),
+> not `scan_result.json`. The scan file is consumed via the separate `--scan`
+> flag.
 
 ### Step 3: Review
 Show generated scenario to user and request modification.

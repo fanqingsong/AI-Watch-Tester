@@ -193,7 +193,15 @@ aat generate --from requirements.md
 
 # Specify output directory
 aat generate --from requirements.md --output scenarios/
+
+# Enrich with real page elements from a prior `aat scan`
+aat scan --url https://example.com
+aat generate --from requirements.md --scan
 ```
+
+`--scan` reads `.aat/scan_result.json` and injects the page's real interactive
+elements into the prompt, so generated scenarios use actual button/field labels
+instead of labels guessed from the spec text.
 
 ### Advanced Features
 

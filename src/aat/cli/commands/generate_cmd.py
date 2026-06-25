@@ -22,6 +22,11 @@ def generate_command(
     output_dir: str | None = typer.Option(
         None, "--output", "-o", help="Output directory for scenarios."
     ),
+    use_scan: bool = typer.Option(
+        False,
+        "--scan",
+        help="Enrich generation with real page elements from .aat/scan_result.json.",
+    ),
 ) -> None:
     """Generate test scenarios from spec document using AI."""
     if file_path is None:
@@ -50,7 +55,7 @@ def generate_command(
         raise typer.Exit(code=1)
 
     try:
-        asyncio.run(_generate(source, config_path, output_dir))
+        asyncio.run(_generate(source, config_path, output_dir, use_scan))
     except AATError as e:
         typer.echo(
             typer.style(f"Error: {e}", fg=typer.colors.RED),
@@ -63,8 +68,11 @@ async def _generate(
     source: Path,
     config_path: str | None,
     output_dir: str | None,
+    use_scan: bool = False,
 ) -> None:
     """Run scenario generation asynchronously."""
+    from aat.cli.commands._scan_context import format_scan_context, load_scan_result
+    from aat.core import Scenario  # noqa: TC001
     from aat.core.cost import (
         estimate_cost,
         format_cost_estimate,
@@ -73,7 +81,6 @@ async def _generate(
         save_cached_scenarios,
         spec_cache_key,
     )
-    from aat.core import Scenario  # noqa: TC001
 
     cfg_path = Path(config_path) if config_path else None
     config = load_config(config_path=cfg_path)
@@ -93,6 +100,27 @@ async def _generate(
     # Parse document
     text, images = await parser.parse(source)
     typer.echo(f"Parsed document: {source.name} ({len(text)} chars, {len(images)} images)")
+
+    # Optionally enrich with real page elements from a prior `aat scan`.
+    if use_scan:
+        scan_data = load_scan_result(Path(config.data_dir))
+        scan_block = format_scan_context(scan_data)
+        if scan_block:
+            text = f"{text}\n\n{scan_block}"
+            element_count = scan_data.get("element_count", len(scan_data.get("elements", [])))
+            typer.echo(
+                typer.style(
+                    f"  Enriched with {element_count} page elements from scan_result.json",
+                    fg=typer.colors.CYAN,
+                )
+            )
+        else:
+            typer.echo(
+                typer.style(
+                    "  --scan set but scan had no labeled elements; proceeding without enrichment",
+                    fg=typer.colors.YELLOW,
+                )
+            )
 
     # Check cache first
     cache_key = spec_cache_key(config.url, text)

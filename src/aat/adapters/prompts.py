@@ -99,6 +99,13 @@ CRITICAL RULES:
 - Use the COMPLETE URL, not placeholders
 - Do NOT include "variables" with hardcoded URLs
 
+PAGE ELEMENTS (when provided):
+The document MAY end with a "## PAGE ELEMENTS" section listing the real \
+interactive elements detected on the scanned page. When this section is \
+present, you MUST use those EXACT labels verbatim as the "text" for \
+find_and_click / find_and_type targets — do not paraphrase or invent labels. \
+When the section is absent, infer target labels from the specification as usual.
+
 Return ONLY a valid JSON array, no markdown fences."""
 
 _SYSTEM_ANALYZE_DOCUMENT = """\

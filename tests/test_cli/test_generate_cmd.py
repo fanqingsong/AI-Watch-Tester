@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path  # noqa: TC003
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -135,6 +136,81 @@ def test_generate_success(tmp_path: Path) -> None:
         # Verify YAML files
         files = list(output_dir.glob("*.yaml"))
         assert len(files) == 2
+
+
+def test_generate_with_scan_enriches_document_text(tmp_path: Path) -> None:
+    """--scan appends page elements from scan_result.json to the prompt text."""
+    doc = tmp_path / "spec.md"
+    doc.write_text("# Login spec\n\nUser logs in.", encoding="utf-8")
+
+    data_dir = tmp_path / ".aat"
+    data_dir.mkdir()
+    scan = {
+        "url": "http://localhost:5173/login",
+        "elements": [
+            {"accessible_name": "Sign In", "role": "button", "source": "dom"},
+        ],
+        "element_count": 1,
+    }
+    (data_dir / "scan_result.json").write_text(json.dumps(scan), encoding="utf-8")
+
+    mock_parser = AsyncMock()
+    mock_parser.parse.return_value = ("# Login spec\nUser logs in.", [])
+    mock_parser.supported_extensions = [".md", ".txt"]
+
+    mock_adapter = AsyncMock()
+    mock_adapter.generate_scenarios.return_value = [_make_scenario()]
+
+    with (
+        patch("aat.cli.commands.generate_cmd._get_parser", return_value=mock_parser),
+        patch("aat.cli.commands.generate_cmd._get_adapter", return_value=mock_adapter),
+        patch("aat.cli.commands.generate_cmd.load_config") as mock_load,
+    ):
+        mock_cfg = MagicMock()
+        mock_cfg.scenarios_dir = str(tmp_path / "scenarios")
+        mock_cfg.data_dir = str(data_dir)
+        mock_load.return_value = mock_cfg
+
+        result = runner.invoke(
+            app, ["generate", "--from", str(doc), "--scan"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Enriched" in result.output
+
+        # The adapter received the document text WITH the scan block appended.
+        call_args = mock_adapter.generate_scenarios.call_args
+        passed_text = call_args.args[0] if call_args.args else call_args.kwargs["document_text"]
+        assert "## PAGE ELEMENTS" in passed_text
+        assert '"Sign In"' in passed_text
+
+
+def test_generate_with_scan_missing_file_fails(tmp_path: Path) -> None:
+    """--scan with no scan_result.json exits non-zero with a helpful error."""
+    doc = tmp_path / "spec.md"
+    doc.write_text("# Spec", encoding="utf-8")
+
+    mock_parser = AsyncMock()
+    mock_parser.parse.return_value = ("# Spec", [])
+    mock_parser.supported_extensions = [".md", ".txt"]
+    mock_adapter = AsyncMock()
+    mock_adapter.generate_scenarios.return_value = [_make_scenario()]
+
+    with (
+        patch("aat.cli.commands.generate_cmd._get_parser", return_value=mock_parser),
+        patch("aat.cli.commands.generate_cmd._get_adapter", return_value=mock_adapter),
+        patch("aat.cli.commands.generate_cmd.load_config") as mock_load,
+    ):
+        mock_cfg = MagicMock()
+        mock_cfg.scenarios_dir = str(tmp_path / "scenarios")
+        mock_cfg.data_dir = str(tmp_path / ".aat")  # no scan_result.json here
+        mock_load.return_value = mock_cfg
+
+        result = runner.invoke(
+            app, ["generate", "--from", str(doc), "--scan"]
+        )
+        assert result.exit_code == 1
+        assert "Scan result not found" in result.output
+        mock_adapter.generate_scenarios.assert_not_called()
 
 
 def test_generate_custom_output_dir(tmp_path: Path) -> None:
