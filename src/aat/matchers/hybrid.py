@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cv2
-import numpy as np
 
 from aat.core import MatchingConfig, MatchMethod
 from aat.matchers.base import BaseMatcher

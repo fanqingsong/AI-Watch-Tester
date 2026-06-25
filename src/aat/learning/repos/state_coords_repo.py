@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ class StateCoordsRepo:
         confidence: float = 1.0,
     ) -> None:
         """Save or update coordinates for target + state combination."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             row = self._conn.execute(
                 "SELECT id, correct_x, correct_y FROM state_coords "

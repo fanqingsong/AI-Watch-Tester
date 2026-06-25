@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class MatchHistoryRepo:
         tier: int = 1,
     ) -> None:
         """Record a match attempt result for learning."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             self._conn.execute(
                 """\

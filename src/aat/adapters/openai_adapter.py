@@ -17,7 +17,6 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_SCENARIOS,
 )
 from aat.adapters.utils import encode_image_to_base64
-from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
     FileChange,
@@ -25,6 +24,7 @@ from aat.core import (
     Scenario,
     Severity,
 )
+from aat.core.exceptions import AdapterError
 
 if TYPE_CHECKING:
     from aat.core import AIConfig, TestResult
@@ -253,9 +253,7 @@ class OpenAIAdapter(AIAdapter):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": (
-                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
-                            ),
+                            "url": (f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"),
                         },
                     }
                 )
@@ -335,9 +333,7 @@ class OpenAIAdapter(AIAdapter):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": (
-                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
-                            ),
+                            "url": (f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"),
                         },
                     }
                 )
@@ -378,9 +374,7 @@ class OpenAIAdapter(AIAdapter):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": (
-                                f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"
-                            ),
+                            "url": (f"data:image/png;base64,{encode_image_to_base64(img_bytes)}"),
                         },
                     }
                 )

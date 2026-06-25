@@ -16,7 +16,12 @@ PROVIDERS = [
     ("openai", "OpenAI (GPT-4o)", "sk-...", "gpt-4o"),
     ("gemini", "Gemini (Google) — generous free tier", "AI...", "gemini-2.0-flash"),
     ("deepseek", "DeepSeek (cost-optimized)", "sk-...", "deepseek-chat"),
-    ("zhipuai", "ZhipuAI (智谱AI) — Chinese optimized", "", "glm-4.7"),  # 保持 glm-4.7 作为稳定默认
+    (
+        "zhipuai",
+        "ZhipuAI (智谱AI) — Chinese optimized",
+        "",
+        "glm-4.7",
+    ),  # 保持 glm-4.7 作为稳定默认
     ("ollama", "Ollama (free, offline — no API key)", None, "codellama:7b"),
 ]
 

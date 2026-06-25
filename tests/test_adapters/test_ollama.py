@@ -10,7 +10,6 @@ import httpx
 import pytest
 
 from aat.adapters.ollama import OllamaAdapter
-from aat.core.exceptions import AdapterError
 from aat.core import (
     ActionType,
     AIConfig,
@@ -20,6 +19,7 @@ from aat.core import (
     StepStatus,
     TestResult,
 )
+from aat.core.exceptions import AdapterError
 
 # ---------------------------------------------------------------------------
 # Fixtures

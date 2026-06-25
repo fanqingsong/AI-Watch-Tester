@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aat.core.exceptions import EngineError
 from aat.core import EngineConfig
+from aat.core.exceptions import EngineError
 from aat.engine.web import WebEngine
 
 

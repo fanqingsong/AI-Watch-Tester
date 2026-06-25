@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from aat.core.exceptions import StepExecutionError
 from aat.core import AssertType, ExpectedResult
+from aat.core.exceptions import StepExecutionError
 
 if TYPE_CHECKING:
     from aat.core import StepConfig

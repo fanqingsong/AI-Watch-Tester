@@ -15,12 +15,12 @@ import typer
 import yaml
 
 from aat.adapters import ADAPTER_REGISTRY
+from aat.core import Config
 from aat.core.config import load_config, save_config
 from aat.core.connection import test_ai_connection, test_url
 from aat.core.events import CLIEventHandler
 from aat.core.exceptions import AATError
 from aat.core.loop import DevQALoop
-from aat.core import Config
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator

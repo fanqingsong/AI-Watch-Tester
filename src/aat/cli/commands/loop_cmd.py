@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 import typer
 
 from aat.adapters import ADAPTER_REGISTRY
+from aat.core import ApprovalMode, StepStatus
 from aat.core.config import load_config
 from aat.core.cost import load_cost_log
 from aat.core.exceptions import AATError
 from aat.core.git_ops import GitOps
 from aat.core.loop import DevQALoop
-from aat.core import ApprovalMode, StepStatus
 from aat.core.scenario_loader import load_scenarios
 from aat.engine import ENGINE_REGISTRY
 from aat.engine.comparator import Comparator

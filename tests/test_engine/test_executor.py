@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aat.core.exceptions import StepExecutionError
 from aat.core import (
     ActionType,
     AssertType,
@@ -20,6 +19,7 @@ from aat.core import (
     StepStatus,
     TargetSpec,
 )
+from aat.core.exceptions import StepExecutionError
 from aat.engine.executor import _SYNONYMS, StepExecutor, _parse_coordinates, _parse_scroll_params
 
 if TYPE_CHECKING:

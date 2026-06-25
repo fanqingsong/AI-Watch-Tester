@@ -6,8 +6,8 @@ from pathlib import Path
 
 import typer
 
-from aat.core.config import save_config
 from aat.core import Config
+from aat.core.config import save_config
 
 
 def init_command(

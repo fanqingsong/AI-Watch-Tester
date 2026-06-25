@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aat.core.exceptions import LoopError
-from aat.core.loop import DevQALoop
 from aat.core import (
     ActionType,
     AnalysisResult,
@@ -23,6 +21,8 @@ from aat.core import (
     StepResult,
     StepStatus,
 )
+from aat.core.exceptions import LoopError
+from aat.core.loop import DevQALoop
 
 # ---------------------------------------------------------------------------
 # Helpers

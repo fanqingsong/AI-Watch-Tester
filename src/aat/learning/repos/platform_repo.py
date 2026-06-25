@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class PlatformRepo:
         source: str = "user",
     ) -> None:
         """Add a custom platform-specific tip."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self._conn.execute(
             "INSERT INTO platform_patterns "
             "(platform_key, tip, source, created_at) VALUES (?, ?, ?, ?)",

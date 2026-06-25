@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from aat.core import Config
 from aat.core.config import (
     DEFAULT_CONFIG_FILENAME,
     _deep_merge,
@@ -15,7 +16,6 @@ from aat.core.config import (
     save_config,
 )
 from aat.core.exceptions import ConfigError
-from aat.core import Config
 
 # ── Defaults ──
 

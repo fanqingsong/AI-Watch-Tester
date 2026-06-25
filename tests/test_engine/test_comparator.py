@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aat.core.exceptions import StepExecutionError
 from aat.core import AssertType, ExpectedResult
+from aat.core.exceptions import StepExecutionError
 from aat.engine.comparator import Comparator
 
 

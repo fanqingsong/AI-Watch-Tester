@@ -11,9 +11,9 @@ from pathlib import Path
 
 import typer
 
+from aat.core import StepDiffResult, VisualDiffReport
 from aat.core.config import load_config
 from aat.core.exceptions import AATError
-from aat.core import StepDiffResult, VisualDiffReport
 from aat.core.scenario_loader import load_scenarios
 from aat.visual.baseline_store import BaselineStore
 from aat.visual.comparator import VisualComparator

@@ -5,7 +5,7 @@ install:
 
 dev:
 	pip install -e ".[dev]"
-	playwright install chromium
+	@bash scripts/ensure_chromium.sh
 	pre-commit install
 
 lint:

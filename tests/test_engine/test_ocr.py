@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
-import pytest
 
 from aat.engine import ocr as ocr_module
 from aat.engine.ocr import (

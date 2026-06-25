@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -47,7 +47,7 @@ class StrategyRepo:
 
         If the same situation+strategy exists, update counts.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             row = self._conn.execute(
                 "SELECT id, success_count, fail_count FROM test_strategies "

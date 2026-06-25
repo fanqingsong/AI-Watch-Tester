@@ -17,7 +17,6 @@ from aat.adapters.prompts import (
     _SYSTEM_VERIFY_STEP,
 )
 from aat.adapters.utils import encode_image_to_base64
-from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
     FileChange,
@@ -25,6 +24,7 @@ from aat.core import (
     Scenario,
     Severity,
 )
+from aat.core.exceptions import AdapterError
 
 if TYPE_CHECKING:
     from aat.core import AIConfig, TestResult

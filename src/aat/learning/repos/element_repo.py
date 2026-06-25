@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from aat.core.exceptions import LearningError
@@ -190,7 +190,7 @@ class ElementRepo:
         confidence: float = 1.0,
     ) -> None:
         """Save or update learned coordinates by target name."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             # Duplicate coordinate check: warn if another target has same coords
             dup_row = self._conn.execute(

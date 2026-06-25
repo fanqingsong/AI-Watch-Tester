@@ -16,7 +16,6 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_FIX,
     _SYSTEM_GENERATE_SCENARIOS,
 )
-from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
     FileChange,
@@ -24,6 +23,7 @@ from aat.core import (
     Scenario,
     Severity,
 )
+from aat.core.exceptions import AdapterError
 
 if TYPE_CHECKING:
     from aat.core import AIConfig, TestResult

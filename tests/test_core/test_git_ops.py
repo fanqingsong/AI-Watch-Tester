@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from aat.core import FileChange
 from aat.core.exceptions import GitOpsError
 from aat.core.git_ops import GitOps
-from aat.core import FileChange
 
 if TYPE_CHECKING:
     from pathlib import Path

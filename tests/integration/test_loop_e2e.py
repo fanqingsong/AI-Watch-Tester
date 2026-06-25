@@ -16,8 +16,6 @@ import yaml
 from typer.testing import CliRunner
 
 from aat.cli.main import app
-from aat.core.config import save_config
-from aat.core.loop import DevQALoop
 from aat.core import (
     ActionType,
     AnalysisResult,
@@ -32,6 +30,8 @@ from aat.core import (
     StepStatus,
     TargetSpec,
 )
+from aat.core.config import save_config
+from aat.core.loop import DevQALoop
 from aat.core.scenario_loader import load_scenario, load_scenarios
 from aat.engine.comparator import Comparator
 from aat.engine.executor import StepExecutor

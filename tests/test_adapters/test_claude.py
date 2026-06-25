@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aat.adapters.claude import ClaudeAdapter
-from aat.core.exceptions import AdapterError
 from aat.core import (
     ActionType,
     AIConfig,
@@ -19,6 +18,7 @@ from aat.core import (
     StepStatus,
     TestResult,
 )
+from aat.core.exceptions import AdapterError
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -135,10 +135,10 @@ async def _watch(
 
     # Import watcher
     from aat.visual.watcher import (
+        FileWatcher,
         detect_changed_scenarios,
         format_change_summary,
     )
-    from aat.visual.watcher import FileWatcher
 
     def on_change(changed_files: set[str]) -> None:
         """Handle file changes — schedule test run."""

@@ -106,10 +106,10 @@ ai:
   model: glm-4.7
 EOF
 
-# Or use config command
-aat config set provider zhipuai
-aat config set api-key your_api_key_here
-aat config set model glm-4.7
+# Or use config command (keys are dotted: <section>.<field>)
+aat config set ai.provider zhipuai
+aat config set ai.api_key your_api_key_here
+aat config set ai.model glm-4.7
 ```
 
 ### Verify Installation
@@ -253,9 +253,9 @@ aat watch test.yaml
 # View current config
 aat config
 
-# Set provider
-aat config set provider anthropic
-aat config set api-key your_key_here
+# Set provider (keys are dotted: ai.<field>)
+aat config set ai.provider anthropic
+aat config set ai.api_key your_key_here
 ```
 
 #### `aat validate` — Validate Scenarios
@@ -674,12 +674,13 @@ aat run --verbosity=detailed --screenshots=all scenarios/
 |----------|--------|------|-------|
 | **OpenAI** | gpt-4o, gpt-4o-mini | Pay-per-use | `export OPENAI_API_KEY=sk-...` |
 | **Anthropic** | Claude Sonnet 4 | Pay-per-use | `export ANTHROPIC_API_KEY=sk-ant-...` |
+| **ZhipuAI** | glm-4.7, glm-4v (智谱AI) | Pay-per-use | `export AAT_AI__API_KEY=...` |
 | **Ollama** | codellama, llama3, mistral | Free (local) | `ollama serve` |
 
 ```yaml
 # aat.yaml
 ai:
-  provider: openai        # openai | anthropic | ollama
+  provider: openai        # openai | anthropic | zhipuai | ollama
   model: gpt-4o
   api_key: ${OPENAI_API_KEY}
 ```

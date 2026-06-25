@@ -1,19 +1,16 @@
-# 用户登录功能测试需求
+# 用户Chat功能测试需求
 
 ## 测试目标
-验证用户登录功能的正确性
+验证Vibe Trading chat function
 
 ## 测试页面
-- URL: http://localhost:5173/
+- URL: http://127.0.0.1:8899/
 
 ## 测试步骤
-1. 打开登录页面
-2. 输入用户名 "admin@example.com"
-3. 输入密码 "changethis"
-4. 点击登录按钮
-5. 验证登录成功，跳转到首页
+1. 打开页面
+2. 点击Agent菜单
+3. 在chat输入框，输入： how about trade today
+4. 点发送按钮
 
 ## 预期结果
-- 用户成功登录
-- 页面跳转到首页
-- 显示用户信息
+- agent有回应消息

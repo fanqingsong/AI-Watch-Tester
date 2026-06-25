@@ -15,7 +15,6 @@ from aat.adapters.prompts import (
     _SYSTEM_GENERATE_FIX,
     _SYSTEM_GENERATE_SCENARIOS,
 )
-from aat.core.exceptions import AdapterError
 from aat.core import (
     AnalysisResult,
     FileChange,
@@ -23,6 +22,7 @@ from aat.core import (
     Scenario,
     Severity,
 )
+from aat.core.exceptions import AdapterError
 
 if TYPE_CHECKING:
     from aat.core import AIConfig, TestResult
@@ -53,13 +53,13 @@ class ZhipuAIAdapter(AIAdapter):
         self.base_url = "https://open.bigmodel.cn/api/coding/paas/v4/"
         # 支持的模型：glm-4.7, glm-4.7, glm-4, glm-4-plus, glm-4-0520, glm-5.1
         self.model = config.model or "glm-4.7"  # 默认使用GLM-4.7（最新推荐）
-        
+
         # 初始化OpenAI客户端（智谱AI兼容OpenAI API）
         self.client = AsyncOpenAI(
             api_key=config.api_key,
             base_url=self.base_url,
         )
-        
+
         logger.info(f"ZhipuAIAdapter initialized with model {self.model}")
 
     async def _call_api(
@@ -89,6 +89,55 @@ class ZhipuAIAdapter(AIAdapter):
         except Exception as e:
             raise AdapterError(f"ZhipuAI API call failed: {e}") from e
 
+    async def _call_json(
+        self,
+        messages: list[dict[str, str]],
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+    ) -> Any:
+        """Call ZhipuAI API and parse the response as JSON (or YAML fallback).
+
+        GLM models frequently wrap JSON in ```json ... ``` despite the prompt
+        asking for raw JSON, and occasionally return YAML. This helper strips
+        markdown fences, tries JSON first, then falls back to YAML.
+
+        Args:
+            messages: Chat messages.
+            max_tokens: Maximum tokens in response.
+            temperature: Sampling temperature.
+
+        Returns:
+            Parsed ``dict`` or ``list``.
+
+        Raises:
+            AdapterError: If the response is empty or cannot be parsed.
+        """
+        raw = await self._call_api(messages, max_tokens=max_tokens, temperature=temperature)
+
+        if not raw.strip():
+            raise AdapterError("Empty response from ZhipuAI")
+
+        cleaned = AIAdapter._strip_markdown_fences(raw)
+
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: some models return YAML despite JSON instructions
+        try:
+            import yaml
+
+            result = yaml.safe_load(cleaned)
+            if isinstance(result, (dict, list)):
+                return result
+        except Exception:
+            pass
+
+        raise AdapterError(
+            f"Failed to parse ZhipuAI response as JSON/YAML. Raw head: {raw[:200]!r}"
+        )
+
     async def analyze_failure(
         self,
         test_result: TestResult,
@@ -105,8 +154,7 @@ class ZhipuAIAdapter(AIAdapter):
         """
         # Find failed step
         failed_step_result = next(
-            (s for s in test_result.steps if s.status.value == "failed"),
-            None
+            (s for s in test_result.steps if s.status.value == "failed"), None
         )
 
         if failed_step_result:
@@ -118,7 +166,9 @@ class ZhipuAIAdapter(AIAdapter):
             failed_step_num = 0
             failed_action = "unknown"
             failed_desc = "Unknown step"
-            failed_error = test_result.steps[0].error_message if test_result.steps else "No error details"
+            failed_error = (
+                test_result.steps[0].error_message if test_result.steps else "No error details"
+            )
 
         # 构建失败分析消息
         content = f"""Test failed:
@@ -133,18 +183,16 @@ Please analyze this failure."""
             {"role": "user", "content": content},
         ]
 
-        response = await self._call_api(messages, max_tokens=2048)
+        data = await self._call_json(messages, max_tokens=2048)
 
-        # 解析JSON响应
         try:
-            data = json.loads(response)
             return AnalysisResult(
                 cause=data.get("cause", "Unknown cause"),
                 suggestion=data.get("suggestion", "No suggestion"),
                 severity=Severity(data.get("severity", "info")),
                 related_files=data.get("related_files", []),
             )
-        except json.JSONDecodeError as e:
+        except (KeyError, ValueError, TypeError) as e:
             raise AdapterError(f"Failed to parse analysis response: {e}") from e
 
     async def generate_fix(
@@ -176,11 +224,9 @@ Please propose a fix."""
             {"role": "user", "content": content},
         ]
 
-        response = await self._call_api(messages, max_tokens=4096)
+        data = await self._call_json(messages, max_tokens=4096)
 
-        # 解析JSON响应
         try:
-            data = json.loads(response)
             files_changed = [
                 FileChange(
                     path=fc["path"],
@@ -195,7 +241,7 @@ Please propose a fix."""
                 files_changed=files_changed,
                 confidence=data.get("confidence", 0.5),
             )
-        except json.JSONDecodeError as e:
+        except (KeyError, ValueError, TypeError) as e:
             raise AdapterError(f"Failed to parse fix response: {e}") from e
 
     async def generate_scenarios(
@@ -326,10 +372,4 @@ Extract screens, UI elements, and user flows."""
             {"role": "user", "content": content},
         ]
 
-        response = await self._call_api(messages, max_tokens=4096)
-
-        # 解析JSON响应
-        try:
-            return json.loads(response)
-        except json.JSONDecodeError as e:
-            raise AdapterError(f"Failed to parse document analysis: {e}") from e
+        return await self._call_json(messages, max_tokens=4096)

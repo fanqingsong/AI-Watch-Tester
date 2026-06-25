@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
+from aat.core import AIConfig
 from aat.core.connection import test_ai_connection as check_ai_connection
 from aat.core.connection import test_url as check_url
-from aat.core import AIConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

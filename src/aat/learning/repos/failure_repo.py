@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from aat.core.exceptions import LearningError
@@ -51,7 +51,7 @@ class FailureRepo:
         fix_description: str = "",
     ) -> None:
         """Record failure pattern. Increment hit_count if same error_type + action exists."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             cursor = self._conn.execute(
                 "SELECT id FROM failure_patterns WHERE error_type = ? AND action = ? LIMIT 1",
@@ -109,7 +109,7 @@ class FailureRepo:
 
     def mark_fix_applied(self, error_type: str, fix_description: str) -> None:
         """Mark fix applied for failure pattern of given error_type."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             self._conn.execute(
                 "UPDATE failure_patterns"
