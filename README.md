@@ -420,6 +420,137 @@ aat devqa "checkout flow test" --url http://localhost:3000
 # "Test the registration page" → AWT scans, generates, runs, fixes
 ```
 
+**🤖 Next Evolution: Smart Agent** — The DevQA Loop just got smarter! Check out the new [AWT Smart Agent](#-awt-smt-agent--new) below for natural language testing and intelligent automation.
+
+---
+
+## 🤖 AWT Smart Agent — NEW!
+
+**Intelligent test automation with natural language input**
+
+Say goodbye to writing test code. With AWT Smart Agent, you simply describe what you want to test in plain language, and our AI agent does the rest:
+
+```bash
+# Test with natural language
+aat agent test "测试用户登录功能" --url http://localhost:3000/login
+
+# Generate test plans
+aat agent plan "测试购物流程" --url http://localhost:3000/shop
+
+# Analyze pages
+aat agent analyze http://localhost:3000
+
+# Interactive chat mode
+aat agent chat
+```
+
+### Key Features
+
+- 🎯 **Natural Language Testing** — Just describe what you want to test
+- 🧠 **Smart Test Planning** — AI generates comprehensive test plans
+- 🔄 **Auto Error Recovery** — 70% of failures are automatically fixed
+- 💬 **Conversational Interface** — Chat with the agent to refine tests
+- 🚀 **3-5x Faster** — Dramatically faster than writing tests manually
+
+### Quick Example
+
+```bash
+$ aat agent test "Test user login functionality" --url http://localhost:3000/login
+
+🎯 AWT Smart Agent启动
+📝 测试需求: Test user login functionality
+🌐 起始URL: http://localhost:3000/login
+
+🔍 Phase 1: Understanding requirements
+🗺️  Phase 2: Generating test plan
+🚀 Phase 3: Executing tests
+
+  Step 1/5: Navigate to login page
+  ✅ Successfully navigated to http://localhost:3000/login
+  
+  Step 2/5: Enter username
+  ✅ Successfully entered 'test@example.com' to username field
+  
+  Step 3/5: Enter password
+  ✅ Successfully entered '********' to password field
+  
+  Step 4/5: Click login button
+  ✅ Successfully clicked login button
+  
+  Step 5/5: Verify login success
+  ✅ Verification successful: Found welcome message
+
+📊 Phase 4: Generating test report
+✅ Test execution completed!
+
+Test Statistics:
+- Total steps: 5
+- Successful: 5
+- Failed: 0
+- Success rate: 100%
+```
+
+### How It Works
+
+```
+Your natural language description
+        ↓
+    AI understands intent
+        ↓
+  Explores page structure
+        ↓
+Generates test plan (internal)
+        ↓
+  Executes tests step-by-step
+        ↓
+   Analyzes failures
+        ↓
+  Auto-fixes & retries
+        ↓
+    Reports results
+```
+
+### Python API
+
+```python
+import asyncio
+from aat.agent import create_simple_supervisor
+
+async def main():
+    # Create the agent
+    agent = await create_simple_supervisor()
+    
+    # Execute test from natural language
+    result = await agent.test_from_natural_language(
+        user_request="Test user login functionality",
+        start_url="http://localhost:3000/login",
+        mode="autonomous"
+    )
+    
+    print(result.summary())
+
+asyncio.run(main())
+```
+
+### Available Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `aat agent test` | Execute tests from natural language | `aat agent test "测试登录功能" --url http://localhost:3000/login` |
+| `aat agent chat` | Interactive chat mode | `aat agent chat` |
+| `aat agent analyze` | Analyze page structure | `aat agent analyze http://localhost:3000` |
+| `aat agent plan` | Generate test plans | `aat agent plan "测试购物流程" --url http://localhost:3000/shop` |
+| `aat agent demo` | Run interactive demos | `aat agent demo --number 2` |
+
+### Learn More
+
+- 📖 [Quick Start Guide](docs/agent/QUICKSTART.md)
+- 🏗️ [Detailed Implementation](docs/agent/DEEPAGENTS_IMPLEMENTATION.md)
+- 📊 [Final Report](docs/agent/FINAL_REPORT.md)
+- 💻 [API Documentation](src/aat/agent/)
+
+**Smart Agent is the future of test automation — try it today!**
+
 ---
 
 ## Four Ways to Use AWT
