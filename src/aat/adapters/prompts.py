@@ -148,10 +148,37 @@ Determine if the step succeeded based on what you see in the screenshot.
 Consider: Did the expected UI change happen? Is the page correct? Are there error messages?
 Return ONLY valid JSON: {"passed": true, "reason": "brief one-sentence explanation"}"""
 
+_SYSTEM_EXTRACT_PARAMS = """\
+You are an expert QA engineer. Extract test parameters from a natural language description.
+
+Given a test description and an input field type, extract the appropriate test value.
+Consider context, intent, and any explicit or implicit parameter mentions.
+
+Return ONLY a valid JSON object with:
+- "value": the extracted test value (string)
+- "confidence": float 0.0-1.0 (how confident you are this is correct)
+- "reasoning": brief explanation (optional)
+
+Examples:
+Description: "test search function of bing, using search words: AI NEWS"
+Input type: search
+Result: {"value": "AI NEWS", "confidence": 0.95, "reasoning": "explicitly stated search words"}
+
+Description: "login with test@example.com and pass123"
+Input type: email
+Result: {"value": "test@example.com", "confidence": 0.9, "reasoning": "email found in description"}
+
+Description: "check the signup flow"
+Input type: text
+Result: {"value": "test user", "confidence": 0.7, "reasoning": "generic test value for signup"}
+
+Return ONLY valid JSON, no markdown fences."""
+
 __all__ = [
     "_SYSTEM_ANALYZE_FAILURE",
     "_SYSTEM_GENERATE_FIX",
     "_SYSTEM_GENERATE_SCENARIOS",
     "_SYSTEM_ANALYZE_DOCUMENT",
     "_SYSTEM_VERIFY_STEP",
+    "_SYSTEM_EXTRACT_PARAMS",
 ]

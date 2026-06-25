@@ -307,6 +307,8 @@ def _generate_scenario(
         and e.get("x", 0) > 100
         and e.get("role", "") not in ("textbox", "searchbox", "combobox")  # Exclude text input roles
         and e.get("y", 0) < 600  # Exclude footer elements (usually at bottom of page)
+        and e.get("width", 0) > 0  # Exclude elements with zero width (invisible/invalid)
+        and e.get("height", 0) > 0  # Exclude elements with zero height (invisible/invalid)
     ]
 
     # Detect intent from description
@@ -340,6 +342,19 @@ def _generate_scenario(
 
             steps.append(step_dict)
             step_num += 1
+
+            # For search intent, add Enter key press instead of clicking button
+            if intent == "search" and inp.get("role") in ("searchbox", "textbox"):
+                steps.append(
+                    {
+                        "step": step_num,
+                        "action": "press_key",
+                        "value": "Enter",
+                        "region": "main",
+                        "description": "Press Enter to search",
+                    }
+                )
+                step_num += 1
 
     # --- Button clicks: match keywords to buttons ---
     keywords = _extract_keywords(description)
@@ -607,23 +622,121 @@ _LABEL_HINTS: dict[str, str] = {
 }
 
 
+def _is_ai_available() -> bool:
+    """Check if AI adapter is available for parameter extraction."""
+    try:
+        from aat.adapters import ADAPTER_REGISTRY
+        from aat.core.config import load_config
+
+        config = load_config()
+        adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)
+        return adapter_cls is not None
+    except Exception:
+        return False
+
+
+def _extract_with_ai(description: str, inp: dict[str, Any]) -> str | None:
+    """Use LLM to intelligently extract parameter value from description.
+
+    Returns None if extraction fails or AI is unavailable.
+    """
+    try:
+        from aat.adapters import ADAPTER_REGISTRY
+        from aat.adapters.prompts import _SYSTEM_EXTRACT_PARAMS
+        from aat.core.config import load_config
+
+        config = load_config()
+        adapter_cls = ADAPTER_REGISTRY.get(config.ai.provider)
+        if not adapter_cls:
+            return None
+
+        adapter = adapter_cls(config.ai)
+
+        # Build prompt in OpenAI-compatible format
+        input_type = inp.get("input_type", "text")
+        input_label = inp.get("label", "text field")
+        user_content = f"Description: {description}\nInput type: {input_type}\nInput label: {input_label}"
+
+        messages = [
+            {"role": "system", "content": _SYSTEM_EXTRACT_PARAMS},
+            {"role": "user", "content": user_content},
+        ]
+
+        # Call AI - use existing event loop if available
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # If we're in an async context, we need to handle this differently
+        # For now, use run_coroutine_threadsafe or create a new loop
+        if loop.is_running():
+            # Create a new loop in a thread to avoid conflicts
+            import threading
+
+            result = [None]
+            exception = [None]
+
+            def run_in_thread():
+                try:
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    # Use _call_json for structured response
+                    result[0] = new_loop.run_until_complete(
+                        adapter._call_json(messages, max_tokens=2048, temperature=0.3)
+                    )
+                except Exception as e:
+                    exception[0] = e
+                finally:
+                    new_loop.close()
+
+            thread = threading.Thread(target=run_in_thread)
+            thread.start()
+            thread.join(timeout=30)
+
+            if exception[0]:
+                raise exception[0]
+            data = result[0]
+        else:
+            # Use _call_json for structured response
+            data = loop.run_until_complete(
+                adapter._call_json(messages, max_tokens=2048, temperature=0.3)
+            )
+
+        # Extract value with confidence check
+        value = data.get("value", "")
+        confidence = data.get("confidence", 0.0)
+
+        # Only use high-confidence results
+        if value and confidence >= 0.7:
+            return value
+
+    except Exception:
+        # Silently fall back to heuristics on any error
+        pass
+
+    return None
+
+
 def _infer_input_value(
     inp: dict[str, Any],
     intent: str,
     account: dict[str, str],
     description: str = "",
 ) -> str:
-    """Infer a test value for an input field."""
-    # Try to extract quoted value from description first
-    # e.g., "type 'AI NEWS'" → "AI NEWS"
-    import re
+    """Infer a test value for an input field using AI.
 
-    quoted_values = re.findall(r"['\"]([^'\"]+)['\"]", description)
-    if quoted_values:
-        # Use the first quoted value as input
-        return quoted_values[0]
+    Strategy: Use LLM to intelligently extract parameters from description.
+    Falls back to basic heuristics if AI is unavailable or fails.
+    """
+    # Smart path: Use AI to extract parameter value
+    if _is_ai_available():
+        ai_value = _extract_with_ai(description, inp)
+        if ai_value:
+            return ai_value
 
-    # Check input_type from scan data first
+    # Fallback: Basic heuristics for common input types
     input_type = (inp.get("input_type") or "").lower()
     if input_type in _INPUT_TYPE_MAP:
         if input_type == "email" and account.get("email"):
@@ -641,7 +754,6 @@ def _infer_input_value(
     # Match by label hints
     for hint_text, field_type in _LABEL_HINTS.items():
         if hint_text in combined:
-            # Use account data if available
             if field_type == "email" and account.get("email"):
                 return account["email"]
             if field_type == "password" and account.get("password"):
