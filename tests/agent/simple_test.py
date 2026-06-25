@@ -5,10 +5,10 @@ AWT Smart Agent 实际功能测试
 """
 
 import pytest
-import asyncio
+
+from aat.agent.config import AgentConfig
 from aat.agent.simple_supervisor import SimpleSupervisorAgent
-from aat.agent.config import AgentConfig, AgentMode
-from aat.agent.simple_tools import get_simple_tools, execute_tool_with_tracking
+from aat.agent.simple_tools import execute_tool_with_tracking
 
 
 class TestSimpleAgentSystem:
@@ -48,7 +48,7 @@ class TestSimpleAgentSystem:
             ("测试用户登录功能", "functional", ["authentication"]),
             ("测试安全性漏洞", "security", ["security"]),
             ("测试购物流程", "functional", ["ecommerce"]),
-            ("探索页面功能", "exploratory", ["general"])
+            ("探索页面功能", "exploratory", ["general"]),
         ]
 
         for user_request, expected_type, expected_features in test_cases:
@@ -99,29 +99,29 @@ class TestSimpleAgentSystem:
                 "description": "导航测试",
                 "action": "navigate",
                 "target": "http://example.com",
-                "value": None
+                "value": None,
             },
             {
                 "step_number": 2,
                 "description": "点击测试",
                 "action": "click",
                 "target": "按钮",
-                "value": None
+                "value": None,
             },
             {
                 "step_number": 3,
                 "description": "输入测试",
                 "action": "type",
                 "target": "输入框",
-                "value": "测试文本"
+                "value": "测试文本",
             },
             {
                 "step_number": 4,
                 "description": "验证测试",
                 "action": "verify",
                 "target": "文本",
-                "value": "期望值"
-            }
+                "value": "期望值",
+            },
         ]
 
         for step in steps_to_test:
@@ -136,13 +136,11 @@ class TestSimpleAgentSystem:
 
         # 执行一个简单的测试
         result = await supervisor.test_from_natural_language(
-            user_request="测试基本功能",
-            start_url="http://localhost:3000",
-            mode="autonomous"
+            user_request="测试基本功能", start_url="http://localhost:3000", mode="autonomous"
         )
 
         # 验证结果
-        assert isinstance(result, dict) or hasattr(result, 'success')
+        assert isinstance(result, dict) or hasattr(result, "success")
         assert result.steps_completed > 0
 
 
@@ -188,7 +186,7 @@ class TestSimpleTools:
     @pytest.mark.asyncio
     async def test_tool_tracking(self):
         """测试工具跟踪"""
-        from aat.agent.simple_tools import tool_tracker, execute_tool_with_tracking
+        from aat.agent.simple_tools import tool_tracker
 
         # 执行一些工具调用
         await execute_tool_with_tracking("simple_navigate", "http://example.com")
@@ -210,15 +208,13 @@ class TestIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_complete_auth_scenario(self):
         """测试完整的认证场景"""
-        config = AgentConfig(
-            max_retry_attempts=2
-        )
+        config = AgentConfig(max_retry_attempts=2)
         supervisor = SimpleSupervisorAgent(config)
 
         result = await supervisor.test_from_natural_language(
             user_request="测试用户登录功能",
             start_url="http://localhost:3000/login",
-            mode="autonomous"
+            mode="autonomous",
         )
 
         assert result.steps_completed > 0
@@ -227,16 +223,14 @@ class TestIntegrationScenarios:
     @pytest.mark.asyncio
     async def test_error_recovery_scenario(self):
         """测试错误恢复场景"""
-        config = AgentConfig(
-            max_retry_attempts=3
-        )
+        config = AgentConfig(max_retry_attempts=3)
         supervisor = SimpleSupervisorAgent(config)
 
         # 使用可能产生错误的测试
         result = await supervisor.test_from_natural_language(
             user_request="测试表单验证和错误处理",
             start_url="http://localhost:3000/register",
-            mode="autonomous"
+            mode="autonomous",
         )
 
         # 验证错误处理
@@ -252,11 +246,7 @@ class TestIntegrationScenarios:
         supervisor = await create_simple_supervisor(config)
 
         # 测试不同的对话
-        test_messages = [
-            "测试功能",
-            "分析失败",
-            "生成计划"
-        ]
+        test_messages = ["测试功能", "分析失败", "生成计划"]
 
         for message in test_messages:
             response = await supervisor.chat(message)
@@ -266,7 +256,6 @@ class TestIntegrationScenarios:
 
 def test_project_structure():
     """测试项目结构完整性"""
-    import os
     from pathlib import Path
 
     # 检查关键文件
@@ -274,7 +263,7 @@ def test_project_structure():
         "src/aat/agent/simple_supervisor.py",
         "src/aat/agent/simple_tools.py",
         "src/aat/agent/config.py",
-        "examples/agent/demo.py"
+        "examples/agent/demo.py",
     ]
 
     for file_path in required_files:

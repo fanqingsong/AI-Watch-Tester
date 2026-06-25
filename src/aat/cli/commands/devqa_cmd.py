@@ -305,7 +305,8 @@ def _generate_scenario(
         in ("button", "a", "semantics", "label", "svg", "accessibility")  # Added "accessibility"
         and e.get("source") in ("dom", "semantics", "accessibility")  # Added "accessibility"
         and e.get("x", 0) > 100
-        and e.get("role", "") not in ("textbox", "searchbox", "combobox")  # Exclude text input roles
+        and e.get("role", "")
+        not in ("textbox", "searchbox", "combobox")  # Exclude text input roles
         and e.get("y", 0) < 600  # Exclude footer elements (usually at bottom of page)
         and e.get("width", 0) > 0  # Exclude elements with zero width (invisible/invalid)
         and e.get("height", 0) > 0  # Exclude elements with zero height (invisible/invalid)
@@ -386,10 +387,12 @@ def _generate_scenario(
                 if el.get("role"):
                     target["role"] = el["role"]
             # Priority 1: DOM selector
-            elif el.get("selector") and el["source"] == "dom":
-                target["selector"] = el["selector"]
-            # Priority 2: Semantics (Flutter)
-            elif el.get("source") == "semantics" and el.get("selector"):
+            elif (
+                el.get("selector")
+                and el["source"] == "dom"
+                or el.get("source") == "semantics"
+                and el.get("selector")
+            ):
                 target["selector"] = el["selector"]
 
             click_step: dict[str, Any] = {
@@ -432,10 +435,12 @@ def _generate_scenario(
                 if el.get("role"):
                     target["role"] = el["role"]
             # Priority 1: DOM selector
-            elif el.get("selector") and el.get("source") == "dom":
-                target["selector"] = el["selector"]
-            # Priority 2: Semantics (Flutter)
-            elif el.get("source") == "semantics" and el.get("selector"):
+            elif (
+                el.get("selector")
+                and el.get("source") == "dom"
+                or el.get("source") == "semantics"
+                and el.get("selector")
+            ):
                 target["selector"] = el["selector"]
 
             steps.append(
@@ -655,7 +660,9 @@ def _extract_with_ai(description: str, inp: dict[str, Any]) -> str | None:
         # Build prompt in OpenAI-compatible format
         input_type = inp.get("input_type", "text")
         input_label = inp.get("label", "text field")
-        user_content = f"Description: {description}\nInput type: {input_type}\nInput label: {input_label}"
+        user_content = (
+            f"Description: {description}\nInput type: {input_type}\nInput label: {input_label}"
+        )
 
         messages = [
             {"role": "system", "content": _SYSTEM_EXTRACT_PARAMS},

@@ -8,15 +8,14 @@ AWT Supervisor Agent - 智能测试主管代理
 - 在需要时请求用户指导
 """
 
-import asyncio
-from typing import Optional, Dict, Any, List
-from langchain.agents import create_agent
-from langchain.tools import tool
-from langchain_core.messages import HumanMessage, AIMessage
+from typing import Any
 
-from aat.agent.config import AgentConfig, TestIntent, AgentContext
-from aat.agent.tools import get_awt_tools
+from langchain.agents import create_agent
+from langchain_core.messages import AIMessage, HumanMessage
+
+from aat.agent.config import AgentConfig, AgentContext, TestIntent
 from aat.agent.subagents import get_subagent_configs
+from aat.agent.tools import get_awt_tools
 
 
 class AWTSupervisorAgent:
@@ -56,7 +55,7 @@ class AWTSupervisorAgent:
         self.agent = create_agent(
             model=self.config.ai_model,
             tools=awt_tools,
-            system_prompt=self._get_supervisor_prompt()
+            system_prompt=self._get_supervisor_prompt(),
         )
 
     def _get_supervisor_prompt(self) -> str:
@@ -89,11 +88,8 @@ class AWTSupervisorAgent:
         """
 
     async def test_from_natural_language(
-        self,
-        user_request: str,
-        start_url: str,
-        mode: str = "interactive"
-    ) -> Dict[str, Any]:
+        self, user_request: str, start_url: str, mode: str = "interactive"
+    ) -> dict[str, Any]:
         """
         从自然语言描述执行测试
 
@@ -113,10 +109,10 @@ class AWTSupervisorAgent:
         self.context = AgentContext(
             current_url=start_url,
             user_request=user_request,
-            test_intent=await self._understand_intent(user_request)
+            test_intent=await self._understand_intent(user_request),
         )
 
-        print(f"🎯 AWT Smart Agent 启动")
+        print("🎯 AWT Smart Agent 启动")
         print(f"📝 测试需求: {user_request}")
         print(f"🌐 起始URL: {start_url}")
         print(f"🤖 运行模式: {mode}")
@@ -133,20 +129,16 @@ class AWTSupervisorAgent:
 
         try:
             # 执行代理任务
-            result = await self.agent.ainvoke({
-                "messages": [HumanMessage(content=initial_message)]
-            })
+            result = await self.agent.ainvoke(
+                {"messages": [HumanMessage(content=initial_message)]}
+            )
 
             # 解析结果
             return self._parse_result(result)
 
         except Exception as e:
             print(f"❌ 代理执行出错: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e),
-                "partial_results": []
-            }
+            return {"success": False, "error": str(e), "partial_results": []}
 
     async def _understand_intent(self, user_request: str) -> TestIntent:
         """
@@ -183,12 +175,10 @@ class AWTSupervisorAgent:
             risk_level = "medium"
 
         return TestIntent(
-            test_type=test_type,
-            target_features=target_features,
-            risk_level=risk_level
+            test_type=test_type, target_features=target_features, risk_level=risk_level
         )
 
-    def _parse_result(self, result: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_result(self, result: dict[str, Any]) -> dict[str, Any]:
         """
         解析代理执行结果
 
@@ -210,7 +200,7 @@ class AWTSupervisorAgent:
             "success": True,
             "summary": content,
             "context": self.context.model_dump() if self.context else None,
-            "raw_result": result
+            "raw_result": result,
         }
 
     async def chat(self, user_message: str) -> str:
@@ -226,9 +216,7 @@ class AWTSupervisorAgent:
         if not self.agent:
             await self.initialize()
 
-        result = await self.agent.ainvoke({
-            "messages": [HumanMessage(content=user_message)]
-        })
+        result = await self.agent.ainvoke({"messages": [HumanMessage(content=user_message)]})
 
         messages = result.get("messages", [])
         last_message = messages[-1] if messages else None

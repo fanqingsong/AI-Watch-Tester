@@ -7,24 +7,20 @@ AWT 子代理配置
 - Analyzer Agent: 失败分析代理
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
-def get_subagent_configs() -> List[Dict[str, Any]]:
+def get_subagent_configs() -> list[dict[str, Any]]:
     """
     获取所有子代理的配置
 
     Returns:
         子代理配置列表
     """
-    return [
-        get_explorer_agent_config(),
-        get_tester_agent_config(),
-        get_analyzer_agent_config()
-    ]
+    return [get_explorer_agent_config(), get_tester_agent_config(), get_analyzer_agent_config()]
 
 
-def get_explorer_agent_config() -> Dict[str, Any]:
+def get_explorer_agent_config() -> dict[str, Any]:
     """
     Explorer Agent 配置
 
@@ -56,23 +52,18 @@ def get_explorer_agent_config() -> Dict[str, Any]:
         - 评估元素的测试优先级
         - 标注潜在的测试难点
         """,
-        "tools": [
-            "smart_navigate",
-            "analyze_page",
-            "locate_element",
-            "take_screenshot"
-        ],
+        "tools": ["smart_navigate", "analyze_page", "locate_element", "take_screenshot"],
         "model": "anthropic:claude-sonnet-4-6",  # 可以与主代理不同
         "middleware": [],
         "capabilities": {
             "max_exploration_depth": 3,
             "page_analysis_timeout": 30000,
-            "element_discovery_strategies": ["dom", "ocr", "vision"]
-        }
+            "element_discovery_strategies": ["dom", "ocr", "vision"],
+        },
     }
 
 
-def get_tester_agent_config() -> Dict[str, Any]:
+def get_tester_agent_config() -> dict[str, Any]:
     """
     Tester Agent 配置
 
@@ -116,7 +107,7 @@ def get_tester_agent_config() -> Dict[str, Any]:
             "verify_url_contains",
             "wait_for_element",
             "take_screenshot",
-            "check_console"
+            "check_console",
         ],
         "model": "anthropic:claude-sonnet-4-6",
         "middleware": [],
@@ -124,12 +115,12 @@ def get_tester_agent_config() -> Dict[str, Any]:
             "max_test_steps": 50,
             "step_execution_timeout": 10000,
             "retry_attempts": 3,
-            "humanize_actions": True
-        }
+            "humanize_actions": True,
+        },
     }
 
 
-def get_analyzer_agent_config() -> Dict[str, Any]:
+def get_analyzer_agent_config() -> dict[str, Any]:
     """
     Analyzer Agent 配置
 
@@ -162,25 +153,22 @@ def get_analyzer_agent_config() -> Dict[str, Any]:
         - 优先推荐低风险的解决方案
         - 记录分析过程供后续学习
         """,
-        "tools": [
-            "analyze_page",
-            "take_screenshot",
-            "check_console"
-        ],
+        "tools": ["analyze_page", "take_screenshot", "check_console"],
         "model": "anthropic:claude-sonnet-4-6",
         "middleware": [],
         "capabilities": {
             "analysis_depth": "detailed",
             "fix_generation": True,
             "code_analysis": True,
-            "risk_assessment": True
-        }
+            "risk_assessment": True,
+        },
     }
 
 
 # 高级子代理（未来扩展）
 
-def get_security_agent_config() -> Dict[str, Any]:
+
+def get_security_agent_config() -> dict[str, Any]:
     """
     Security Agent 配置（未来功能）
 
@@ -203,12 +191,7 @@ def get_security_agent_config() -> Dict[str, Any]:
         - 遵循负责任的披露原则
         - 优先关注高危漏洞
         """,
-        "tools": [
-            "smart_navigate",
-            "smart_type",
-            "analyze_page",
-            "check_console"
-        ],
+        "tools": ["smart_navigate", "smart_type", "analyze_page", "check_console"],
         "model": "anthropic:claude-sonnet-4-6",
         "middleware": [],
         "capabilities": {
@@ -217,13 +200,13 @@ def get_security_agent_config() -> Dict[str, Any]:
                 "xss",
                 "csrf",
                 "authentication_bypass",
-                "input_validation"
+                "input_validation",
             ]
-        }
+        },
     }
 
 
-def get_performance_agent_config() -> Dict[str, Any]:
+def get_performance_agent_config() -> dict[str, Any]:
     """
     Performance Agent 配置（未来功能）
 
@@ -248,11 +231,7 @@ def get_performance_agent_config() -> Dict[str, Any]:
         - 内存和CPU使用
         - 网络请求性能
         """,
-        "tools": [
-            "smart_navigate",
-            "analyze_page",
-            "take_screenshot"
-        ],
+        "tools": ["smart_navigate", "analyze_page", "take_screenshot"],
         "model": "anthropic:claude-sonnet-4-6",
         "middleware": [],
         "capabilities": {
@@ -260,20 +239,15 @@ def get_performance_agent_config() -> Dict[str, Any]:
                 "page_load_time",
                 "resource_timing",
                 "interaction_latency",
-                "memory_usage"
+                "memory_usage",
             ]
-        }
+        },
     }
 
 
 # 工具映射（用于子代理的工具配置）
 TOOL_MAPPING = {
-    "explorer": [
-        "smart_navigate",
-        "analyze_page",
-        "locate_element",
-        "take_screenshot"
-    ],
+    "explorer": ["smart_navigate", "analyze_page", "locate_element", "take_screenshot"],
     "tester": [
         "smart_navigate",
         "locate_element",
@@ -285,28 +259,15 @@ TOOL_MAPPING = {
         "verify_url_contains",
         "wait_for_element",
         "take_screenshot",
-        "check_console"
+        "check_console",
     ],
-    "analyzer": [
-        "analyze_page",
-        "take_screenshot",
-        "check_console"
-    ],
-    "security": [
-        "smart_navigate",
-        "smart_type",
-        "analyze_page",
-        "check_console"
-    ],
-    "performance": [
-        "smart_navigate",
-        "analyze_page",
-        "take_screenshot"
-    ]
+    "analyzer": ["analyze_page", "take_screenshot", "check_console"],
+    "security": ["smart_navigate", "smart_type", "analyze_page", "check_console"],
+    "performance": ["smart_navigate", "analyze_page", "take_screenshot"],
 }
 
 
-def get_tools_for_agent(agent_name: str) -> List[str]:
+def get_tools_for_agent(agent_name: str) -> list[str]:
     """
     根据代理名称获取对应的工具列表
 

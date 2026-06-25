@@ -5,20 +5,18 @@ AWT Simple Tools - 简化的工具集实现
 随着发展，可以集成真实的浏览器操作和元素定位。
 """
 
-from langchain_core.tools import tool
-from typing import Dict, Any, Optional
 import asyncio
-import json
+from typing import Any
 
+from langchain_core.tools import tool
 
 # ==================== 导航工具 ====================
 
+
 @tool
 async def simple_navigate(
-    url: str,
-    wait_for_load: bool = True,
-    timeout: int = 30000
-) -> Dict[str, Any]:
+    url: str, wait_for_load: bool = True, timeout: int = 30000
+) -> dict[str, Any]:
     """
     简化的导航工具
 
@@ -38,19 +36,12 @@ async def simple_navigate(
         "success": True,
         "url": url,
         "message": f"成功导航到 {url}",
-        "page_info": {
-            "title": f"页面标题 - {url}",
-            "url": url
-        }
+        "page_info": {"title": f"页面标题 - {url}", "url": url},
     }
 
 
 @tool
-async def simple_click(
-    target: str,
-    humanize: bool = True,
-    timeout: int = 10000
-) -> Dict[str, Any]:
+async def simple_click(target: str, humanize: bool = True, timeout: int = 10000) -> dict[str, Any]:
     """
     简化的点击工具
 
@@ -70,17 +61,14 @@ async def simple_click(
         "success": True,
         "message": f"成功点击: {target}",
         "element": target,
-        "action": "click"
+        "action": "click",
     }
 
 
 @tool
 async def simple_type(
-    target: str,
-    text: str,
-    clear_first: bool = True,
-    humanize: bool = True
-) -> Dict[str, Any]:
+    target: str, text: str, clear_first: bool = True, humanize: bool = True
+) -> dict[str, Any]:
     """
     简化的输入工具
 
@@ -102,16 +90,14 @@ async def simple_type(
         "message": f"成功输入 '{text}' 到 {target}",
         "element": target,
         "text": text,
-        "action": "type"
+        "action": "type",
     }
 
 
 @tool
 async def simple_verify(
-    target: str,
-    expected_value: Optional[str] = None,
-    timeout: int = 5000
-) -> Dict[str, Any]:
+    target: str, expected_value: str | None = None, timeout: int = 5000
+) -> dict[str, Any]:
     """
     简化的验证工具
 
@@ -131,12 +117,13 @@ async def simple_verify(
     if "错误" in target.lower():
         # 模拟一些验证失败
         import random
+
         if random.random() < 0.3:  # 30% 失败率
             return {
                 "success": False,
                 "error": f"验证失败: 未找到期望的 '{expected_value}'",
                 "target": target,
-                "expected": expected_value
+                "expected": expected_value,
             }
 
     return {
@@ -144,14 +131,12 @@ async def simple_verify(
         "message": f"验证成功: 找到 {target}",
         "target": target,
         "expected": expected_value,
-        "action": "verify"
+        "action": "verify",
     }
 
 
 @tool
-async def simple_analyze(
-    analysis_depth: str = "basic"
-) -> Dict[str, Any]:
+async def simple_analyze(analysis_depth: str = "basic") -> dict[str, Any]:
     """
     简化的页面分析工具
 
@@ -163,7 +148,7 @@ async def simple_analyze(
     """
     await asyncio.sleep(1)  # 模拟分析时间
 
-    print(f"    🔬 分析页面结构")
+    print("    🔬 分析页面结构")
 
     # 模拟分析结果
     return {
@@ -173,26 +158,23 @@ async def simple_analyze(
             "interactive_elements": [
                 {"type": "button", "text": "提交", "id": "submit-btn"},
                 {"type": "input", "placeholder": "用户名", "id": "username"},
-                {"type": "input", "placeholder": "密码", "id": "password", "type": "password"}
+                {"type": "input", "placeholder": "密码", "id": "password", "type": "password"},
             ],
             "navigation": [
                 {"text": "首页", "url": "/home"},
                 {"text": "关于", "url": "/about"},
-                {"text": "联系", "url": "/contact"}
+                {"text": "联系", "url": "/contact"},
             ],
-            "forms": [
-                {"id": "login-form", "fields": ["username", "password"]}
-            ]
+            "forms": [{"id": "login-form", "fields": ["username", "password"]}],
         },
-        "message": "页面分析完成"
+        "message": "页面分析完成",
     }
 
 
 @tool
 async def simple_screenshot(
-    filename: Optional[str] = None,
-    full_page: bool = False
-) -> Dict[str, Any]:
+    filename: str | None = None, full_page: bool = False
+) -> dict[str, Any]:
     """
     简化的截图工具
 
@@ -207,6 +189,7 @@ async def simple_screenshot(
 
     if not filename:
         from datetime import datetime
+
         filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
 
     print(f"    📸 截图: {filename}")
@@ -215,16 +198,14 @@ async def simple_screenshot(
         "success": True,
         "message": f"截图保存成功: {filename}",
         "filename": filename,
-        "path": f"/screenshots/{filename}"
+        "path": f"/screenshots/{filename}",
     }
 
 
 @tool
 async def simple_wait(
-    element: str,
-    timeout: int = 10000,
-    state: str = "visible"
-) -> Dict[str, Any]:
+    element: str, timeout: int = 10000, state: str = "visible"
+) -> dict[str, Any]:
     """
     简化的等待工具
 
@@ -245,15 +226,12 @@ async def simple_wait(
         "success": True,
         "message": f"元素 {element} 已出现",
         "element": element,
-        "wait_time": wait_time
+        "wait_time": wait_time,
     }
 
 
 @tool
-async def simple_select(
-    target: str,
-    value: str
-) -> Dict[str, Any]:
+async def simple_select(target: str, value: str) -> dict[str, Any]:
     """
     简化的选择工具
 
@@ -273,14 +251,12 @@ async def simple_select(
         "message": f"成功选择 '{value}' 从 {target}",
         "element": target,
         "value": value,
-        "action": "select"
+        "action": "select",
     }
 
 
 @tool
-async def simple_console_check(
-    level: str = "error"
-) -> Dict[str, Any]:
+async def simple_console_check(level: str = "error") -> dict[str, Any]:
     """
     简化的控制台检查工具
 
@@ -297,12 +273,8 @@ async def simple_console_check(
     # 模拟检查结果
     return {
         "success": True,
-        "console_info": {
-            "errors": [],
-            "warnings": [],
-            "info": ["页面加载完成", "资源加载成功"]
-        },
-        "message": "控制台检查完成"
+        "console_info": {"errors": [], "warnings": [], "info": ["页面加载完成", "资源加载成功"]},
+        "message": "控制台检查完成",
     }
 
 
@@ -322,7 +294,7 @@ def get_simple_tools() -> list:
         simple_screenshot,
         simple_wait,
         simple_select,
-        simple_console_check
+        simple_console_check,
     ]
 
 
@@ -359,7 +331,7 @@ class ToolUsageTracker:
                 "successful_calls": 0,
                 "failed_calls": 0,
                 "total_time": 0,
-                "avg_time": 0
+                "avg_time": 0,
             }
 
         stats = self.usage_stats[tool_name]
@@ -372,23 +344,23 @@ class ToolUsageTracker:
         stats["total_time"] += execution_time
         stats["avg_time"] = stats["total_time"] / stats["total_calls"]
 
-        self.call_history.append({
-            "tool": tool_name,
-            "success": success,
-            "time": execution_time,
-            "timestamp": asyncio.get_event_loop().time()
-        })
+        self.call_history.append(
+            {
+                "tool": tool_name,
+                "success": success,
+                "time": execution_time,
+                "timestamp": asyncio.get_event_loop().time(),
+            }
+        )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return self.usage_stats
 
     def get_most_used_tools(self, limit: int = 5) -> list:
         """获取最常用的工具"""
         sorted_tools = sorted(
-            self.usage_stats.items(),
-            key=lambda x: x[1]["total_calls"],
-            reverse=True
+            self.usage_stats.items(), key=lambda x: x[1]["total_calls"], reverse=True
         )
         return sorted_tools[:limit]
 
@@ -397,11 +369,7 @@ class ToolUsageTracker:
 tool_tracker = ToolUsageTracker()
 
 
-async def execute_tool_with_tracking(
-    tool_name: str,
-    *args,
-    **kwargs
-) -> Dict[str, Any]:
+async def execute_tool_with_tracking(tool_name: str, *args, **kwargs) -> dict[str, Any]:
     """
     执行工具并跟踪使用情况
 
@@ -415,23 +383,17 @@ async def execute_tool_with_tracking(
     """
     tool = get_tool_by_name(tool_name)
     if not tool:
-        return {
-            "success": False,
-            "error": f"工具不存在: {tool_name}"
-        }
+        return {"success": False, "error": f"工具不存在: {tool_name}"}
 
     import time
+
     start_time = time.time()
 
     try:
         result = await tool.func(*args, **kwargs)
         execution_time = time.time() - start_time
 
-        tool_tracker.record_usage(
-            tool_name,
-            result.get("success", True),
-            execution_time
-        )
+        tool_tracker.record_usage(tool_name, result.get("success", True), execution_time)
 
         return result
 
@@ -439,7 +401,4 @@ async def execute_tool_with_tracking(
         execution_time = time.time() - start_time
         tool_tracker.record_usage(tool_name, False, execution_time)
 
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}

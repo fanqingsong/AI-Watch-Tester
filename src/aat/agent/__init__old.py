@@ -8,11 +8,7 @@ __version__ = "0.1.0"
 
 # 导出简化版本（立即可用）
 from aat.agent.config import AgentConfig
-from aat.agent.simple_supervisor import (
-    SimpleSupervisorAgent,
-    create_simple_supervisor,
-    create_supervisor_from_config,
-)
+from aat.agent.simple_supervisor import SimpleSupervisorAgent, create_simple_supervisor
 
 # 未来版本：完整 DeepAgents 集成
 # from aat.agent.supervisor import AWTSupervisorAgent
@@ -20,6 +16,5 @@ from aat.agent.simple_supervisor import (
 __all__ = [
     "SimpleSupervisorAgent",
     "create_simple_supervisor",
-    "create_supervisor_from_config",
     "AgentConfig",
 ]

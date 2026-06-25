@@ -9,19 +9,18 @@ AWT Agent 工具集
 - 分析工具
 """
 
-from langchain.tools import tool
-from typing import Dict, Any, Optional
 import asyncio
+from typing import Any, Dict, Optional
 
+from langchain.tools import tool
 
 # ==================== 导航工具 ====================
 
+
 @tool
 async def smart_navigate(
-    url: str,
-    wait_for_load: bool = True,
-    timeout: int = 30000
-) -> Dict[str, Any]:
+    url: str, wait_for_load: bool = True, timeout: int = 30000
+) -> dict[str, Any]:
     """
     智能导航到指定URL
 
@@ -40,45 +39,35 @@ async def smart_navigate(
         "success": True,
         "url": url,
         "title": f"页面标题: {url}",
-        "message": f"成功导航到 {url}"
+        "message": f"成功导航到 {url}",
     }
 
 
 @tool
-async def go_back() -> Dict[str, Any]:
+async def go_back() -> dict[str, Any]:
     """返回上一页"""
-    return {
-        "success": True,
-        "message": "成功返回上一页"
-    }
+    return {"success": True, "message": "成功返回上一页"}
 
 
 @tool
-async def go_forward() -> Dict[str, Any]:
+async def go_forward() -> dict[str, Any]:
     """前进到下一页"""
-    return {
-        "success": True,
-        "message": "成功前进到下一页"
-    }
+    return {"success": True, "message": "成功前进到下一页"}
 
 
 @tool
-async def refresh_page() -> Dict[str, Any]:
+async def refresh_page() -> dict[str, Any]:
     """刷新当前页面"""
-    return {
-        "success": True,
-        "message": "成功刷新页面"
-    }
+    return {"success": True, "message": "成功刷新页面"}
 
 
 # ==================== 元素定位工具 ====================
 
+
 @tool
 async def locate_element(
-    target_description: str,
-    matching_strategy: str = "hybrid",
-    timeout: int = 10000
-) -> Dict[str, Any]:
+    target_description: str, matching_strategy: str = "hybrid", timeout: int = 10000
+) -> dict[str, Any]:
     """
     定位页面元素
 
@@ -98,20 +87,19 @@ async def locate_element(
         "element": {
             "selector": f"[data-testid='{target_description}']",
             "description": target_description,
-            "position": {"x": 100, "y": 200}
+            "position": {"x": 100, "y": 200},
         },
-        "message": f"成功定位元素: {target_description}"
+        "message": f"成功定位元素: {target_description}",
     }
 
 
 # ==================== 交互工具 ====================
 
+
 @tool
 async def smart_click(
-    target: str,
-    humanize: bool = True,
-    double_click: bool = False
-) -> Dict[str, Any]:
+    target: str, humanize: bool = True, double_click: bool = False
+) -> dict[str, Any]:
     """
     智能点击元素
 
@@ -131,17 +119,14 @@ async def smart_click(
     return {
         "success": True,
         "action": f"{click_type}了元素: {target}",
-        "message": f"成功{click_type}: {target}"
+        "message": f"成功{click_type}: {target}",
     }
 
 
 @tool
 async def smart_type(
-    target: str,
-    text: str,
-    humanize: bool = True,
-    clear_first: bool = True
-) -> Dict[str, Any]:
+    target: str, text: str, humanize: bool = True, clear_first: bool = True
+) -> dict[str, Any]:
     """
     智能输入文本
 
@@ -161,15 +146,12 @@ async def smart_type(
         "success": True,
         "action": f"输入文本到: {target}",
         "text": text,
-        "message": f"成功输入 '{text}' 到 {target}"
+        "message": f"成功输入 '{text}' 到 {target}",
     }
 
 
 @tool
-async def select_option(
-    target: str,
-    value: str
-) -> Dict[str, Any]:
+async def select_option(target: str, value: str) -> dict[str, Any]:
     """
     选择下拉选项
 
@@ -183,17 +165,15 @@ async def select_option(
     return {
         "success": True,
         "action": f"选择选项: {value}",
-        "message": f"成功选择 '{value}' 从 {target}"
+        "message": f"成功选择 '{value}' 从 {target}",
     }
 
 
 # ==================== 验证工具 ====================
 
+
 @tool
-async def verify_text_visible(
-    expected_text: str,
-    timeout: int = 5000
-) -> Dict[str, Any]:
+async def verify_text_visible(expected_text: str, timeout: int = 5000) -> dict[str, Any]:
     """
     验证文本是否可见
 
@@ -209,15 +189,12 @@ async def verify_text_visible(
     return {
         "success": True,
         "assertion": f"文本可见: {expected_text}",
-        "message": f"成功验证文本: {expected_text}"
+        "message": f"成功验证文本: {expected_text}",
     }
 
 
 @tool
-async def verify_element_exists(
-    selector: str,
-    timeout: int = 5000
-) -> Dict[str, Any]:
+async def verify_element_exists(selector: str, timeout: int = 5000) -> dict[str, Any]:
     """
     验证元素是否存在
 
@@ -231,14 +208,12 @@ async def verify_element_exists(
     return {
         "success": True,
         "assertion": f"元素存在: {selector}",
-        "message": f"成功验证元素存在: {selector}"
+        "message": f"成功验证元素存在: {selector}",
     }
 
 
 @tool
-async def verify_url_contains(
-    expected_fragment: str
-) -> Dict[str, Any]:
+async def verify_url_contains(expected_fragment: str) -> dict[str, Any]:
     """
     验证URL是否包含指定片段
 
@@ -251,17 +226,17 @@ async def verify_url_contains(
     return {
         "success": True,
         "assertion": f"URL包含: {expected_fragment}",
-        "message": f"成功验证URL包含: {expected_fragment}"
+        "message": f"成功验证URL包含: {expected_fragment}",
     }
 
 
 # ==================== 分析工具 ====================
 
+
 @tool
 async def analyze_page(
-    analysis_depth: str = "basic",
-    include_hidden: bool = False
-) -> Dict[str, Any]:
+    analysis_depth: str = "basic", include_hidden: bool = False
+) -> dict[str, Any]:
     """
     分析当前页面结构
 
@@ -280,18 +255,16 @@ async def analyze_page(
             "title": "页面标题",
             "interactive_elements": ["按钮1", "输入框1", "链接1"],
             "forms": ["登录表单"],
-            "navigation": ["首页", "关于", "联系"]
+            "navigation": ["首页", "关于", "联系"],
         },
-        "message": "页面分析完成"
+        "message": "页面分析完成",
     }
 
 
 @tool
 async def take_screenshot(
-    filename: Optional[str] = None,
-    full_page: bool = False,
-    element_selector: Optional[str] = None
-) -> Dict[str, Any]:
+    filename: str | None = None, full_page: bool = False, element_selector: str | None = None
+) -> dict[str, Any]:
     """
     截取屏幕截图
 
@@ -308,15 +281,12 @@ async def take_screenshot(
     return {
         "success": True,
         "screenshot_path": f"/screenshots/{filename or 'screenshot.png'}",
-        "message": "截图保存成功"
+        "message": "截图保存成功",
     }
 
 
 @tool
-async def check_console(
-    level: str = "error",
-    clear_after_check: bool = False
-) -> Dict[str, Any]:
+async def check_console(level: str = "error", clear_after_check: bool = False) -> dict[str, Any]:
     """
     检查浏览器控制台错误和警告
 
@@ -331,20 +301,15 @@ async def check_console(
 
     return {
         "success": True,
-        "console_info": {
-            "errors": [],
-            "warnings": []
-        },
-        "message": "控制台检查完成"
+        "console_info": {"errors": [], "warnings": []},
+        "message": "控制台检查完成",
     }
 
 
 @tool
 async def wait_for_element(
-    selector: str,
-    timeout: int = 10000,
-    state: str = "visible"
-) -> Dict[str, Any]:
+    selector: str, timeout: int = 10000, state: str = "visible"
+) -> dict[str, Any]:
     """
     等待元素出现
 
@@ -356,13 +321,11 @@ async def wait_for_element(
     Returns:
         等待结果
     """
-    return {
-        "success": True,
-        "message": f"成功等待元素: {selector}"
-    }
+    return {"success": True, "message": f"成功等待元素: {selector}"}
 
 
 # ==================== 工具集导出 ====================
+
 
 def get_awt_tools() -> list:
     """
@@ -377,25 +340,21 @@ def get_awt_tools() -> list:
         go_back,
         go_forward,
         refresh_page,
-
         # 元素定位工具
         locate_element,
-
         # 交互工具
         smart_click,
         smart_type,
         select_option,
-
         # 验证工具
         verify_text_visible,
         verify_element_exists,
         verify_url_contains,
-
         # 分析工具
         analyze_page,
         take_screenshot,
         check_console,
-        wait_for_element
+        wait_for_element,
     ]
 
 
@@ -412,11 +371,7 @@ def get_interaction_tools() -> list:
 
 def get_verification_tools() -> list:
     """获取验证工具"""
-    return [
-        verify_text_visible,
-        verify_element_exists,
-        verify_url_contains
-    ]
+    return [verify_text_visible, verify_element_exists, verify_url_contains]
 
 
 def get_analysis_tools() -> list:

@@ -99,6 +99,7 @@ def main(
 
 # -- Register commands --------------------------------------------------------
 
+from aat.cli.agent_cmd import agent_app  # noqa: E402
 from aat.cli.commands.analyze_cmd import analyze_command  # noqa: E402
 from aat.cli.commands.baseline_cmd import baseline_app  # noqa: E402
 from aat.cli.commands.config_cmd import config_app  # noqa: E402
@@ -120,7 +121,6 @@ from aat.cli.commands.snapshot_cmd import snapshot_command  # noqa: E402
 from aat.cli.commands.start_cmd import start_command  # noqa: E402
 from aat.cli.commands.validate_cmd import validate_command  # noqa: E402
 from aat.cli.commands.watch_cmd import watch_command  # noqa: E402
-from aat.cli.agent_cmd import agent_app  # noqa: E402
 
 app.command(name="setup")(setup_command)
 app.command(name="doctor")(doctor_command)

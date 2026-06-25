@@ -9,10 +9,10 @@ AWT Smart Agent 概念验证测试
 """
 
 import pytest
-import asyncio
+
+from aat.agent.config import AgentConfig, AgentMode, TestIntent
 from aat.agent.supervisor import AWTSupervisorAgent
-from aat.agent.config import AgentConfig, TestIntent, AgentMode
-from aat.agent.tools import get_awt_tools, get_navigation_tools, get_interaction_tools
+from aat.agent.tools import get_awt_tools, get_interaction_tools, get_navigation_tools
 
 
 class TestAgentConfig:
@@ -28,9 +28,7 @@ class TestAgentConfig:
     def test_custom_config(self):
         """测试自定义配置"""
         config = AgentConfig(
-            ai_model="openai:gpt-4",
-            default_mode=AgentMode.AUTONOMOUS,
-            max_exploration_depth=5
+            ai_model="openai:gpt-4", default_mode=AgentMode.AUTONOMOUS, max_exploration_depth=5
         )
         assert config.ai_model == "openai:gpt-4"
         assert config.default_mode == AgentMode.AUTONOMOUS
@@ -39,9 +37,7 @@ class TestAgentConfig:
     def test_test_intent(self):
         """测试测试意图"""
         intent = TestIntent(
-            test_type="functional",
-            target_features=["login", "authentication"],
-            risk_level="high"
+            test_type="functional", target_features=["login", "authentication"], risk_level="high"
         )
         assert intent.test_type == "functional"
         assert len(intent.target_features) == 2
@@ -195,18 +191,13 @@ class TestIntegration:
         assert intent is not None
 
         # 测试结果解析
-        mock_result = {
-            "messages": [
-                {"type": "ai", "content": "测试完成"}
-            ]
-        }
+        mock_result = {"messages": [{"type": "ai", "content": "测试完成"}]}
         parsed = supervisor._parse_result(mock_result)
         assert parsed["success"] == True
 
 
 def test_project_structure():
     """测试项目结构完整性"""
-    import os
     from pathlib import Path
 
     # 检查关键文件是否存在
@@ -221,7 +212,7 @@ def test_project_structure():
         "src/aat/agent/subagents/__init__.py",
         "docs/agent/README.md",
         "docs/agent/DEEPAGENTS_IMPLEMENTATION.md",
-        "examples/agent/quickstart.py"
+        "examples/agent/quickstart.py",
     ]
 
     for file_path in required_files:

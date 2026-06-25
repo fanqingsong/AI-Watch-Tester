@@ -5,12 +5,12 @@ AWT CLI Agent Command
 """
 
 import asyncio
-import typer
-from typing import Optional
 from pathlib import Path
 
-from aat.agent.simple_supervisor import create_simple_supervisor
+import typer
+
 from aat.agent.config import AgentConfig, AgentMode
+from aat.agent.simple_supervisor import create_simple_supervisor, create_supervisor_from_config
 
 # 创建 agent 命令组
 agent_app = typer.Typer(help="AWT 智能测试代理命令")
@@ -20,10 +20,12 @@ agent_app = typer.Typer(help="AWT 智能测试代理命令")
 def test(
     description: str = typer.Argument(..., help="自然语言测试描述"),
     url: str = typer.Option(..., "--url", help="起始URL"),
-    mode: str = typer.Option("autonomous", "--mode", help="运行模式: interactive|autonomous|conservative"),
-    model: Optional[str] = typer.Option(None, "--model", help="AI 模型"),
+    mode: str = typer.Option(
+        "autonomous", "--mode", help="运行模式: interactive|autonomous|conservative"
+    ),
+    model: str | None = typer.Option(None, "--model", help="AI 模型"),
     retries: int = typer.Option(3, "--retries", help="最大重试次数"),
-    output: Optional[str] = typer.Option(None, "--output", help="结果输出文件")
+    output: str | None = typer.Option(None, "--output", help="结果输出文件"),
 ):
     """
     使用智能代理执行测试
@@ -33,17 +35,18 @@ def test(
         aat agent test "测试购物流程" --url http://localhost:3000 --mode autonomous
         aat agent test "测试注册功能" --url http://localhost:3000/register --mode conservative
     """
+
     async def run_test():
         try:
             # 创建配置
             config = AgentConfig(
                 ai_model=model or "anthropic:claude-sonnet-4-6",
                 default_mode=AgentMode(mode),
-                max_retry_attempts=retries
+                max_retry_attempts=retries,
             )
 
             # 显示开始信息
-            typer.echo(f"🎯 AWT 智能测试代理")
+            typer.echo("🎯 AWT 智能测试代理")
             typer.echo(f"📝 测试需求: {description}")
             typer.echo(f"🌐 起始URL: {url}")
             typer.echo(f"🤖 运行模式: {mode}")
@@ -52,9 +55,7 @@ def test(
             # 创建代理并执行测试
             supervisor = await create_simple_supervisor(config)
             result = await supervisor.test_from_natural_language(
-                user_request=description,
-                start_url=url,
-                mode=mode
+                user_request=description, start_url=url, mode=mode
             )
 
             # 显示结果
@@ -69,8 +70,9 @@ def test(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
 
                 import json
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    if hasattr(result, 'to_dict'):
+
+                with open(output_path, "w", encoding="utf-8") as f:
+                    if hasattr(result, "to_dict"):
                         json.dump(result.to_dict(), f, indent=2, ensure_ascii=False)
                     else:
                         json.dump(result, f, indent=2, ensure_ascii=False, default=str)
@@ -92,9 +94,7 @@ def test(
 
 
 @agent_app.command()
-def chat(
-    model: Optional[str] = typer.Option(None, "--model", help="AI 模型")
-):
+def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
     """
     启动对话式测试代理
 
@@ -102,20 +102,22 @@ def chat(
         aat agent chat
         aat agent chat --model anthropic:claude-sonnet-4-6
     """
+
     async def run_chat():
         try:
-            # 创建配置
-            config = AgentConfig(
-                ai_model=model or "anthropic:claude-sonnet-4-6",
-                default_mode=AgentMode.INTERACTIVE
-            )
-
+            # 显示启动信息
             typer.echo("💬 AWT 对话式测试代理")
             typer.echo("输入 'quit' 或 'exit' 退出")
             typer.echo("-" * 50)
 
-            # 创建代理
-            supervisor = await create_simple_supervisor(config)
+            # 创建代理 - 自动使用 aat.config.yaml 中的配置
+            if model:
+                # 如果指定了模型，使用指定模型
+                config = AgentConfig(ai_model=model, default_mode=AgentMode.INTERACTIVE)
+                supervisor = await create_simple_supervisor(config)
+            else:
+                # 否则使用现有配置文件中的设置（智谱AI）
+                supervisor = await create_supervisor_from_config()
 
             # 对话循环
             while True:
@@ -125,7 +127,7 @@ def chat(
                     if not user_input:
                         continue
 
-                    if user_input.lower() in ['quit', 'exit', 'q']:
+                    if user_input.lower() in ["quit", "exit", "q"]:
                         typer.echo("👋 再见！")
                         break
 
@@ -150,7 +152,7 @@ def chat(
 def analyze(
     url: str = typer.Argument(..., help="要分析的URL"),
     depth: str = typer.Option("basic", "--depth", help="分析深度: basic|detailed|full"),
-    output: Optional[str] = typer.Option(None, "--output", help="分析结果输出文件")
+    output: str | None = typer.Option(None, "--output", help="分析结果输出文件"),
 ):
     """
     分析页面并生成测试建议
@@ -159,6 +161,7 @@ def analyze(
         aat agent analyze http://localhost:3000
         aat agent analyze http://localhost:3000 --depth detailed --output analysis.json
     """
+
     async def run_analyze():
         try:
             from aat.agent.simple_tools import simple_analyze
@@ -178,15 +181,17 @@ def analyze(
             typer.echo(f"页面标题: {analysis.get('page_title', 'N/A')}")
 
             typer.echo("\n🔘 交互元素:")
-            for element in analysis.get('interactive_elements', []):
-                typer.echo(f"  - {element.get('type')}: {element.get('text')} ({element.get('id', 'N/A')})")
+            for element in analysis.get("interactive_elements", []):
+                typer.echo(
+                    f"  - {element.get('type')}: {element.get('text')} ({element.get('id', 'N/A')})"
+                )
 
             typer.echo("\n🔗 导航链接:")
-            for nav in analysis.get('navigation', []):
+            for nav in analysis.get("navigation", []):
                 typer.echo(f"  - {nav.get('text')}: {nav.get('url')}")
 
             typer.echo("\n📝 表单:")
-            for form in analysis.get('forms', []):
+            for form in analysis.get("forms", []):
                 typer.echo(f"  - 表单 {form.get('id')}: {', '.join(form.get('fields', []))}")
 
             # 保存结果
@@ -195,7 +200,8 @@ def analyze(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
 
                 import json
-                with open(output_path, 'w', encoding='utf-8') as f:
+
+                with open(output_path, "w", encoding="utf-8") as f:
                     json.dump(result, f, indent=2, ensure_ascii=False)
 
                 typer.echo(f"\n💾 分析结果已保存到: {output}")
@@ -211,8 +217,10 @@ def analyze(
 def plan(
     description: str = typer.Argument(..., help="测试需求描述"),
     url: str = typer.Option(..., "--url", help="目标URL"),
-    type: str = typer.Option("auto", "--type", help="测试类型: auto|functional|security|ecommerce"),
-    output: Optional[str] = typer.Option(None, "--output", help="计划输出文件")
+    type: str = typer.Option(
+        "auto", "--type", help="测试类型: auto|functional|security|ecommerce"
+    ),
+    output: str | None = typer.Option(None, "--output", help="计划输出文件"),
 ):
     """
     生成测试计划而不执行
@@ -221,11 +229,12 @@ def plan(
         aat agent plan "测试登录功能" --url http://localhost:3000/login
         aat agent plan "测试购物流程" --url http://localhost:3000 --type ecommerce --output test_plan.json
     """
+
     async def run_plan():
         try:
             from aat.agent.simple_supervisor import SimpleSupervisorAgent
 
-            typer.echo(f"📋 生成测试计划")
+            typer.echo("📋 生成测试计划")
             typer.echo(f"📝 测试需求: {description}")
             typer.echo(f"🌐 目标URL: {url}")
             typer.echo(f"🎯 测试类型: {type}")
@@ -259,16 +268,16 @@ def plan(
 
             # 显示计划
             typer.echo(f"\n🎯 测试方法: {test_plan['approach']}")
-            typer.echo(f"\n📝 测试步骤:")
+            typer.echo("\n📝 测试步骤:")
 
-            for step in test_plan['steps']:
+            for step in test_plan["steps"]:
                 typer.echo(f"\n  步骤 {step['step_number']}: {step['description']}")
                 typer.echo(f"    动作: {step['action']}")
                 typer.echo(f"    目标: {step['target']}")
-                if step.get('value'):
+                if step.get("value"):
                     typer.echo(f"    值: {step['value']}")
-                if step.get('needs_confirmation'):
-                    typer.echo(f"    需要确认: 是")
+                if step.get("needs_confirmation"):
+                    typer.echo("    需要确认: 是")
 
             # 保存计划
             if output:
@@ -276,7 +285,8 @@ def plan(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
 
                 import json
-                with open(output_path, 'w', encoding='utf-8') as f:
+
+                with open(output_path, "w", encoding="utf-8") as f:
                     json.dump(test_plan, f, indent=2, ensure_ascii=False)
 
                 typer.echo(f"\n💾 测试计划已保存到: {output}")
@@ -289,9 +299,7 @@ def plan(
 
 
 @agent_app.command()
-def demo(
-    number: int = typer.Option(1, "--number", "-n", help="演示编号 (1-5)")
-):
+def demo(number: int = typer.Option(1, "--number", "-n", help="演示编号 (1-5)")):
     """
     运行智能代理演示
 
@@ -318,10 +326,7 @@ def demo(
         raise typer.Exit(1)
 
     try:
-        result = subprocess.run(
-            [sys.executable, str(demo_script), str(number)],
-            check=True
-        )
+        result = subprocess.run([sys.executable, str(demo_script), str(number)], check=True)
         raise typer.Exit(result.returncode)
     except subprocess.CalledProcessError as e:
         typer.echo(f"❌ 演示执行失败: {e}")
