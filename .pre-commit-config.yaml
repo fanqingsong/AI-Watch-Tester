@@ -1,0 +1,25 @@
+# Pre-commit hooks for AAT.
+# Run `make dev` (which calls `pre-commit install`) to enable.
+# Tool config (ruff/mypy settings) lives in pyproject.toml and is picked up
+# automatically — this file only wires the hooks to the right paths.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src|tests)/
+      - id: ruff-format
+        files: ^(src|tests)/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^src/aat/
+        additional_dependencies:
+          - pydantic>=2
+          - typer>=0.12
+          - playwright>=1.40
+        # pyproject.toml [tool.mypy] supplies strict settings.

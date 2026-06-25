@@ -2,7 +2,7 @@
 
 ## What is AWT?
 
-AWT (AI Watch Tester) is an AI-powered end-to-end testing tool. You give it a URL, and AI generates test scenarios, executes them in a real browser, and reports the results. If a test fails, the DevQA Loop can automatically analyze the failure and re-run.
+AWT (AI Watch Tester) is an AI-powered end-to-end testing tool. You give it a URL or a spec document, and AI generates test scenarios, executes them in a real browser, and reports the results. If a test fails, the DevQA Loop can automatically analyze the failure and re-run.
 
 ## How is AWT different from Playwright/Cypress?
 

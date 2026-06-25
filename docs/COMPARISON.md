@@ -8,7 +8,7 @@ How does AWT compare to other E2E testing tools? This is an honest, objective lo
 
 |  | **AWT** | **Playwright Test** | **Cypress Cloud** | **Testim** | **Katalon** | **Mabl** |
 |---|---------|--------------------|--------------------|------------|-------------|----------|
-| **Test authoring** | AI auto-generates from URL | Manual code + codegen recorder | Manual code + recorder + AI prompt (experimental) | Visual editor + record + AI + code | Low-code + record + code + TrueTest AI | No-code trainer + AI agent |
+| **Test authoring** | AI auto-generates from URL or spec doc | Manual code + codegen recorder | Manual code + recorder + AI prompt (experimental) | Visual editor + record + AI + code | Low-code + record + code + TrueTest AI | No-code trainer + AI agent |
 | **Install required** | No (cloud) or `pip install` (local) | Yes (npm + browser binaries) | Yes (npm + app) | Cloud SaaS + Chrome ext | Yes (desktop app) | Cloud SaaS + optional desktop |
 | **AI usage** | Core — generates, executes, and heals | None native | Assistive (experimental) | Core | Core (TrueTest) | Core (AI-native) |
 | **Self-healing** | Yes (DevQA Loop) | No | Experimental | Yes (Smart Locators) | Yes (built-in) | Yes (Adaptive Auto-Heal) |
@@ -76,7 +76,7 @@ If you need cross-platform testing (web + mobile + desktop + API) in a single to
 
 Mabl is arguably the closest competitor to AWT in philosophy — both put AI at the center. Mabl's Adaptive Auto-Healing, Test Creation Agent, and Auto TFA represent a mature AI-native testing platform.
 
-The main differences are openness and simplicity. Mabl is a proprietary SaaS with no free tier, no public pricing, and no self-hosting option. AWT is open source (MIT), free to self-host, and designed to get you from URL to results in seconds. Mabl provides richer enterprise features (visual regression, PDF/email testing, advanced analytics), while AWT focuses on the core AI testing loop.
+The main differences are openness and simplicity. Mabl is a proprietary SaaS with no free tier, no public pricing, and no self-hosting option. AWT is open source (MIT), free to self-host, and designed to get you from a URL or spec to results quickly. Mabl provides richer enterprise features (visual regression, PDF/email testing, advanced analytics), while AWT focuses on the core AI testing loop.
 
 For enterprises that need a fully managed platform with dedicated support, Mabl delivers. For teams that want an open, self-hostable AI testing tool, AWT is the alternative.
 

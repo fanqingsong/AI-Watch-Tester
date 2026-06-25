@@ -586,7 +586,7 @@ A `.github/workflows/visual-regression.yml` template is included — drop it int
 
 | | Feature | Description |
 |---|---------|-------------|
-| 🤖 | **Zero-code test generation** | Point at a URL — AI generates complete test steps with real selectors |
+| 🤖 | **Zero-code test generation** | Point at a URL or spec doc — AI generates complete test steps with real selectors |
 | 🔄 | **Self-healing DevQA Loop** | Tests fail? AI fixes and retries automatically (up to 5 attempts) |
 | 👁️ | **Visual verification** | Screenshots before/after every action — not just DOM checks |
 | 🌐 | **Real browser** | Chrome with human-like mouse movement and typing speed |
@@ -623,7 +623,7 @@ Playwright and Cypress are excellent — and AWT is built on top of Playwright. 
 
 | | **AWT** | **Playwright / Cypress** |
 |---|---------|--------------------------|
-| Who writes tests | AI (from your URL) | You (code) |
+| Who writes tests | AI (from your URL or spec) | You (code) |
 | Maintenance when UI changes | AI auto-heals | You update selectors manually |
 | Learning curve | Zero — just paste a URL | Moderate (framework API + JS/TS) |
 | Flexibility | High (YAML scenarios) | Maximum (full code control) |
@@ -634,7 +634,7 @@ Playwright and Cypress are excellent — and AWT is built on top of Playwright. 
 
 | | **AWT** | **testRigor** |
 |---|---------|---------------|
-| Test authoring | AI generates from URL — you write nothing | Plain English (you write commands) |
+| Test authoring | AI generates from URL or spec doc — you write nothing | Plain English (you write commands) |
 | Self-healing | DevQA Loop (AI re-generates automatically) | Built-in auto-maintenance |
 | Pricing | Free (MIT, self-host) | Enterprise (~$800+/mo) |
 | Open source | ✅ MIT License | ❌ |
