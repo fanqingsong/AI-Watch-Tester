@@ -26,6 +26,66 @@ Note: the ``"otsu"`` / ``"raw"`` paths decode with ``IMREAD_COLOR`` then
 ``cvtColor(BGR2GRAY)`` — *not* ``IMREAD_GRAYSCALE`` — matching the original
 ``_check_target_visible`` implementation exactly (OpenCV's two grayscale
 conversions are not numerically identical).
+
+## OCR 在 AAT 项目中的作用
+
+OCR 是三种核心元素定位策略之一（与 DOM、Flutter Semantics 并列），专门
+处理无法通过常规 DOM 或 Flutter Semantics 访问的视觉内容。
+
+### 三种定位策略对比
+
+================  ======================  ====================  ===================
+数据源            优势                    劣势                   适用场景
+================  ======================  ====================  ===================
+DOM               精确定位器、交互元素      依赖页面结构           传统 Web 应用
+Semantics         Flutter 专用、语义化     仅 Flutter 应用       Flutter CanvasKit
+OCR               捕获视觉文字             置信度不稳定           Canvas、图片文字
+================  ======================  ====================  ===================
+
+### OCR 具体应用场景
+
+1. **目标可见性检查** (_check_target_visible)
+   - 作为 DOM 和 Flutter Semantics 失败后的回退机制
+   - 双通道策略：Otsu 二值化 + 原始灰度，提高识别成功率
+   - 应用场景：Canvas 元素、图片文字、跨域 iframe 访问受限
+
+2. **步骤后验证** (_verify_post_step)
+   - 仅对 critical: true 的步骤或 if_visible 操作启用（性能优化）
+   - 检测登录重定向、错误页面、目标消失验证
+   - OCR 单次调用耗时 0.3-0.5 秒，需选择性使用
+
+3. **文本断言** (_verify_text_on_screen)
+   - 验证屏幕上是否存在特定文本（如 "保存成功" 提示）
+   - 支持区域性文本验证（通过 region 参数裁剪）
+   - 使用 2x 双三次插值放大优化小文本识别
+
+### 核心价值
+
+OCR 使 AAT 能够测试传统测试工具无法覆盖的应用：
+- **Canvas-based 应用**（绘图工具、图表库）
+- **Flutter Web CanvasKit 模式**
+- **图片嵌入的文字内容**
+- **跨域 iframe 访问受限场景**
+
+正如项目 README 所述："especially on Canvas and Flutter Web apps that
+Cypress can't even touch — it works well enough."
+
+### 图像预处理策略
+
+================  ===================  =====================================
+策略              技术原理              适用场景
+================  ===================  =====================================
+PREPROCESS_OTSU  Otsu 二值化阈值      高对比度文本
+PREPROCESS_RAW    原始灰度（保留更多信息）  复杂背景文本
+PREPROCESS_CLAHE  对比度受限自适应直方图均衡  低对比度文本
+PREPROCESS_CLAHE_UPSCALE2X  CLAHE + 2x 双三次插值放大  小文本优化
+================  ===================  =====================================
+
+### 默认配置
+
+- 语言：kor+eng（韩英双语支持）
+- OCR 引擎模式：oem=3（默认自动检测）
+- 页面分割模式：psm=6（假设为统一文本块）
 """
 
 from __future__ import annotations
