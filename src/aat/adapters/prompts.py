@@ -48,7 +48,9 @@ If the specification says:
   - URL: http://localhost:5173/
 
 Then your navigate action should be:
-  {"step": 1, "action": "navigate", "value": "http://localhost:5173/", "description": "Go to login"}
+  {"step": 1, "action": "navigate",
+   "value": "http://localhost:5173/",
+   "description": "Go to login"}
 
 Each scenario must follow this EXACT format:
 {"id": "SC-001", "name": "Short name", "description": "What this tests", \
@@ -63,13 +65,17 @@ Each step MUST have "step" (integer from 1) and "description" (non-empty).
 
 VALID ACTIONS (use ONLY these):
 - "navigate" — requires "value" with FULL URL. Example:
-  {"step": 1, "action": "navigate", "value": "http://localhost:5173/", "description": "Go to login"}
-- "find_and_click" — requires "target" with "text". Example:
-  {"step": 2, "action": "find_and_click", "target": {"text": "Login"}, \
-"description": "Click login", "humanize": true}
-- "find_and_type" — requires "target" with "text" AND "value". Example:
-  {"step": 3, "action": "find_and_type", "target": {"text": "Email"}, \
-"value": "user@test.com", "description": "Enter email", "humanize": true}
+  {"step": 1, "action": "navigate", "value": "http://localhost:5173/",
+   "description": "Go to login"}
+- "find_and_click" — requires "target" with element selectors. Example:
+  {"step": 2, "action": "find_and_click",
+   "target": {"selector": "[ref=e11]", "snapshot_ref": "e11", "text": "Login"},
+   "description": "Click login", "humanize": true}
+- "find_and_type" — requires "target" with element selectors AND "value". Example:
+  {"step": 3, "action": "find_and_type", "value": "user@test.com",
+   "target": {"selector": "[ref=e12]", "snapshot_ref": "e12", "text": "Email",
+             "role": "textbox"},
+   "description": "Enter email", "humanize": true}
 - "type_text" — types into focused field. Example:
   {"step": 4, "action": "type_text", "value": "hello", "description": "Type text"}
 - "press_key" — press a key. Example:
@@ -93,7 +99,10 @@ requires another to pass first. Example:
 CRITICAL RULES:
 - "click" is INVALID. Use "find_and_click"
 - "type" is INVALID. Use "find_and_type"
-- target must NOT have "role" or "url" fields. Only "text"
+- For find_and_click and find_and_type, ALWAYS include selector/
+  snapshot_ref when available from scan data
+- target CAN have these fields: "text", "selector", "snapshot_ref", "role"
+- Prefer selector-based targeting over text-only for reliability
 - EXTRACT THE ACTUAL URL FROM THE SPECIFICATION DOCUMENT
 - Look for "## 测试页面", "Test Page", "URL:", "- URL:" or similar sections
 - Use the COMPLETE URL, not placeholders
@@ -102,8 +111,21 @@ CRITICAL RULES:
 PAGE ELEMENTS (when provided):
 The document MAY end with a "## PAGE ELEMENTS" section listing the real \
 interactive elements detected on the scanned page. When this section is \
-present, you MUST use those EXACT labels verbatim as the "text" for \
-find_and_click / find_and_type targets — do not paraphrase or invent labels. \
+present, you MUST use those EXACT element selectors for find_and_click / \
+find_and_type targets in this priority order:
+
+1. Use BOTH "selector" and "snapshot_ref" when available (most reliable)
+2. Use "selector" + "text" when snapshot_ref is not available
+3. Use "text" only as fallback (least reliable)
+
+Example from PAGE ELEMENTS section:
+  textbox | "Email/Account" | selector=[ref=e11] | snapshot_ref=e11
+Should generate:
+  {"step": 2, "action": "find_and_type", "value": "admin@example.com",
+   "target": {"selector": "[ref=e11]", "snapshot_ref": "e11",
+             "text": "Email/Account", "role": "textbox"},
+   "value": "admin@example.com", "description": "Enter email"}
+
 When the section is absent, infer target labels from the specification as usual.
 
 Return ONLY a valid JSON array, no markdown fences."""

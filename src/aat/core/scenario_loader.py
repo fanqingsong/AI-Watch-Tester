@@ -1,7 +1,176 @@
-"""YAML scenario loader — Scenario model conversion.
-
-Loads Scenario YAML files, validates via Pydantic, substitutes variables.
 """
+════════════════════════════════════════════════════════════════════════════════
+                    📂 Scenario Loader Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Loads Scenario YAML files from disk, validates via Pydantic models, substitutes
+variables, and expands include subroutines.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```yaml
+# scenarios/login.yaml
+id: SC-001
+name: User Login
+vars:
+  url: https://example.com
+steps:
+  - step: 1
+    action: navigate
+    value: {{url}}/login
+  - step: 2
+    action: find_and_type
+    target: {text: Email}
+    value: {{env.TEST_EMAIL}}
+  - step: 3
+    action: include
+    scenario: common/submit.yaml
+    vars:
+      button_text: Login
+```
+
+```python
+from aat.core.scenario_loader import load_scenario, load_scenarios
+
+# Load single scenario
+scenario = load_scenario(
+    Path("scenarios/login.yaml"),
+    variables={"url": "https://example.com"}
+)
+
+# Load all scenarios from directory
+scenarios = load_scenarios(Path("scenarios"))
+```
+
+⚙️  VARIABLE SUBSTITUTION
+───────────────────────────────────────────────────────────────────────────────
+Supports {{variable}} placeholders in scenario files:
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Syntax              │  Source                  │  Example                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  {{var_name}}        │  Scenario vars           │  {{url}}               │
+│  {{env.VAR_NAME}}    │  Environment variables   │  {{env.API_KEY}}        │
+│  {{timestamp}}       │  Built-in dynamic vars   │  {{timestamp}}          │
+│  {{datetime}}        │  Built-in dynamic vars   │  {{datetime}}           │
+│  {{random}}          │  Built-in dynamic vars   │  {{random}}             │
+│  {{uuid}}            │  Built-in dynamic vars   │  {{uuid}}               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Example:
+```yaml
+vars:
+  base_url: https://example.com
+
+steps:
+  - step: 1
+    action: navigate
+    value: {{base_url}}/{{env.PAGE_PATH}}
+    # Resolves to: https://example.com/login (if PAGE_PATH=login)
+
+  - step: 2
+    action: find_and_type
+    value: test_{{timestamp}}
+    # Resolves to: test_1719331200
+```
+
+🔄 INCLUDE SUBROUTINES
+───────────────────────────────────────────────────────────────────────────────
+Include sub-scenarios to reuse step sequences:
+```yaml
+# common/submit.yaml
+steps:
+  - step: 1
+    action: find_and_click
+    target: {text: {{button_text}}}
+  - step: 2
+    action: wait
+    value: 2000
+```
+
+```yaml
+# scenarios/login.yaml
+steps:
+  - step: 1
+    action: find_and_type
+    target: {text: Email}
+    value: test@example.com
+  - step: 2
+    action: include
+    scenario: common/submit.yaml
+    vars:
+      button_text: Login  # Passed to sub-scenario
+```
+
+Expanded result:
+```yaml
+steps:
+  - step: 1
+    action: find_and_type
+    target: {text: Email}
+    value: test@example.com
+  - step: 2
+    action: find_and_click
+    target: {text: Login}  # From include
+  - step: 3
+    action: wait
+    value: 2000  # From include
+```
+
+⚠️  UNRESOLVED VARIABLE HANDLING
+───────────────────────────────────────────────────────────────────────────────
+```yaml
+# Scenario with {{undefined_var}}
+steps:
+  - step: 1
+    action: navigate
+    value: {{undefined_var}}/login
+```
+
+Strict mode (raises error):
+```python
+scenario = load_scenario(path, strict_mode=True)
+# → ScenarioError: Required variables not resolved: undefined_var
+```
+
+Non-strict mode (warning only):
+```python
+scenario = load_scenario(path, strict_mode=False)
+# → UserWarning: Unresolved variables: {{undefined_var}}
+# → Proceeds with placeholder intact
+```
+
+📦 MULTI-DOCUMENT YAML SUPPORT
+───────────────────────────────────────────────────────────────────────────────
+Single file can contain multiple scenarios separated by `---`:
+```yaml
+# scenarios/user_flow.yaml
+id: SC-001
+name: User Login
+steps:
+  - step: 1
+    action: navigate
+    value: /login
+---
+id: SC-002
+name: User Logout
+steps:
+  - step: 1
+    action: navigate
+    value: /logout
+```
+
+```python
+# Load all scenarios from file
+scenarios = load_scenarios_from_file(Path("scenarios/user_flow.yaml"))
+# Returns [Scenario(SC-001), Scenario(SC-002)]
+```
+
+════════════════════════════════════════════════════════════════════════════════
+"""
+
 from __future__ import annotations
 
 import os
@@ -16,8 +185,8 @@ from typing import Any
 
 import yaml
 
-from aat.core.exceptions import ScenarioError
 from aat.core import Scenario
+from aat.core.exceptions import ScenarioError
 
 _VAR_PATTERN = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
 _UNRESOLVED_PATTERN = re.compile(r"\{\{[\w.]+\}\}")
@@ -184,9 +353,7 @@ def _validate_scenario_data(
     if unresolved:
         # Check if any required variables are unresolved
         if required_vars:
-            unresolved_names = {
-                match[2:-2].strip() for match in unresolved
-            }
+            unresolved_names = {match[2:-2].strip() for match in unresolved}
             missing_required = required_vars & unresolved_names
             if missing_required:
                 msg = (

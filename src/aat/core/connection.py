@@ -1,6 +1,56 @@
-"""AI Provider connection testing and URL health checks.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🔌 Connection Testing Module
+════════════════════════════════════════════════════════════════════════════════
 
-Improved error handling with specific exception types for better debugging.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Tests AI provider connections and URL health checks with specific exception
+types for better debugging and error reporting.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.connection import test_ai_connection, test_url, test_vision_connection
+from aat.core import AIConfig
+
+# Test AI provider connection
+config = AIConfig(provider="claude", api_key="sk-...", model="claude-sonnet-4-20250514")
+success, message = await test_ai_connection(config)
+print(f"Connected: {success}, Message: {message}")
+# Output: Connected: True, Message: Connected to Claude API. Model: claude-sonnet-4-20250514
+
+# Test URL health
+success, message = await test_url("https://example.com")
+print(f"URL check: {success}, {message}")
+# Output: URL check: True, URL reachable (HTTP 200)
+
+# Test Vision AI provider
+vision_config = VisionConfig(provider="openai", api_key="sk-...")
+success, message = await test_vision_connection(vision_config)
+```
+
+⚙️  SUPPORTED PROVIDERS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Provider    │  Test Method                  │  Error Detection               │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Claude      │  Minimal API call              │  Auth, Permission, Rate Limit  │
+│  OpenAI      │  List models                   │  Auth, Rate Limit              │
+│  Gemini      │  List models (OpenAI compat)   │  Auth, Rate Limit              │
+│  DeepSeek    │  List models (OpenAI compat)   │  Auth, Rate Limit              │
+│  Ollama      │  GET /api/tags                │  Connection, Timeout           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+⚠️  EXCEPTION TYPES
+───────────────────────────────────────────────────────────────────────────────
+• AATConnectionError         → Base exception for connection errors
+• AATAuthenticationError     → API key invalid or missing
+• AATTimeoutError            → Connection timed out
+• AATNetworkError            → Network-level errors (DNS, connection refused)
+• AATProviderError           → Provider-specific errors (rate limits, server errors)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -100,7 +150,7 @@ async def _test_ollama(config: AIConfig) -> tuple[bool, str]:
     except httpx.ConnectError:
         return False, f"Cannot connect to Ollama at {base_url}. Is it running?"
     except httpx.TimeoutException:
-        return False, f"Ollama connection timed out (10s)."
+        return False, "Ollama connection timed out (10s)."
     except httpx.HTTPStatusError as e:
         return False, f"Ollama returned HTTP {e.response.status_code}"
     except Exception as exc:
@@ -181,7 +231,7 @@ async def _test_gemini(config: AIConfig) -> tuple[bool, str]:
 
 
 async def test_vision_connection(
-    config: "VisionConfig",
+    config: VisionConfig,
 ) -> tuple[bool, str]:
     """Test Vision AI provider connection.
 

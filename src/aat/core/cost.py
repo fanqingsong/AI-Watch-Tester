@@ -1,14 +1,130 @@
-"""AI cost tracking — estimation, logging, and reporting.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                        💰 Cost Tracking Module
+════════════════════════════════════════════════════════════════════════════════
 
-Tracks token usage per API call, logs to .aat/cost_log.jsonl,
-and provides cost estimation before expensive operations.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Tracks AI API token usage, logs costs to .aat/cost_log.jsonl, and provides
+cost estimation before expensive operations to help users control spending.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.cost import estimate_cost, format_cost_estimate, log_cost
+
+# Estimate cost before running expensive operation
+est = estimate_cost(
+    provider="claude",
+    model="claude-sonnet-4-20250514",
+    input_text="Analyze this test result...",
+    estimated_output_tokens=2000
+)
+print(format_cost_estimate(est))
+# Output: Provider: claude (claude-sonnet-4-20250514) |
+# ~1250 input + ~2000 output tokens | Estimated cost: ~$0.0335
+
+# Log actual cost after API call
+log_cost(
+    provider="claude",
+    model="claude-sonnet-4-20250514",
+    operation="analyze_failure",
+    input_tokens=1300,
+    output_tokens=1800,
+    data_dir=".aat"
+)
+```
+
+⚙️  PRICING (USD per 1K tokens, as of 2026-03)
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Provider    │  Model                      │  Input    │  Output   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Claude      │  claude-sonnet-4-20250514   │  $0.003   │  $0.015   │
+│              │  claude-haiku-4-5-20251001  │  $0.001   │  $0.005   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  OpenAI      │  gpt-4o                     │  $0.0025  │  $0.01    │
+│              │  gpt-4o-mini                │  $0.00015 │  $0.0006  │
+│              │  gpt-4                      │  $0.03    │  $0.06    │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Gemini      │  gemini-2.0-flash           │  FREE     │  FREE     │
+│              │  gemini-2.5-flash           │  $0.00015 │  $0.0006  │
+│              │  gemini-2.5-pro             │  $0.00125 │  $0.01    │
+├────────────────────────────────────────────────────────────────────────────┤
+│  DeepSeek    │  deepseek-chat             │  $0.00014 │  $0.00028 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Ollama      │  (any local model)         │  FREE     │  FREE     │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📊 COST LOG FORMAT (.aat/cost_log.jsonl)
+───────────────────────────────────────────────────────────────────────────────
+```json
+{"timestamp":"2026-06-25T10:30:45.123456","provider":"claude","model":"claude-sonnet-4-20250514","operation":"analyze_failure","input_tokens":1300,"output_tokens":1800,"cost_usd":0.0315}
+{"timestamp":"2026-06-25T10:31:20.234567","provider":"claude","model":"claude-sonnet-4-20250514","operation":"generate_fix","input_tokens":5000,"output_tokens":2500,"cost_usd":0.0525}
+```
+
+💡 COST ESTIMATION
+───────────────────────────────────────────────────────────────────────────────
+Before running expensive operations, estimate cost:
+```python
+# Estimate scenario generation
+est = estimate_cost(
+    provider="claude",
+    model="claude-sonnet-4-20250514",
+    input_text=page_source,  # ~10K chars
+    estimated_output_tokens=2000
+)
+
+if not est["is_free"] and est["total_cost"] > 0.10:
+    response = prompt(f"Estimated cost: ${est['total_cost']:.4f}. Proceed? [y/N]")
+    if response.lower() != "y":
+        return  # Cancel operation
+```
+
+📈 COST SUMMARY BY PERIOD
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.cost import load_cost_log, summarize_costs
+
+entries = load_cost_log(data_dir=".aat")
+
+# Summarize by day
+daily = summarize_costs(entries, group_by="day")
+for date, summary in daily.items():
+    print(f"{date}: ${summary['total_cost']:.4f} ({summary['total_calls']} calls)")
+
+# Summarize by month
+monthly = summarize_costs(entries, group_by="month")
+for month, summary in monthly.items():
+    print(f"{month}: ${summary['total_cost']:.4f} ({summary['total_calls']} calls)")
+```
+
+💾 SCENARIO CACHING
+───────────────────────────────────────────────────────────────────────────────
+Cache generated scenarios to avoid re-generation costs:
+```python
+from aat.core.cost import spec_cache_key, get_cached_scenarios, save_cached_scenarios
+
+# Generate cache key from URL + spec
+cache_key = spec_cache_key(url="https://example.com", spec_text="test login flow")
+
+# Check cache
+cached = get_cached_scenarios(cache_key)
+if cached:
+    scenarios = cached  # Use cached, no API cost
+else:
+    scenarios = await generate_with_ai(...)  # Expensive
+    save_cached_scenarios(cache_key, scenarios)  # Cache for next time
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -118,7 +234,7 @@ def log_cost(
     log_path = log_dir / _LOG_FILE
 
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "provider": provider,
         "model": model,
         "operation": operation,
@@ -228,7 +344,6 @@ def save_cached_scenarios(
         json.dump(scenarios, f, ensure_ascii=False, indent=2)
 
     return cache_path
-
 
 
 __all__ = [

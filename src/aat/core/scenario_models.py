@@ -1,7 +1,146 @@
-"""AAT scenario models — Pydantic v2.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       📋 Scenario Models Module
+════════════════════════════════════════════════════════════════════════════════
 
-This module defines the data models used for scenario definitions,
-including steps, targets, expectations, and teardown actions.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Defines Pydantic v2 data models for scenario definitions including steps, targets,
+expectations, teardown actions, and screen region computations.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```yaml
+# test_login.yaml
+id: SC-001
+name: User Login
+description: Verify user can login with valid credentials
+steps:
+  - step: 1
+    action: navigate
+    value: https://example.com/login
+
+  - step: 2
+    action: find_and_type
+    target:
+      text: Email
+    value: test@example.com
+    critical: true
+
+  - step: 3
+    action: find_and_click
+    target:
+      text: Submit
+
+teardown:
+  - type: api_call
+    method: POST
+    url: https://example.com/api/logout
+    expected_status: 200
+```
+
+```python
+from aat.core.scenario_loader import load_scenario
+
+scenario = load_scenario(Path("scenarios/test_login.yaml"))
+print(f"Scenario: {scenario.name}")
+print(f"Steps: {len(scenario.steps)}")
+print(f"Teardown: {len(scenario.teardown)} cleanup steps")
+```
+
+⚙️  MODEL HIERARCHY
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Scenario (Root)                                                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • id: SC-001                │  Scenario identifier (format: SC-XXX)       │
+│  • name: string               │  Human-readable name                          │
+│  • description: string        │  What this scenario tests                     │
+│  • vars: dict                │  Scenario-level variables                     │
+│  • steps: list[StepConfig]   │  Test steps to execute                        │
+│  • teardown: list[TeardownStep] │ Cleanup actions (run pass/fail)            │
+└────────────────────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  StepConfig                                                                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • step: int                  │  Step number (1-based)                       │
+│  • action: ActionType         │  What to do (navigate, click, type...)       │
+│  • target: TargetSpec?        │  What to interact with (optional)             │
+│  • value: string?            │  Action parameter (URL, text to type...)      │
+│  • description: string       │  Human-readable step description             │
+│  • critical: bool            │  Stop test immediately if fails               │
+│  • region: ScreenRegion       │  Where to search (full, top, center...)      │
+│  • timeout_ms: int            │  Max wait time for this step                  │
+└────────────────────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  TargetSpec (Match Target)                                                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Provide ONE of:                                                            │
+│  • image: string              │  Path to target image                       │
+│  • text: string               │  OCR fallback text                          │
+│  • selector: string           │  CSS selector                               │
+│  • snapshot_ref: string       │  Playwright aria snapshot reference         │
+│  • icon: IconHint             │  Icon description + label position          │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🧹 TEARDOWN STEPS (Cleanup Actions)
+───────────────────────────────────────────────────────────────────────────────
+Teardown steps run AFTER scenario completes (pass or fail). Failures are logged
+but never stop execution.
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Type        │  Purpose            │  Example                                │
+├────────────────────────────────────────────────────────────────────────────┤
+│  api_call    │  HTTP cleanup       │  POST /api/logout                      │
+│  db_query    │  Database cleanup   │  DELETE FROM test_users WHERE...       │
+│  shell       │  Shell command      │  rm /tmp/test_file.txt                 │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Example:
+```yaml
+teardown:
+  - type: api_call
+    method: POST
+    url: https://{{url}}/api/cleanup
+    headers:
+      Authorization: Bearer {{api_token}}
+    expected_status: 204
+
+  - type: db_query
+    connection: postgresql://localhost/test_db
+    query: DELETE FROM sessions WHERE user_id = {{test_user_id}}
+
+  - type: shell
+    command: rm -f /tmp/test_upload_*.png
+    timeout: 10
+```
+
+📺 SCREEN REGION BOUNDS
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Compute pixel bounds for regions
+bounds = compute_region_bounds(ScreenRegion.MAIN, width=1280, height=720)
+# → (256, 0, 1024, 720)  # (x, y, w, h)
+
+Region breakdown (1280x720 viewport):
+┌────────────────────────────────────────────────────────────────────────────┐
+│  TOP (0, 0, 1280, 216)                                                    │
+│  ┌──────────┬──────────────────────────────────────────────────────────┐  │
+│  │  LEFT    │  CENTER (512x576)          RIGHT                         │  │
+│  │(0,0,256x720)                     │                                │  │
+│  │          │──────────────────────────────────────────────────────────│  │
+│  │          │  MAIN (1024x720)                                           │  │
+│  └──────────┴──────────────────────────────────────────────────────────┘  │
+│  BOTTOM (0, 504, 1280, 216)                                               │
+│  FULL (0, 0, 1280, 720)                                                    │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -24,7 +163,7 @@ try:
     from enum import StrEnum
 except ImportError:
     # Fallback for Python 3.10
-    class StrEnum(str, Enum):
+    class StrEnum(str, Enum):  # type: ignore[misc,no-redef]
         pass
 
 # ============================================================

@@ -1,7 +1,100 @@
-"""Platform detection — identify frontend framework from page source.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🔍 Platform Detection Module
+════════════════════════════════════════════════════════════════════════════════
 
-Detects Flutter Web, React, Next.js, Vue, Angular, Svelte, etc.
-from DOM markers, script tags, and meta elements.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Identifies frontend frameworks (Flutter Web, React, Next.js, Vue, Angular, Svelte)
+from page source DOM markers, script tags, and meta elements. Provides
+platform-specific testing tips.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.platform_detect import detect_platform, format_platform_info
+
+# Detect platform from current page
+info = await detect_platform(engine)
+print(format_platform_info))
+```
+
+Output:
+```text
+  🔍 Detected: Next.js (React)
+    ⚠️  Wait for hydration: add wait step after navigate
+    ⚠️  Server-rendered text is available immediately in DOM
+    ⚠️  Client-side navigation may not trigger full page load
+```
+
+⚙️  DETECTION RULES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Platform              │  DOM Markers Detected                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Flutter Web           │  flt-glass-pane, flutter.js, canvaskit.js         │
+│  (CanvasKit)           │  flutter_service_worker                           │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Flutter Web           │  flt-glass-pane, flutter.js                       │
+│  (HTML renderer)       │                                                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Next.js (React)       │  __next, _next/static, __NEXT_DATA__             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  React SPA             │  react-root, _reactRootContainer, data-reactroot  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Vue SPA               │  data-v-, __vue_app__, vue-app                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Angular               │  ng-version, _nghost, ng-app                       │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Svelte/SvelteKit      │  svelte-, __sveltekit, data-sveltekit              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+💡 PLATFORM-SPECIFIC TESTING TIPS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Flutter Web (CanvasKit)                                                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • Use click_at + type_text instead of find_and_type (hidden inputs)      │
+│  • text_visible auto-falls back to OCR for Canvas-rendered text           │
+│  • Avoid CSS selectors — Flutter doesn't use standard DOM elements         │
+│  • Use Semantics labels or coordinates for element targeting               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Next.js (React)                                                           │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • Wait for hydration: add wait step after navigate                        │
+│  • Server-rendered text is available immediately in DOM                    │
+│  • Client-side navigation may not trigger full page load                  │
+│  • Use data-testid selectors when available                               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  React SPA                                                                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • Components may render asynchronously — add wait steps                   │
+│  • Use data-testid selectors when available                               │
+│  • React portals (modals) may render outside root element                  │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 RETURN FORMAT
+───────────────────────────────────────────────────────────────────────────────
+```python
+{
+    "platform": "nextjs",           # Internal key
+    "display": "Next.js (React)",  # Human-readable name
+    "tips": [                       # Platform-specific tips
+        "Wait for hydration: add wait step after navigate",
+        ...
+    ],
+    "markers_found": [              # Actual DOM markers found
+        "__next",
+        "_next/static"
+    ]
+}
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -157,7 +250,6 @@ def format_platform_info(info: dict[str, Any]) -> str:
     for tip in info.get("tips", []):
         lines.append(f"    ⚠️  {tip}")
     return "\n".join(lines)
-
 
 
 __all__ = [

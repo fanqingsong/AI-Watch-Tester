@@ -1,4 +1,52 @@
-"""Git operations wrapper using async subprocess."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       🔄 Git Operations Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Async git subprocess wrapper for DevQA Loop branch mode operations. No external
+git library required — all operations via asyncio.create_subprocess_exec.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.git_ops import GitOps
+
+git = GitOps(work_dir=Path("/path/to/project"))
+
+# Check git status
+is_repo = await git.is_git_repo()
+has_changes = await git.has_uncommitted_changes()
+branch = await git.current_branch()
+
+# Branch operations
+await git.create_branch("aat/fix-001")
+await git.checkout("main")
+await git.delete_branch("aat/fix-001")
+
+# File + commit operations
+await git.apply_file_changes(file_changes)
+commit_hash = await git.commit_changes(file_paths, "Fix login button selector")
+
+# Context manager (auto-restore branch)
+async with git.on_fix_branch("aat/fix-001"):
+    # Apply fix, commit, test
+    await git.apply_file_changes(fix.files_changed)
+    await git.commit_changes(paths, "Fix: login button")
+    # Test runs here...
+# Automatically checkout back to original branch
+```
+
+⚙️  CORE OPERATIONS
+───────────────────────────────────────────────────────────────────────────────
+• Query: is_git_repo(), current_branch(), has_uncommitted_changes()
+• Branch: create_branch(), checkout(), delete_branch()
+• Files: apply_file_changes(), commit_changes()
+• Context: on_fix_branch(name) — auto-restore branch manager
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 
@@ -144,7 +192,6 @@ class GitOps:
             yield
         finally:
             await self.checkout(original)
-
 
 
 __all__ = [

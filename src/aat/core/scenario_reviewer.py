@@ -1,9 +1,145 @@
-"""ScenarioReviewer — human-readable scenario display + approval prompt.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       👁️  Scenario Reviewer Module
+════════════════════════════════════════════════════════════════════════════════
 
-Converts YAML scenario steps into a readable checklist before execution,
-waits for user approval, and supports editing the YAML before proceeding.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Converts YAML scenario steps into a human-readable checklist before execution,
+waits for user approval, and supports in-editor YAML modifications.
 
-Used by `aat devqa` before the first run and before each retry.
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.scenario_reviewer import ScenarioReviewer
+
+reviewer = ScenarioReviewer()
+approved = reviewer.show_and_approve(
+    scenario_yaml=\"""
+id: SC-001
+name: Login Test
+steps:
+  - step: 1
+    action: navigate
+    value: https://example.com/login
+  - step: 2
+    action: find_and_type
+    target:
+      text: Email
+    value: test@example.com
+  - step: 3
+    action: find_and_click
+    target:
+      text: Submit
+    \""",
+    scenario_path=Path("scenarios/login.yaml"),
+    attempt=1
+)
+```
+
+Output:
+```text
+═══════════════════════════════════════════════════════════════════════════════
+ Scenario Review  [SC-001 · 3 steps]
+ Login Test
+═══════════════════════════════════════════════════════════════════════════════
+  1. 🌐 Navigate       https://example.com/login
+  2. ⌨ Type          "Email" → "test@example.com"
+  3. 🖱 Click         "Submit"
+═══════════════════════════════════════════════════════════════════════════════
+ [Enter] Run    [e] Edit YAML    [n] Cancel
+═══════════════════════════════════════════════════════════════════════════════
+```
+
+⚙️  CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        Scenario Review Workflow                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                 │
+│  │ Load YAML   │────▶│ Parse Steps │────▶│ Render View │                 │
+│  └─────────────┘     └─────────────┘     └─────────────┘                 │
+│         │                                       │                           │
+│         │                                       │                           │
+│         ▼                                       ▼                           │
+│  ┌─────────────┐                         ┌─────────────┐                 │
+│  │ Show Header │                         │ Show Steps  │                 │
+│  │ • Name      │                         │ • Icon map  │                 │
+│  │ • ID        │                         │ • Detail    │                 │
+│  │ • Count     │                         │ • Critical? │                 │
+│  └─────────────┘                         └─────────────┘                 │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                    Interactive Prompt                                 │  │
+│  │  [Enter] Run    [e] Edit YAML    [n] Cancel                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🎨 ICON MAPPING (Action → Visual Representation)
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Action             │ Icon    │ Label         │ Example Format              │
+├────────────────────────────────────────────────────────────────────────────┤
+│  navigate           │ 🌐      │ Navigate      │ https://example.com/login   │
+│  find_and_click     │ 🖱       │ Click         │ "Submit button"             │
+│  find_and_double    │ 🖱       │ Double-click  │ "Double click target"       │
+│    _click           │         │              │                             │
+│  find_and_right     │ 🖱       │ Right-click   │ "Context menu target"       │
+│    _click           │         │              │                             │
+│  find_and_type      │ ⌨       │ Type          │ "Email" → "test@exm.com"   │
+│  type_text          │ ⌨       │ Type          │ "some text"                 │
+│  assert_url         │ ✅      │ Assert URL    │ /dashboard                  │
+│  assert_text        │ ✅      │ Assert text   │ "Welcome"                   │
+│  wait               │ ⏳      │ Wait          │ 2.5s                        │
+│  screenshot         │ 📸       │ Screenshot    │ (no details)                │
+│  scroll             │ 📜       │ Scroll        │ "Down to footer"            │
+│  go_back            │ ↩       │ Go back       │ (no details)                │
+│  refresh            │ 🔄       │ Refresh       │ (no details)                │
+│  save_session       │ 💾      │ Save session  │ "login_state"               │
+│  load_session       │ 💾      │ Load session  │ "login_state"               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔒 SECURITY: /dev/tty READ (Layer 1 of 4-Layer Approval Defense)
+───────────────────────────────────────────────────────────────────────────────
+The approval prompt reads from /dev/tty, NOT stdin. This prevents pipe bypass:
+```bash
+# This DOES NOT work (stdin is piped):
+$ echo "" | aat run test.yaml
+# → ERROR: approval requires an interactive terminal
+
+# User MUST press Enter directly:
+$ aat run test.yaml
+▶ # ← Reads from /dev/tty (actual terminal device)
+```
+
+Same technique as sudo password reading — bypasses stdin redirection.
+
+✏️  EDIT FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+Press [e] to open YAML in $EDITOR (default: nano, configurable via EDITOR env var):
+```bash
+# User presses 'e'
+$ nano scenarios/login.yaml  # Opens existing file
+
+# If no file path (e.g., from stdin):
+$ nano /tmp/tmpXYZ.yaml     # Edits temp file
+# On save: prompts to save to original location
+```
+
+Detects file modification by comparing mtime before/after editor call.
+
+🔄 RETRY MODE SUPPORT
+───────────────────────────────────────────────────────────────────────────────
+On retry (attempt > 1), shows diff markers for changed steps:
+```text
+  1. 🌐 Navigate       https://example.com/login
+  2. ⌨ Type          "Email" → "new@email.com"  ← changed
+  3. 🖱 Click         "Submit"
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -349,7 +485,6 @@ def _read_tty(prompt: str = "") -> str:
     except OSError:
         # /dev/tty unavailable (Windows, Docker without tty)
         return input(prompt)
-
 
 
 __all__ = [

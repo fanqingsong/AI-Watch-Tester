@@ -1,7 +1,65 @@
-"""Event system for notifications.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       📡 Event System Module
+════════════════════════════════════════════════════════════════════════════════
 
-Provides an EventEmitter base class that CLI uses for terminal output.
-Future messenger handlers (Telegram, Discord, Slack) will extend this.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides EventEmitter base class for notifications. CLI uses terminal output;
+future extensions will support Telegram, Discord, Slack messengers.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.events import CLIEventHandler, EventEmitter
+
+# Use CLI handler (default)
+handler = CLIEventHandler()
+handler.info("Starting test...")
+handler.success("Test passed!")
+handler.error("Test failed!")
+handler.step_start(1, 5, "Click submit button")
+handler.step_result(1, True, "Click submit button")
+```
+
+Output:
+```text
+Starting test...
+  [OK] Test passed!
+  [ERROR] Test failed!
+  Step 1/5: Click submit button... OK
+```
+
+⚙️  EVENT EMITTER INTERFACE
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Method            │  Purpose                                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│  info(msg)         │  Informational message                                │
+│  success(msg)      │  Success message (green)                              │
+│  warning(msg)      │  Warning message (yellow)                             │
+│  error(msg)        │  Error message (red)                                 │
+│  step_start(n,total,desc) │  Step starting                                 │
+│  step_result(n,passed,desc,error?) │  Step completed                        │
+│  progress(label,current,total) │  Progress update                          │
+│  prompt(question,options?) │  Ask user for input                           │
+│  section(title)    │  Visual separator (new section)                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔌 FUTURE MESSENGER INTEGRATIONS
+───────────────────────────────────────────────────────────────────────────────
+```python
+class TelegramEventHandler(EventEmitter):
+    def info(self, message: str) -> None:
+        send_telegram_message(message)
+
+    def success(self, message: str) -> None:
+        send_telegram_message(f"✅ {message}")
+
+    # ... implement all methods
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

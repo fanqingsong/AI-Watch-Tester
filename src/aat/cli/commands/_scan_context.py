@@ -27,10 +27,7 @@ def load_scan_result(data_dir: Path) -> dict[str, Any]:
     """
     scan_path = data_dir / SCAN_FILENAME
     if not scan_path.exists():
-        msg = (
-            f"Scan result not found: {scan_path}. "
-            "Run `aat scan --url <URL>` first."
-        )
+        msg = f"Scan result not found: {scan_path}. " "Run `aat scan --url <URL>` first."
         raise AATError(msg)
     try:
         data = json.loads(scan_path.read_text(encoding="utf-8"))
@@ -56,7 +53,7 @@ def format_scan_context(scan_data: dict[str, Any]) -> str:
     """Format scan data into a compact, LLM-friendly ``## PAGE ELEMENTS`` block.
 
     Each interactive element becomes one line:
-        ``role | "label" | source=src``
+        ``role | "label" | selector=... | snapshot_ref=... | source=src``
     Elements without a usable label are skipped. Output is capped at
     ``MAX_ELEMENTS`` rows; a trailing note is appended when truncated.
 
@@ -70,8 +67,8 @@ def format_scan_context(scan_data: dict[str, Any]) -> str:
     if url:
         lines.append(f"Scanned URL: {url}")
     lines.append(
-        "Use these EXACT labels verbatim for find_and_click / find_and_type "
-        "targets. Do not invent labels."
+        "Use these EXACT element selectors (selector + snapshot_ref) for "
+        "find_and_click / find_and_type targets. Do not invent labels."
     )
     lines.append("")
 
@@ -83,7 +80,18 @@ def format_scan_context(scan_data: dict[str, Any]) -> str:
             continue
         role = element.get("role") or element.get("type") or "unknown"
         source = element.get("source", "?")
-        lines.append(f'- {role} | "{label}" | source={source}')
+        selector = element.get("selector", "")
+        snapshot_ref = element.get("snapshot_ref", "")
+
+        # Build element line with all available selectors
+        parts = [f'- {role} | "{label}"']
+        if selector:
+            parts.append(f"selector={selector}")
+        if snapshot_ref:
+            parts.append(f"snapshot_ref={snapshot_ref}")
+        parts.append(f"source={source}")
+
+        lines.append(" | ".join(parts))
         shown += 1
         if shown >= MAX_ELEMENTS:
             break

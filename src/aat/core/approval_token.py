@@ -1,11 +1,63 @@
-"""One-time approval token — prevents env-var bypass of human approval.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                          🔐 Approval Token Module
+════════════════════════════════════════════════════════════════════════════════
 
-Parent process (devqa, watch) generates a token, stores it on disk,
-and passes it to the child process (aat run) via env var. The child
-validates the token and deletes it immediately (one-time use).
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Prevents environment variable bypass of human approval through one-time tokens.
 
-An attacker setting ``_AAT_APPROVAL_TOKEN=anything`` will fail because
-no matching token file exists on disk.
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Parent process (devqa/watch)
+$ token=$(aat-approval-token generate)
+$ aat-approval-token store "$token"  # Writes to .aat/.approval_token_12345
+$ export _AAT_APPROVAL_TOKEN="$token"
+$ aat run test.yaml  # Child process validates token
+
+# Token is deleted immediately after validation (one-time use only)
+# Attacker setting _AAT_APPROVAL_TOKEN=anything will fail → no matching file
+```
+
+⚙️  CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│  Parent Process │────────▶│  Token File     │────────▶│  Child Process  │
+│  (devqa/watch)  │         │  (on disk)      │         │  (aat run)      │
+└─────────────────┘         └─────────────────┘         └─────────────────┘
+      │                              │                            │
+      │ 1. Generate token            │ 2. Store & chmod 0600      │ 4. Validate
+      │    (64-char hex)             │    (owner-only)            │    (constant-time)
+      │                              │                            │
+      │                              │                            │ 5. Delete (consume)
+      │                              │                            │    (one-time use)
+      │                              │                            │
+      ▼                              ▼                            ▼
+  "a1b2c3d4..."                 .aat/.approval_token_*         Test proceeds
+  (via env var)                 (restrictive perms)            only if valid
+
+🛡️  SECURITY LAYER (Layer 2 of 4-Layer Approval Defense)
+───────────────────────────────────────────────────────────────────────────────
+This module implements Layer 2 of the approval security system:
+  • Layer 1: Direct /dev/tty read (prevents stdin pipe bypass)
+  • Layer 2: One-time encrypted token (prevents env var forgery) ← THIS MODULE
+  • Layer 3: JSONL audit log (records all execution attempts)
+  • Layer 4: AI agent rules (prohibits bypass attempts)
+
+📦 FUNCTIONS
+───────────────────────────────────────────────────────────────────────────────
+• generate_token()      → Creates 64-char cryptographically random hex token
+• store_token()         → Writes token to disk with restrictive permissions (0600)
+• validate_and_consume()→ Validates token AND deletes it (one-time use only)
+
+⚠️  SECURITY NOTE
+───────────────────────────────────────────────────────────────────────────────
+An attacker who sets the environment variable without a matching token file
+will fail validation. The token file is created with restrictive permissions
+(0600 - owner read/write only) and is immediately deleted upon validation.
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -68,13 +120,11 @@ def validate_and_consume(token: str, *, data_dir: Path | None = None) -> bool:
     return False
 
 
-
 __all__ = [
     "generate_token",
     "store_token",
     "validate_and_consume",
 ]
-
 
 
 __all__ = [

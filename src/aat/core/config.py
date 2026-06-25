@@ -1,10 +1,102 @@
-"""AAT project configuration — load / save / merge.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                      ⚙️  Configuration Loader Module
+════════════════════════════════════════════════════════════════════════════════
 
-Merge order (later wins):
-    1. Model defaults
-    2. YAML file values
-    3. Environment variables (AAT_ prefix, __ nested delimiter)
-    4. CLI overrides dict
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Loads AAT project configuration from YAML files, merges with environment
+variables and CLI overrides, and validates via Pydantic models.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```yaml
+# aat.config.yaml
+ai:
+  provider: claude
+  model: claude-sonnet-4-20250514
+engine:
+  browser: chromium
+  headless: true
+```
+
+```python
+from aat.core.config import load_config, save_config
+
+# Load config (searches cwd and parent directories)
+config = load_config()
+
+# Load from explicit path
+config = load_config(config_path=Path("my-config.yaml"))
+
+# Load with CLI overrides
+config = load_config(overrides={"engine": {"headless": False}})
+
+# Save config
+save_config(config, Path("aat.config.yaml"))
+```
+
+⚙️  CONFIG MERGE ORDER (later wins)
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Priority  │  Source               │  Example                                │
+├────────────────────────────────────────────────────────────────────────────┤
+│  1 (lowest)│  Model defaults       │  provider: "claude" (in code)          │
+│  2         │  YAML file            │  provider: "openai" (in aat.config.yaml)│
+│  3         │  Environment vars      │  AAT_AI__PROVIDER="gemini"             │
+│  4 (highest)│  CLI overrides        │  aat run --ai.provider deepseek       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Example merge:
+```yaml
+# YAML file
+ai:
+  provider: claude
+  model: claude-sonnet-4-20250514
+  temperature: 0.7
+```
+
+```bash
+# Environment override
+export AAT_AI__MODEL=claude-haiku-4-5-20251001
+export AAT_AI__TEMPERATURE=0.3
+
+# CLI override
+aat run --ai.provider openai
+
+# Final config:
+# provider: openai (from CLI)
+# model: claude-haiku-4-5-20251001 (from env)
+# temperature: 0.3 (from env)
+```
+
+🔍 CONFIG FILE DISCOVERY
+───────────────────────────────────────────────────────────────────────────────
+`load_config()` without arguments searches in order:
+1. Current directory: `./aat.config.yaml`
+2. Current directory: `./.aat/aat.config.yaml`
+3. Parent directories (recursively)
+
+First match wins.
+
+🌍 ENVIRONMENT VARIABLE FORMAT
+───────────────────────────────────────────────────────────────────────────────
+Use `AAT_` prefix with `__` nested delimiter:
+```bash
+# Flat field
+export AAT_AI__PROVIDER="claude"
+export AAT_ENGINE__BROWSER="firefox"
+
+# Nested field
+export AAT_MATCHING__CONFIDENCE_THRESHOLD="0.9"
+
+# Becomes in config:
+# ai.provider = "claude"
+# engine.browser = "firefox"
+# matching.confidence_threshold = 0.9
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -15,8 +107,8 @@ from typing import Any
 
 import yaml
 
-from aat.core.exceptions import ConfigError
 from aat.core import Config
+from aat.core.exceptions import ConfigError
 
 DEFAULT_CONFIG_FILENAME = "aat.config.yaml"
 
@@ -141,7 +233,6 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
         else:
             result[key] = value
     return result
-
 
 
 __all__ = [

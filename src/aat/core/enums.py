@@ -1,7 +1,118 @@
-"""AAT data model enums.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                           🏷️  Core Enums Module
+════════════════════════════════════════════════════════════════════════════════
 
-This module contains all StrEnum definitions used throughout AAT.
-Extracted from models.py for better module organization.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Defines all StrEnum definitions used throughout AAT. Extracted from models.py
+for better module organization and reduced circular dependencies.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.enums import ActionType, StepStatus, MatchMethod
+
+# Define a step action
+action = ActionType.FIND_AND_CLICK
+print(action.value)  # "find_and_click"
+
+# Check step status
+if step_result.status == StepStatus.PASSED:
+    print("✅ Step passed!")
+
+# Configure matching method
+method = MatchMethod.OCR
+print(method.value)  # "ocr"
+```
+
+⚙️  ENUM CATEGORIES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           ActionType (21 values)                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  NAVIGATION        │  IMAGE + MOUSE      │  IMAGE + KEYBOARD               │
+│  • navigate        │  • find_and_click   │  • find_and_type                │
+│  • go_back         │  • find_and_double  │  • find_and_clear               │
+│  • refresh         │    _click           │                                  │
+│                    │  • find_and_right   │  DIRECT INPUT                   │
+│  SESSION           │    _click           │  • click_at                     │
+│  • save_session    │                    │  • type_text                    │
+│  • load_session    │  ASSERT            │  • press_key                    │
+│                    │  • assert          │  • key_combo                    │
+│  FIND / EXTRACT    │  • assert_text     │                                  │
+│  • find            │  • assert_screen_  │  UTILITY                        │
+│  • get_text        │    changed         │  • wait                        │
+│                    │  • assert_url      │  • screenshot                  │
+│  CONDITIONAL       │                    │  • scroll                      │
+│  • if_visible      │  FILE              │                                  │
+│                    │  • upload_file     │  SUBROUTINE                     │
+│  CONTROL           │                    │  • include                      │
+│  • include         │                    │                                  │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      ScreenRegion (7 viewport zones)                        │
+├────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                        TOP (30%)                                     │  │
+│  │  ┌──────────┬──────────────────────────────────────────────────┐  │  │
+│  │  │  LEFT    │  CENTER (60%)          RIGHT                       │  │  │
+│  │  │ (20%)    │                       (20%)                       │  │  │
+│  │  │          │──────────────────────────────────────────────────│  │  │
+│  │  │          │                    MAIN (80%)                       │  │  │
+│  │  └──────────┴──────────────────────────────────────────────────┘  │  │
+│  │                        BOTTOM (70%)                                 │  │
+│  │  ┌──────────────────────────────────────────────────────────────┐  │  │
+│  │                        FULL (100%)                               │  │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      MatchMethod (6 algorithms)                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  1. LEARNED     → Uses previously learned positions (pattern DB)         │
+│  2. SEMANTICS   → Playwright accessibility tree (role, name)               │
+│  3. TEMPLATE    → OpenCV template matching (image similarity)              │
+│  4. OCR         → Tesseract text recognition (fallback for images)         │
+│  5. FEATURE     → OpenCV feature matching (SIFT/ORB)                      │
+│  6. VISION_AI   → Claude/Gemini vision API (last resort)                   │
+│                                                                             │
+│  Default chain: LEARNED → TEMPLATE → OCR → FEATURE → VISION_AI             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      StepStatus (6 states)                                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • PENDING   → Not yet executed                                             │
+│  • RUNNING   → Currently executing                                          │
+│  • PASSED    → Completed successfully                                       │
+│  • FAILED    → Failed with known error                                      │
+│  • SKIPPED   → Conditionally skipped (if_visible=false)                    │
+│  • ERROR     → Failed with unexpected error                                 │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    Other Important Enums                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│  ApprovalMode  │  MANUAL | BRANCH | AUTO (DevQA Loop approval strategies)  │
+│  AssertType    │  text_visible | text_equals | image_visible | url_*       │
+│  Severity      │  CRITICAL | WARNING | INFO (failure analysis)              │
+│  LabelPosition │  ABOVE | BELOW | LEFT | RIGHT | INSIDE (icon hints)        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔧 PYTHON 3.10 COMPATIBILITY
+───────────────────────────────────────────────────────────────────────────────
+This module provides a StrEnum fallback for Python 3.10 (StrEnum added in 3.11):
+```python
+try:
+    from enum import StrEnum
+except ImportError:
+    class StrEnum(str, Enum):
+        pass  # Fallback for Python 3.10
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -13,7 +124,7 @@ try:
     from enum import StrEnum
 except ImportError:
     # Fallback for Python 3.10
-    class StrEnum(str, Enum):
+    class StrEnum(str, Enum):  # type: ignore[misc,no-redef]
         pass
 
 

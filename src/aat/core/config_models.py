@@ -1,6 +1,132 @@
-"""AAT configuration models — Pydantic v2.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                        ⚙️  Configuration Models Module
+════════════════════════════════════════════════════════════════════════════════
 
-This module defines all configuration-related models.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Defines all Pydantic v2 configuration models for the AAT system. These models
+provide type-safe, validated configuration for AI adapters, test engines,
+matching algorithms, and more.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```yaml
+# aat.config.yaml
+ai:
+  provider: claude
+  model: claude-sonnet-4-20250514
+  api_key: ${AAT_AI__API_KEY}
+  max_tokens: 4000
+  temperature: 0.3
+
+engine:
+  type: web
+  browser: chromium
+  headless: true
+  viewport_width: 1280
+  viewport_height: 720
+  timeout_ms: 30000
+
+matching:
+  confidence_threshold: 0.85
+  multi_scale: true
+  ocr_languages: [eng, kor]
+```
+
+```python
+from aat.core.config import load_config
+
+config = load_config()
+print(f"AI Provider: {config.ai.provider}")
+print(f"Browser: {config.engine.browser}")
+print(f"Confidence: {config.matching.confidence_threshold}")
+```
+
+⚙️  CONFIGURATION HIERARCHY
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              Config (Root)                                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ AIConfig    │  │EngineConfig │  │MatchingCfg  │  │VisionConfig │     │
+│  │             │  │             │  │             │  │             │     │
+│  │ • provider  │  │ • type      │  │ • threshold │  │ • provider  │     │
+│  │ • model     │  │ • browser   │  │ • methods   │  │ • model     │     │
+│  │ • api_key   │  │ • viewport  │  │ • languages │  │ • api_key   │     │
+│  │ • tokens    │  │ • timeout   │  │             │  │             │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                        │
+│  │HumanizerCfg│  │ApprovalMode │  │Test Accounts│                        │
+│  │             │  │             │  │             │                        │
+│  │ • mouse_spd │  │ • manual    │  │ • name: {}  │                        │
+│  │ • typing    │  │ • branch    │  │ • email     │                        │
+│  │ • bezier    │  │ • auto      │  │ • password  │                        │
+│  └─────────────┘  └─────────────┘  └─────────────┘                        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 MODEL DETAILS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│ AIConfig                         │  Vision AI Provider Settings            │
+├────────────────────────────────────────────────────────────────────────────┤
+│ • provider: claude/openai/gemini │  Separate from AIConfig: allows         │
+│ • model: model ID               │  different providers for scenario       │
+│ • api_key: ${VAR} support       │  generation vs visual matching           │
+│ • max_tokens: 100-32000         │                                          │
+│ • temperature: 0.0-1.0          │  • provider: claude/openai/gemini       │
+│ • step_verify: bool             │  • model: auto-detected if empty        │
+│ • step_verify_critical_only     │  • api_key: ${VAR} support              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ EngineConfig                     │  MatchingConfig                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│ • type: web/desktop             │  • confidence_threshold: 0.0-1.0        │
+│ • browser: chromium/firefox     │  • multi_scale: bool                    │
+│ • headless: bool                │  • scale_range: 0.1-4.0                 │
+│ • viewport: WxH                 │  • grayscale: bool                      │
+│ • timeout_ms: 1000-120000       │  • ocr_languages: [eng, kor, ...]      │
+│ • slow_mo: ms (human speed)     │  • chain_order: [fallback methods]    │
+│ • speed: fast/normal/slow       │                                          │
+│ • screenshot_mode: all/...       │  Chain: LEARNED → TEMPLATE → OCR       │
+│ • verbosity: detailed/concise   │         → FEATURE → VISION_AI           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔧 SETTINGS MERGE ORDER (later wins)
+───────────────────────────────────────────────────────────────────────────────
+1️⃣  Model defaults (coded in Pydantic models)
+2️⃣  YAML file values (aat.config.yaml or .aat/aat.config.yaml)
+3️⃣  Environment variables (AAT_ prefix, __ nested delimiter)
+4️⃣  CLI overrides (command-line flags)
+
+Example:
+```yaml
+# aat.config.yaml
+ai:
+  model: gpt-4o
+  temperature: 0.7
+```
+
+```bash
+# Environment variable override
+export AAT_AI__MODEL=claude-sonnet-4-20250514  # Overrides yaml
+export AAT_AI__TEMPERATURE=0.3                 # Overrides yaml
+
+# Final config:
+# model: claude-sonnet-4-20250514  (from env)
+# temperature: 0.3                 (from env)
+# provider: claude                 (from yaml default)
+```
+
+🚦 APPROVAL MODES (DevQA Loop)
+───────────────────────────────────────────────────────────────────────────────
+• MANUAL  → Terminal prompt, no file changes (safe for testing)
+• BRANCH  → Git branch isolation, apply + commit + retest (safe for code)
+• AUTO    → Direct file changes, apply + retest (use with caution!)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

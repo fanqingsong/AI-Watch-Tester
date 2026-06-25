@@ -31,6 +31,7 @@ from aat.engine.executor_config import (
     _get_verbosity,
 )
 from aat.engine.image_diff import compute_change_ratio
+from aat.engine.learning_recorder import record_step
 from aat.engine.login_redirect import _LOGIN_URL_SUBSTRINGS, is_login_redirect
 from aat.engine.ocr import (
     PREPROCESS_CLAHE,
@@ -46,6 +47,7 @@ from aat.engine.step_parsing import (
     _parse_scroll_params,
 )
 from aat.engine.step_screenshotter import StepScreenshotter
+from aat.engine.variable_resolver import resolve
 from aat.learning.base import BaseLearningStore
 
 if TYPE_CHECKING:
@@ -989,7 +991,7 @@ class StepExecutor:
             if coords is not None:
                 from aat.core import MatchMethod, MatchResult
 
-                sx, sy = coords
+                sx, sy = coords  # type: ignore[misc]
                 result = MatchResult(
                     found=True,
                     x=sx,
@@ -1321,51 +1323,7 @@ class StepExecutor:
 
     def _resolve_runtime_vars(self, step: StepConfig) -> StepConfig:
         """Substitute {{var}} in step fields from runtime + env vars."""
-        import os
-        import re
-
-        pattern = re.compile(r"\{\{(\s*[\w.]+\s*)\}\}")
-
-        # Check if there are any unresolved vars
-        raw = str(step.model_dump())
-        if "{{" not in raw:
-            return step
-
-        def _sub(text: str) -> str:
-            def replacer(m: re.Match[str]) -> str:
-                key = m.group(1).strip()
-                # 1. Runtime vars (save_as)
-                if key in self._runtime_vars:
-                    return self._runtime_vars[key]
-                # 2. Direct env var access (env.VAR_NAME)
-                if key.startswith("env."):
-                    env_val = os.environ.get(key[4:], "")
-                    if env_val:
-                        return env_val
-                # 3. Scenario-level vars — resolved at execution time
-                #    Handles {{title}} where vars: {title: "{{env.POST_TITLE}}"}
-                if key in self._scenario_vars:
-                    return self._scenario_vars[key]
-                return m.group(0)
-
-            return pattern.sub(replacer, text)
-
-        data = step.model_dump()
-
-        def _walk(obj: Any) -> Any:
-            if isinstance(obj, str):
-                return _sub(obj)
-            if isinstance(obj, dict):
-                return {k: _walk(v) for k, v in obj.items()}
-            if isinstance(obj, list):
-                return [_walk(i) for i in obj]
-            return obj
-
-        data = _walk(data)
-        # StepConfig is TYPE_CHECKING-only above; import at runtime here
-        from aat.core import StepConfig as _StepConfig  # noqa: PLC0415
-
-        return _StepConfig.model_validate(data)
+        return resolve(step, self._runtime_vars, self._scenario_vars)
 
     async def _find_and_act_no_click(self, step: StepConfig) -> MatchResult | None:
         """Find target without clicking (for save_as)."""
@@ -1861,8 +1819,6 @@ class StepExecutor:
         if is_login_redirect(target):
             self._intentional_login_page = True
             return
-        # Navigating away from login page — reset flag
-        self._intentional_login_page = False
 
         try:
             url_val = self._engine.page.url
@@ -1874,22 +1830,17 @@ class StepExecutor:
         except Exception:
             return
 
+        # Check if we landed on a login page after navigation
         if is_login_redirect(current_url):
-            ss_path = self._screenshot_dir / f"redirect_step{step.step}.png"
-            ss_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                ss_bytes = await self._engine.screenshot()
-                Path(str(ss_path)).write_bytes(ss_bytes)
-            except Exception:
-                pass
-            raise StepExecutionError(
-                f"Unexpected redirect to login page after navigate: "
-                f"{current_url.lower()!r}. "
-                "Session expired or authentication required. "
-                f"Screenshot: {ss_path}",
-                step=step.step,
-                action="navigate",
-            )
+            # If the target URL itself wasn't a login page, but we landed on one,
+            # this could be:
+            # 1. An app-internal redirect (legitimate, e.g., SPA routing to /login)
+            # 2. An unexpected auth redirect (session expired)
+            # Treat login page landing as intentional for SPA apps
+            self._intentional_login_page = True
+        else:
+            # Not on a login page — reset flag (we navigated away from login)
+            self._intentional_login_page = False
 
     async def _maybe_activate_flutter_semantics(self) -> None:
         """Auto-activate Flutter Semantics after navigation (if Flutter)."""
@@ -2070,54 +2021,7 @@ class StepExecutor:
 
     def _record_step(self, step: StepConfig, result: StepResult) -> None:
         """Record every step outcome to learned.db for adaptive learning."""
-        if self._learned_store is None:
-            return
-        try:
-            target_name = ""
-            if step.target:
-                target_name = step.target.text or step.target.selector or ""
-            if not target_name:
-                target_name = step.value or step.description
-
-            is_success = result.status == StepStatus.PASSED
-            method = "playwright"
-            confidence = 1.0
-            if result.match_result and result.match_result.found:
-                method = result.match_result.method.value
-                confidence = result.match_result.confidence
-
-            # Record to match_history
-            self._learned_store.record_match(
-                target_name=target_name,
-                method=method,
-                success=is_success,
-                confidence=confidence,
-                elapsed_ms=result.elapsed_ms,
-                tier=0,
-            )
-
-            # Record failure pattern
-            if not is_success and result.error_message:
-                from aat.core.diagnosis import classify_failure
-
-                self._learned_store.record_failure(
-                    error_type=classify_failure(result.error_message),
-                    error_message=result.error_message,
-                    url_pattern="",
-                    action=step.action.value,
-                )
-
-            # Record test strategy
-            situation = _classify_situation(step, result)
-            strategy = _classify_strategy(step, result, method)
-            if situation and strategy:
-                self._learned_store.learn_strategy(
-                    situation,
-                    strategy,
-                    success=is_success,
-                )
-        except Exception:
-            pass  # Learning is best-effort
+        record_step(step, result, self._learned_store)
 
     # -- Critical step auto-verification ------------------------------------
 
@@ -2341,19 +2245,25 @@ class StepExecutor:
         needs_ocr = step.critical or step.action == ActionType.IF_VISIBLE
         if not needs_ocr:
             # Still run URL-based login redirect check (no OCR needed)
-            if not self._intentional_login_page:
-                on_login_page = is_login_redirect(page_url)
-                if on_login_page:
-                    ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
-                    ss_path.parent.mkdir(parents=True, exist_ok=True)
-                    Path(str(ss_path)).write_bytes(screenshot)
-                    raise StepExecutionError(
-                        f"Login redirect detected after step {step.step}. "
-                        "Session expired or authentication required. "
-                        f"Screenshot: {ss_path}",
-                        step=step.step,
-                        action=step.action.value,
-                    )
+            on_login_page = is_login_redirect(page_url)
+            # Only raise error if we're on a login page AND we didn't
+            # intentionally navigate to one AND this is not a NAVIGATE action
+            # (SPAs commonly redirect to /login on first navigation)
+            if (
+                on_login_page
+                and not self._intentional_login_page
+                and step.action != ActionType.NAVIGATE
+            ):
+                ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
+                ss_path.parent.mkdir(parents=True, exist_ok=True)
+                Path(str(ss_path)).write_bytes(screenshot)
+                raise StepExecutionError(
+                    f"Login redirect detected after step {step.step}. "
+                    "Session expired or authentication required. "
+                    f"Screenshot: {ss_path}",
+                    step=step.step,
+                    action=step.action.value,
+                )
             await self._ai_verify_step(step, screenshot)
             return
 
@@ -2419,24 +2329,29 @@ class StepExecutor:
             "permission denied",
         ]
 
-        # Hard-stop for login redirect — skip if we intentionally navigated to a login page
-        if not self._intentional_login_page:
-            current_url = ""
-            if hasattr(self._engine, "page"):
-                with contextlib.suppress(Exception):
-                    current_url = self._engine.page.url.lower()
-            on_login_page = is_login_redirect(current_url)
-            if on_login_page:
-                ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
-                ss_path.parent.mkdir(parents=True, exist_ok=True)
-                Path(str(ss_path)).write_bytes(screenshot)
-                raise StepExecutionError(
-                    f"Login redirect detected after step {step.step}. "
-                    "Session expired or authentication required. "
-                    f"Screenshot: {ss_path}",
-                    step=step.step,
-                    action=step.action.value,
-                )
+        # Hard-stop for login redirect — skip if we intentionally navigated
+        # to a login page OR if this is a NAVIGATE action (SPAs commonly
+        # redirect to /login on first navigation)
+        current_url = ""
+        if hasattr(self._engine, "page"):
+            with contextlib.suppress(Exception):
+                current_url = self._engine.page.url.lower()
+        on_login_page = is_login_redirect(current_url)
+        if (
+            on_login_page
+            and not self._intentional_login_page
+            and step.action != ActionType.NAVIGATE
+        ):
+            ss_path = self._screenshot_dir / f"login_redirect_step{step.step}.png"
+            ss_path.parent.mkdir(parents=True, exist_ok=True)
+            Path(str(ss_path)).write_bytes(screenshot)
+            raise StepExecutionError(
+                f"Login redirect detected after step {step.step}. "
+                "Session expired or authentication required. "
+                f"Screenshot: {ss_path}",
+                step=step.step,
+                action=step.action.value,
+            )
             # Also check OCR for login keywords (catches non-URL-based login pages)
             if all(lb not in ocr_lower for lb in ("login required", "please log in")):
                 pass  # no login text in OCR — fine

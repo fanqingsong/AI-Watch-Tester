@@ -1,16 +1,140 @@
-"""DevQA Loop orchestrator."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       🔄 DevQA Loop Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Core DevQA Loop orchestrator that runs tests, analyzes failures with AI, proposes
+fixes, and re-tests until all tests pass or max_loops is reached.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.core.loop import DevQALoop
+from aat.core import ApprovalMode
+
+loop = DevQALoop(
+    config=config,
+    executor=executor,
+    adapter=ai_adapter,
+    reporter=reporter,
+    engine=engine,
+    git_ops=git_ops
+)
+
+result = await loop.run(scenarios)
+
+print(f"Success: {result.success}")
+print(f"Iterations: {result.total_iterations}")
+print(f"Reason: {result.reason}")
+```
+
+Output:
+```text
+Iteration 1: Test FAILED (3 steps failed)
+  Analyzing failures...
+  Generating fix...
+  Approval: [Enter] Run    [e] Edit YAML    [n] Cancel
+  Applying fix to branch: aat/fix-001
+  Commit: abc1234
+  Retesting...
+
+Iteration 2: Test PASSED (all 10 steps passed)
+  Success!
+```
+
+⚙️  APPROVAL MODES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  MANUAL           │  Terminal prompt, no file changes (safe for testing)   │
+│                   │  • Shows fix diff before approval                      │
+│                   │  • User must press Enter to proceed                    │
+├────────────────────────────────────────────────────────────────────────────┤
+│  BRANCH           │  Git branch isolation, apply + commit + retest          │
+│                   │  • Creates aat/fix-XXX branch                           │
+│                   │  • Applies fix and commits                              │
+│                   │  • Auto-restore original branch on exit                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  AUTO             │  Direct file changes, apply + retest                    │
+│                   │  • Modifies files in working directory                   │
+│                   │  • Use with caution!                                    │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔄 LOOP FLOW
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Start Loop                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                      │   │
+│  │  Run Tests → Pass? ──Yes──▶ Generate Report → Finish (Success)     │   │
+│  │     │                                                              │   │
+│  │     No                                                             │   │
+│  │     │                                                              │   │
+│  │     ▼                                                              │   │
+│  │  Classify Failure (element_not_found, timeout, ...)                 │   │
+│  │     │                                                              │   │
+│  │     ▼                                                              │   │
+│  │  AI Analysis → Root cause + suggestion                             │   │
+│  │     │                                                              │   │
+│  │     ▼                                                              │   │
+│  │  Generate Fix (code changes with diffs)                             │   │
+│  │     │                                                              │   │
+│  │     ▼                                                              │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  Approval Mode:                                             │   │   │
+│  │  │  • MANUAL: Show diff, prompt user                          │   │   │
+│  │  │  • BRANCH: Create branch, apply, commit                    │   │   │
+│  │  │  • AUTO: Apply directly to working dir                      │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  │     │                                                              │   │
+│  │     ▼                                                              │   │
+│  │  Re-test → Pass? ──Yes──▶ Finish (Success)                       │   │
+│  │     │                                                              │   │
+│  │     No                                                             │   │
+│  │     │                                                              │   │
+│  │     └──────────▶ Increment iteration → max_loops?                 │   │
+│  │                    │                                                │   │
+│  │                    No ──▶ Repeat loop                              │   │
+│  │                    │                                                │   │
+│  │                    Yes ──▶ Finish (Max loops exceeded)            │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🛡️  FIX VALIDATION & SAFETY
+───────────────────────────────────────────────────────────────────────────────
+Before applying AI-generated fixes:
+• Validates fix doesn't delete >80% of original code
+• Checks fix doesn't remove all import statements
+• Validates syntax (Python ast.parse, JSON schema, bracket balance)
+• Analyzes impact on dependent files
+
+📦 LOOP RESULT
+───────────────────────────────────────────────────────────────────────────────
+```python
+LoopResult(
+    success=True,                    # True if all tests passed
+    total_iterations=2,              # Total iterations executed
+    iterations=[...],                # All iteration results
+    reason=None,                      # Stop reason (if unsuccessful)
+    duration_ms=15000.0              # Total loop execution time
+)
+```
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable  # noqa: TC003
+from collections.abc import Awaitable, Callable  # noqa: TC003
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aat.core.cost import log_cost
-from aat.core.diagnosis import classify_test_result
-from aat.core.exceptions import LoopError
 from aat.core import (
     ApprovalMode,
     LoopIteration,
@@ -18,11 +142,14 @@ from aat.core import (
     StepStatus,
     TestResult,
 )
+from aat.core.cost import log_cost
+from aat.core.diagnosis import classify_test_result
+from aat.core.exceptions import LoopError
 
 if TYPE_CHECKING:
     from aat.adapters.base import AIAdapter
-    from aat.core.git_ops import GitOps
     from aat.core import AnalysisResult, Config, FileChange, FixResult, Scenario, StepResult
+    from aat.core.git_ops import GitOps
     from aat.engine.base import BaseEngine
     from aat.engine.executor import StepExecutor
     from aat.reporters.base import BaseReporter
@@ -271,15 +398,17 @@ class DevQALoop:
         self._fix_counter += 1
         branch_name = f"aat/fix-{self._fix_counter:03d}"
 
-        async with self._git_ops.on_fix_branch(branch_name):
+        assert self._git_ops is not None  # validated in _validate_git_ready
+        git_ops = self._git_ops  # type: ignore[assignment]
+        async with git_ops.on_fix_branch(branch_name):
             # Process and apply fix changes using branch write strategy
             safe_changes, written = await self._process_and_apply_fix(
                 fix,
                 # Branch mode write strategy: use git_ops.apply_file_changes
-                lambda change: self._git_ops.apply_file_changes([change]),
+                lambda change: git_ops.apply_file_changes([change]),
             )
-            commit_hash = await self._git_ops.commit_changes(
-                written,
+            commit_hash = await git_ops.commit_changes(
+                [Path(p) for p in written],  # type: ignore[arg-type]
                 f"aat: {fix.description}",
             )
 
@@ -338,8 +467,8 @@ class DevQALoop:
 
     async def _process_and_apply_fix(
         self,
-        fix: "FixResult",
-        write_strategy: callable,
+        fix: FixResult,
+        write_strategy: Callable[[FileChange], Awaitable[list[Path] | str | None]],
     ) -> tuple[list[FileChange], list[str]]:
         """Process fix changes through validation and impact analysis.
 
@@ -357,8 +486,8 @@ class DevQALoop:
             - safe_changes: List of validated FileChange objects
             - commit_paths: List of file paths that were written
         """
-        safe_changes = []
-        commit_paths = []
+        safe_changes: list[FileChange] = []
+        commit_paths: list[str] = []
 
         for change in fix.files_changed:
             safe, reason = self._validate_fix(change)
@@ -376,9 +505,12 @@ class DevQALoop:
                 )
 
             safe_changes.append(change)
-            written_path = await write_strategy(change)
-            if written_path:
-                commit_paths.append(written_path)
+            result = await write_strategy(change)
+            # Handle both list[Path] and str | None return types
+            if isinstance(result, list):
+                commit_paths.extend(str(p) for p in result)
+            elif result:
+                commit_paths.append(result)
 
         return safe_changes, commit_paths
 

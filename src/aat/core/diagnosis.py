@@ -1,7 +1,121 @@
-"""Failure diagnosis — structured analysis without AI dependency.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                          📊 Failure Diagnosis Module
+════════════════════════════════════════════════════════════════════════════════
 
-Collects browser context (URL, console errors, network failures, DOM snapshot)
-and classifies failures into actionable categories with investigation checklists.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides structured failure analysis WITHOUT AI dependency - pure deterministic
+classification based on error patterns and browser context collection.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Test fails at step 3
+step_result = StepResult(
+    step=3,
+    action=ActionType.FIND_AND_CLICK,
+    status=StepStatus.FAILED,
+    error_message="Element not found: .submit-button"
+)
+
+# Classify and collect diagnostic context
+context = await collect_failure_context(engine, step_result, "test.yaml")
+# → {
+#     "step": 3,
+#     "action": "find_and_click",
+#     "error": "Element not found: .submit-button",
+#     "url": "https://example.com/checkout",
+#     "failure_type": "element_not_found",
+#     "investigation": [
+#         "Check if the element's text/selector changed in the latest commit",
+#         "Check if the element is inside an iframe",
+#         "Try adding a wait step before this step"
+#     ]
+# }
+
+# Format for CLI output
+print(format_diagnosis(context))
+# ════════════════════════════════════════════════════════════════════════
+#   📊 AWT Diagnosis (deterministic — no AI)
+# ════════════════════════════════════════════════════════════════════════
+#   Step:     3 — Click submit button
+#   Action:   find_and_click
+#   Error:    Element not found: .submit-button
+#   URL:      https://example.com/checkout
+#   Category: element_not_found
+#   Investigation:
+#     □ Check if the element's text/selector changed in the latest commit
+#     □ Check if the element is inside an iframe
+#     □ Try adding a wait step before this step
+# ════════════════════════════════════════════════════════════════════════
+```
+
+⚙️  CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Failure Occurs     │────▶│  Browser Context    │────▶│  Classification     │
+│  (Step Fails)       │     │  Collection         │     │  (Rule-Based)       │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+        │                            │                            │
+        │                            │                            │
+        ▼                            ▼                            ▼
+   • URL                       • Page title                 • element_not_found
+   • Screenshot                • Console errors             • timeout
+   • Error message            • Network failures           • navigation_error
+   • Step number               • DOM snapshot                • auth_error
+                                                              • server_error
+                                                              • selector_changed
+
+📦 FAILURE CATEGORIES & INVESTIGATION CHECKLISTS
+───────────────────────────────────────────────────────────────────────────────
+Category                 │ Sample Error Message       │ Investigation Checklist
+─────────────────────────┼───────────────────────────┼─────────────────────────
+element_not_found        │ "Element not visible"     │ □ Check selector changes
+                         │ "not found"               │ □ Check iframe context
+timeout                  │ "timeout"                 │ □ Check server response
+navigation_error         │ "goto failed"              │ □ Verify URL accessibility
+auth_error               │ "401 Unauthorized"         │ □ Check credentials
+server_error             │ "500 Internal Server Error"│ □ Check server logs
+selector_changed         │ "selector invalid"        │ □ Find new selector
+assertion_failed         │ "text_visible failed"      │ □ Verify expected content
+unknown                  │ (any other)                │ □ Check screenshot/logs
+
+🚨 NAVIGATION ZONE WARNINGS (False Positive Prevention)
+───────────────────────────────────────────────────────────────────────────────
+Detects clicks in the left 20% of viewport (nav panel area) that may have hit
+navigation elements instead of intended main-content targets.
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  VIEWPORT WIDTH                                                              │
+│  ┌──────────┬──────────────────────────────────────────────────────────┐  │
+│  │  20%     │  80% (Main Content)                                      │  │
+│  │  NAV     │                                                           │  │
+│  │  ZONE ⚠️ │                                                           │  │
+│  └──────────┴──────────────────────────────────────────────────────────┘  │
+│  ←─ nav_boundary ─→                                                       │
+│  (viewport_width * 0.2)                                                     │
+└────────────────────────────────────────────────────────────────────────────┘
+
+💡 SKILL MODE OUTPUT (AI-Parseable Format)
+───────────────────────────────────────────────────────────────────────────────
+format_skill_diagnosis() generates structured output for AI coding assistants:
+```text
+=== AWT SKILL DEVQA ===
+SCENARIO: test_login.yaml
+FAILED_STEP: 3 - find_and_click
+ERROR: Element not found: .submit-button
+SCREENSHOT: .aat/screenshots/fail_step3.png
+URL: https://example.com/login
+CATEGORY: element_not_found
+POSSIBLE_CAUSE: Target text/selector changed or not yet rendered
+FIX_TARGET: test_login.yaml
+RETRY_CMD: aat run --skill-mode test_login.yaml
+ATTEMPTS: 1/5
+=======================
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -369,7 +483,6 @@ def check_learned_hint(
         return store.find_similar_failure(failure_type)
     except Exception:
         return None
-
 
 
 __all__ = [
