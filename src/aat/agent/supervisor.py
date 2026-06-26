@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from aat.agent.config import AgentConfig, AgentContext, TestIntent
-from aat.agent.zhipuai_chat import create_zhipuai_model
 
 
 class AgentSupervisor:
@@ -43,6 +42,7 @@ class AgentSupervisor:
         try:
             # Import Deep Agents
             from deepagents import create_deep_agent
+            from langchain_openai import ChatOpenAI
 
             # Create work directory
             self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
@@ -55,9 +55,11 @@ class AgentSupervisor:
 
             # Handle different providers
             if provider == "zhipuai":
-                # Use custom ChatZhipuAI model
-                model_instance = create_zhipuai_model(
+                # Use ChatOpenAI with ZhipuAI's OpenAI-compatible API
+                # 参考 AWT 的 ZhipuAIAdapter 实现
+                model_instance = ChatOpenAI(
                     api_key=api_key,
+                    base_url="https://open.bigmodel.cn/api/paas/v4/",  # 智谱AI OpenAI兼容端点
                     model=model,
                     temperature=self.config.temperature,
                     max_tokens=self.config.max_tokens,
