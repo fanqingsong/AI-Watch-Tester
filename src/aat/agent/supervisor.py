@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from aat.agent.config import AgentConfig, AgentContext, TestIntent
+from aat.agent.zhipuai_chat import create_zhipuai_model
 
 
 class AgentSupervisor:
@@ -47,32 +48,52 @@ class AgentSupervisor:
             self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
             self._work_dir.mkdir(parents=True, exist_ok=True)
 
-            # Build model string based on provider
+            # Build model based on provider
             provider = self.config.provider
             model = self.config.model
+            api_key = self.config.api_key
 
-            # Map provider to Deep Agents format
+            # Handle different providers
             if provider == "zhipuai":
-                model_string = f"zhipuai:{model}"
+                # Use custom ChatZhipuAI model
+                model_instance = create_zhipuai_model(
+                    api_key=api_key,
+                    model=model,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
+                )
+                model_identifier = f"zhipuai:{model}"
             elif provider == "anthropic":
-                model_string = f"anthropic:{model}"
+                model_identifier = f"anthropic:{model}"
+                model_instance = None  # Let Deep Agents create it
             elif provider == "openai":
-                model_string = f"openai:{model}"
-            elif provider == "google":
-                model_string = f"google_genai:{model}"
+                model_identifier = f"openai:{model}"
+                model_instance = None
             else:
-                model_string = f"anthropic:claude-sonnet-4-6"
+                # Default to Anthropic
+                model_identifier = "anthropic:claude-sonnet-4-6"
+                model_instance = None
 
             # Create the Deep Agent with AWT tools
-            self._deep_agent = create_deep_agent(
-                model=model_string,
-                tools=self._create_tools(),
-                system_prompt=self._get_system_prompt(),
-                permissions=self._get_permissions(),
-            )
+            if model_instance:
+                # Use custom model instance
+                self._deep_agent = create_deep_agent(
+                    model=model_instance,
+                    tools=self._create_tools(),
+                    system_prompt=self._get_system_prompt(),
+                    permissions=self._get_permissions(),
+                )
+            else:
+                # Use model string
+                self._deep_agent = create_deep_agent(
+                    model=model_identifier,
+                    tools=self._create_tools(),
+                    system_prompt=self._get_system_prompt(),
+                    permissions=self._get_permissions(),
+                )
 
             self._is_initialized = True
-            print(f"✅ Agent initialized with {model_string}")
+            print(f"✅ Agent initialized with {model_identifier}")
 
         except ImportError as e:
             raise ImportError(
