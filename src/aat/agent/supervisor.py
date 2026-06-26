@@ -2,6 +2,7 @@
 AWT Agent Supervisor - Simplified
 
 Main supervisor class without over-engineering.
+Uses AWT's adapter system for AI provider integration.
 """
 
 import asyncio
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from aat.agent.config import AgentConfig, AgentContext, TestIntent
+from aat.adapters.zhipuai import ZhipuAIAdapter
+from aat.core import AIConfig as AWTAIConfig
 
 
 class AgentSupervisor:
@@ -40,7 +43,7 @@ class AgentSupervisor:
             return
 
         try:
-            # Import Deep Agents
+            # Import Deep Agents and LangChain
             from deepagents import create_deep_agent
             from langchain_openai import ChatOpenAI
 
@@ -48,26 +51,34 @@ class AgentSupervisor:
             self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
             self._work_dir.mkdir(parents=True, exist_ok=True)
 
-            # Build model based on provider
+            # Build model based on provider using AWT adapters
             provider = self.config.provider
             model = self.config.model
             api_key = self.config.api_key
 
-            # Handle different providers
             if provider == "zhipuai":
-                # Use ChatOpenAI with ZhipuAI's OpenAI-compatible API
-                # 参考 AWT 的 ZhipuAIAdapter 实现
+                # Use AWT's ZhipuAIAdapter to get proper client
+                awt_config = AWTAIConfig(
+                    provider="zhipuai",
+                    api_key=api_key,
+                    model=model,
+                )
+                zhipuai_adapter = ZhipuAIAdapter(awt_config)
+
+                # Create ChatOpenAI using AWT adapter's client configuration
                 model_instance = ChatOpenAI(
                     api_key=api_key,
-                    base_url="https://open.bigmodel.cn/api/paas/v4/",  # 智谱AI OpenAI兼容端点
+                    base_url=zhipuai_adapter.base_url,
                     model=model,
                     temperature=self.config.temperature,
                     max_tokens=self.config.max_tokens,
                 )
                 model_identifier = f"zhipuai:{model}"
+                print(f"📌 Using AWT ZhipuAIAdapter with base_url: {zhipuai_adapter.base_url}")
+
             elif provider == "anthropic":
                 model_identifier = f"anthropic:{model}"
-                model_instance = None  # Let Deep Agents create it
+                model_instance = None
             elif provider == "openai":
                 model_identifier = f"openai:{model}"
                 model_instance = None
@@ -78,7 +89,6 @@ class AgentSupervisor:
 
             # Create the Deep Agent with AWT tools
             if model_instance:
-                # Use custom model instance
                 self._deep_agent = create_deep_agent(
                     model=model_instance,
                     tools=self._create_tools(),
@@ -86,7 +96,6 @@ class AgentSupervisor:
                     permissions=self._get_permissions(),
                 )
             else:
-                # Use model string
                 self._deep_agent = create_deep_agent(
                     model=model_identifier,
                     tools=self._create_tools(),
