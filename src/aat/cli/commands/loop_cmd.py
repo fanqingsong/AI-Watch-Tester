@@ -1,4 +1,108 @@
-"""aat loop — DevQA Loop execution with rich UX."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🔄 DevQA Loop with Rich UX Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Interactive DevQA Loop with rich user experience for automated testing,
+failure analysis, AI-powered fixing, and re-testing. Provides comprehensive
+visual feedback, approval menus, and detailed progress tracking.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Manual approval mode (default)
+aat loop scenarios/login_test.yaml --approval-mode manual
+
+# Branch mode (create feature branches for fixes)
+aat loop scenarios/ --approval-mode branch --max-loops 5
+
+# Auto mode (apply all fixes automatically)
+aat loop scenarios/ --approval-mode auto
+```
+
+⚙️  DEVQA LOOP WITH RICH APPROVAL
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                 Rich DevQA Loop Architecture                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Test Execution                                            │  │
+│  │    → Run scenarios via StepExecutor                           │  │
+│  │    → Rich progress display with step-by-step results          │  │
+│  │    → Browser overlay for headed mode feedback                 │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Failure Analysis                                         │  │
+│  │    → AI-powered root cause analysis                          │  │
+│  │    → Related file identification                             │  │
+│  │    → Severity assessment and fix suggestions                  │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Rich Approval Menu                                        │  │
+│  │    → 1. Yes (apply fix)                                       │  │
+│  │    → 2. Yes + auto-apply similar                              │  │
+│  │    → 3. No (skip this fix)                                    │  │
+│  │    → 4. Show diff (code changes preview)                      │  │
+│  │    → 5. Explain (plain language description)                   │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Fix Application                                           │  │
+│  │    → Manual mode: await user approval                         │  │
+│  │    → Branch mode: create feature branch + commit              │  │
+│  │    → Auto mode: apply all fixes automatically                 │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Re-testing                                               │  │
+│  │    → Run tests again with applied fixes                      │  │
+│  │    → Compare results with previous run                       │  │
+│  │    → Continue loop until pass or max_iterations              │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 6. Final Report                                             │  │
+│  │    → Show iteration-by-iteration results                     │  │
+│  │    → Display AI cost summary                                 │  │
+│  │    → Report final success/failure status                      │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **rich approval system**: 5-option menu with diff display and explanations
+- **multi-mode support**: manual, branch, and auto approval modes
+- **visual progress tracking**: Detailed step-by-step execution display
+- **AI-powered analysis**: Intelligent failure diagnosis and fix suggestions
+- **cost tracking**: Real-time AI API cost monitoring and reporting
+- **branch management**: Automatic feature branch creation for fixes (branch mode)
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Branch mode requires git repository and write permissions
+- Auto mode applies all fixes without human review (use carefully)
+- Rich UI features work best in terminal with color support
+- AI analysis quality depends on provider and configuration
+- Cost tracking requires write access to data directory
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Start with manual mode to understand fix patterns
+- Use branch mode for team collaboration and code review
+- Enable auto mode only for trusted, repetitive fixes
+- Review cost summaries to monitor AI spending
+- Use Show Diff (option 4) to understand changes before approval
+- Run with limited max_iterations for time-constrained testing
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Complex test scenarios requiring intelligent fixing
+✅ Team environments with code review workflows
+✅ Learning and understanding test failure patterns
+✅ Projects where AI fixes can be safely applied
+❌ Not for simple test runs (use aat run)
+❌ Not for CI/CD automation (use aat devqa instead)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

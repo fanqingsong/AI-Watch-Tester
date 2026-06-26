@@ -1,0 +1,27 @@
+{
+  "name": "ai-watch-tester",
+  "version": "1.0.0",
+  "description": "<!-- mcp-name: io.github.ksgisang/awt --> <p align=\"center\">   <picture>     <source media=\"(prefers-color-scheme: dark)\" srcset=\"docs/assets/logo-dark.png\">     <source media=\"(prefers-color-scheme: light)\" srcset=\"docs/assets/logo-light.png\">     <img alt=\"AWT Logo\" src=\"docs/assets/logo-light.png\" width=\"300\">   </picture>   <br/>   <strong>AWT — AI Watch Tester</strong>   <br/>   <em>I got tired of writing E2E tests. So I built something that writes and fixes them for me.</em>   <br/><br/>   <a href=\"https://github.com/ksgisang/AI-Watch-Tester/actions\"><img src=\"https://img.shields.io/github/actions/workflow/status/ksgisang/AI-Watch-Tester/ci.yml?label=CI&logo=github\" alt=\"CI\"></a>   <a href=\"LICENSE\"><img src=\"https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white\" alt=\"MIT License\"></a>   <a href=\"https://www.python.org/\"><img src=\"https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white\" alt=\"Python 3.11+\"></a>   <a href=\"https://ai-watch-tester.vercel.app\"><img src=\"https://img.shields.io/badge/Cloud-Try_Now-00d4aa?logo=vercel&logoColor=white\" alt=\"Cloud\"></a>   <a href=\"https://github.com/ksgisang/awt-skill\"><img src=\"https://img.shields.io/badge/Agent_Skill-Available-brightgreen?logo=npm&logoColor=white\" alt=\"Agent Skill\"></a>   <a href=\"https://github.com/ksgisang/AI-Watch-Tester/stargazers\"><img src=\"https://img.shields.io/github/stars/ksgisang/AI-Watch-Tester?style=flat&logo=github\" alt=\"GitHub Stars\"></a>   <a href=\"docs/DEEPAGENT_SUMMARY.md\"><img src=\"https://img.shields.io/badge/DeepAgent-Powered%20✅-purple?logo=anthropic&logoColor=white\" alt=\"DeepAgent Powered\"></a> </p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fanqingsong/AI-Watch-Tester.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fanqingsong/AI-Watch-Tester/issues"
+  },
+  "homepage": "https://github.com/fanqingsong/AI-Watch-Tester#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.0.1"
+  }
+}

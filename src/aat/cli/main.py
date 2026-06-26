@@ -1,4 +1,75 @@
-"""AAT CLI entry point."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🚀 AAT CLI Main Entry Point Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Main entry point for the AAT (AI Auto Tester) CLI application. Registers all
+command groups and subcommands, handles version display, and performs periodic
+update checks for the AWT skill package.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Display version
+aat --version
+
+# Run any command
+aat run scenarios/login_test.yaml
+aat scan --url http://localhost:3000
+aat generate --from spec.md
+```
+
+⚙️  CLI STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+                          ┌─────────────────┐
+                          │   Main CLI App  │
+                          │  (Typer App)    │
+                          └────────┬────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+   ┌────▼────┐              ┌─────▼──────┐            ┌─────▼──────┐
+   │ Commands │              │ Agent Cmd  │            │   Groups   │
+   └────┬────┘              └─────┬──────┘            └─────┬──────┘
+        │                          │                          │
+    ┌───┴───┐              ┌───────┴────────┐        ┌──────────┴───┐
+    │       │              │                │        │              │
+  run     scan          test              chat      config        cost
+generate  analyze      plan              analyze   report        learn
+  loop    devqa        demo                                learned  validate
+  ...      ...          ...
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- CLI app initialization with Typer framework
+- Command registration for all test operations
+- Version display and management
+- AWT skill update checking (once per 24 hours)
+- Update notification when new versions are available
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Update check requires GitHub API access (may fail in air-gapped environments)
+- Update check is non-blocking with 3-second timeout
+- Cache file location: ~/.aat/update_check.json
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Always use `aat --version` to verify installation
+- Keep CLI updated to access latest features
+- Use `aat doctor` to check environment health
+- Check for update hints when shown
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Primary entry point for all AAT CLI operations
+✅ Version checking and update management
+❌ Not used directly in code (CLI only module)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 import json
 import time

@@ -1,4 +1,116 @@
-"""OpenAIAdapter — OpenAI GPT API integration."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🤖 OpenAI Adapter Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+OpenAI GPT API integration for AI-powered test failure analysis, code fix
+generation, and test scenario creation. Features Structured Outputs for
+guaranteed JSON schema compliance and vision capabilities for screenshot analysis.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.openai_adapter import OpenAIAdapter
+from aat.core import AIConfig
+
+config = AIConfig(
+    provider="openai",
+    api_key="sk-...",
+    model="gpt-4o"
+)
+
+adapter = OpenAIAdapter(config)
+
+# Analyze test failure with screenshot
+analysis = await adapter.analyze_failure(
+    test_result=result,
+    screenshots=[screenshot_bytes]
+)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Generate scenarios with Structured Outputs
+scenarios = await adapter.generate_scenarios(document_text, images)
+```
+
+⚙️  CAPABILITIES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Method              │  Vision  │  Structured  │  Purpose                  │
+├────────────────────────────────────────────────────────────────────────────┤
+│  analyze_failure()   │    ✅     │      ❌      │  Diagnose with screenshots │
+│  generate_fix()      │    ❌     │      ❌      │  Generate code patches     │
+│  generate_scenarios()│    ✅     │      ✅      │  Create scenarios (SO)      │
+│  analyze_document()  │    ✅     │      ❌      │  Extract from docs         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🧠 OPENAI API FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• Structured Outputs — Guaranteed JSON schema compliance
+• Vision API — Screenshot analysis for visual debugging
+• GPT-4o — Multimodal model with excellent reasoning
+• GPT-4o-mini — Faster, cheaper option for simple tasks
+• JSON Mode — Fallback to json_object when schema not provided
+
+🔧 API INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  OpenAIAdapter                                                              │
+│       │                                                                     │
+│       ├── AsyncOpenAI client (openai SDK)                                   │
+│       ├── Chat Completions API                                              │
+│       ├── Structured Outputs (json_schema)                                  │
+│       ├── Vision support (image_url + base64)                               │
+│       └── YAML fallback parsing                                             │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 STRUCTURED OUTPUTS
+───────────────────────────────────────────────────────────────────────────────
+OpenAI's Structured Outputs feature enforces JSON schema compliance at the
+model level, eliminating format errors:
+• Guaranteed schema match — No missing fields or invalid values
+• Semantic validation only — Wrong selector/text values still possible
+• Used for scenario generation — Ensures valid action names, field types
+• Fallback to json_object — When schema not provided
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Failure Analysis — Root cause identification with visual context
+• Code Generation — Patch generation with file-level precision
+• Scenario Generation — Test case creation with Structured Outputs
+• Document Analysis — Requirement extraction from design docs
+• Visual Verification — Screenshot-based step validation
+
+⚠️  ERROR HANDLING
+───────────────────────────────────────────────────────────────────────────────
+• TimeoutError — API calls timeout after 120 seconds
+• AdapterError — Parse failures and API errors wrapped
+• Empty response — Handles truncated responses gracefully
+• JSON decode errors — Strips markdown fences, tries YAML fallback
+• Length finish reason — Warns on max_tokens truncation
+
+💡 MODEL RECOMMENDATIONS
+───────────────────────────────────────────────────────────────────────────────
+• gpt-4o — Best for complex reasoning and visual tasks
+• gpt-4o-mini — Faster, cheaper for simple operations
+• gpt-4-turbo — Legacy model, consider gpt-4o instead
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Production workloads requiring high quality
+✅ Visual debugging with screenshot analysis
+✅ Scenario generation requiring guaranteed schema compliance
+✅ Complex failure diagnosis requiring strong reasoning
+❌ Cost-sensitive operations (consider DeepSeek/Ollama)
+❌ Simple text-only tasks (consider cheaper models)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

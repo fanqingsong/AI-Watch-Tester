@@ -1,8 +1,106 @@
-"""VisionAIMatcher — AI vision-based element matching.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                  🤖 AI Vision Matcher Module (Tier 3)
+════════════════════════════════════════════════════════════════════════════════
 
-Tier 3 matcher: used only when template matching and OCR both fail.
-Supports Claude Vision, OpenAI GPT-4o, and Gemini Flash.
-If no vision API key is configured, this tier is silently skipped.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+AI-powered vision-based element matching as the last resort (Tier 3) when template
+matching and OCR both fail. Supports multiple vision providers (Claude, OpenAI, Gemini)
+to understand screenshots and locate UI elements through semantic understanding
+rather than pattern matching.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Find a "Settings" icon that doesn't match any saved template
+target = TargetSpec(text="Settings gear icon")
+result = await vision_matcher.find(target, screenshot)
+if result:
+    print(f"AI found icon at ({result.x}, {result.y}) with {result.confidence:.0%} confidence")
+```
+
+⚙️  MULTI-PROVIDER ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                      Vision AIMatcher Entry Point                             │
+│              can_handle(): Check if api_key configured                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+        ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+        │   Claude     │  │   OpenAI     │  │   Gemini     │
+        │   Vision     │  │   GPT-4o     │  │   Flash      │
+        └──────────────┘  └──────────────┘  └──────────────┘
+                    │               │               │
+                    └───────────────┼───────────────┘
+                                    ▼
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │                    Common Processing Pipeline                      │
+        │  1. Encode screenshot to base64 PNG                                 │
+        │  2. Send system prompt + image + target text to API                  │
+        │  3. Parse JSON response: {x, y, confidence}                          │
+        │  4. Validate threshold (confidence >= 0.5)                           │
+        │  5. Log cost to tracking system                                      │
+        └─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Multi-provider support: Claude, OpenAI, Gemini with unified interface
+• Async API calls: Non-blocking vision requests with 30s timeout
+• Semantic understanding: Finds elements by description, not just appearance
+• JSON response parsing: Robust extraction of coordinates and confidence
+• Cost tracking: Logs token usage for all providers to cost tracking system
+• Confidence validation: Filters low-confidence predictions (<0.5 threshold)
+• Graceful degradation: Returns None if API unavailable or times out
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• COST: Tier 3 matcher incurs API costs per query (use after exhausting free methods)
+• LATENCY: API calls take 1-5 seconds per query (much slower than local methods)
+• DEPENDENCY: Requires API keys for respective providers (Anthropic, OpenAI, or Google)
+• RELIABILITY: AI predictions may be inconsistent or incorrect (not deterministic)
+• NO BOUNDING BOX: Returns only center point (x, y), width=0, height=0
+• COORDINATE PRECISION: AI may estimate coordinates with ±10-20 pixel error
+• NETWORK DEPENDENCY: Requires active internet connection to API endpoints
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+1. ONLY use as Tier 3 (last resort) after template matching and OCR fail
+2. Configure API keys via environment variables or settings before use
+3. Use for complex semantic queries: "find the red notification badge on top-right"
+4. Prefer Claude Sonnet for best accuracy, Gemini Flash for cost efficiency
+5. Monitor usage costs via log_cost tracking system
+6. Combine with learned store: AI matches are cached as templates for future Tier 1 use
+7. Use specific, descriptive text: "blue submit button with 'Save' label" vs "button"
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ GOOD USE CASES:
+  • Semantic element descriptions: "find the three-dot menu icon in the header"
+  • Complex UI patterns: "locate the user avatar circle in the top-right corner"
+  • Dynamic/styled elements: "find the glowing primary action button"
+  • When template/OCR fail: No reference image, text is rendered as graphics
+  • One-time exploration: Discovering element locations for future template creation
+  • Accessibility testing: Verify semantic meaning matches visual hierarchy
+
+❌ BAD USE CASES:
+  • High-volume testing (API costs will accumulate rapidly)
+  • Real-time/low-latency requirements (API calls are slow)
+  • Simple text detection (use OCR instead)
+  • Stable elements with known templates (use template matching instead)
+  • Offline testing environments (requires internet connection)
+  • Budget-constrained projects (use free Tier 1-2 methods first)
+
+💸 COST CONSIDERATIONS
+───────────────────────────────────────────────────────────────────────────────
+• Claude Sonnet: ~$0.003 per image (input) + $0.015 per 1K tokens (output)
+• OpenAI GPT-4o: ~$0.005 per image + $0.005 per 1K tokens
+• Gemini Flash: Free tier available, then ~$0.001 per image
+• Recommendation: Use Gemini Flash for cost-sensitive projects, Claude for accuracy
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

@@ -1,7 +1,107 @@
-"""Waiter — screen stabilization detection via polling + hash.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       ⏳  Waiter Module
+════════════════════════════════════════════════════════════════════════════════
 
-Polls screenshots at fixed intervals and compares MD5 hashes.
-When N consecutive hashes match, the screen is considered stable.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Smart waiting utility that detects screen stabilization via screenshot polling
+and MD5 hash comparison. Replaces fixed delays with dynamic wait-until-stable.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.waiter import Waiter
+
+waiter = Waiter(poll_interval=0.1, stable_frames=3)
+
+# Wait for screen to stabilize (no animations/loading)
+await waiter.wait_for_stability(engine)
+
+# Wait with custom timeout
+await waiter.wait(engine, timeout_ms=5000)
+
+# Wait for specific condition
+await waiter.wait_until(lambda: "Success" in await engine.get_page_text())
+```
+
+⚙️  STABILIZATION DETECTION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Start Polling                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                      │   │
+│  │  Capture Screenshot → Compute MD5 Hash                              │   │
+│  │        │                    │                                         │   │
+│  │        ▼                    ▼                                         │   │
+│  │  ┌─────────┐         ┌─────────┐                                   │   │
+│  │  │ Frame 1 │         │ Hash:   │                                   │   │
+│  │  │ (bytes) │         │ abc123  │                                   │   │
+│  │  └─────────┘         └─────────┘                                   │   │
+│  │        │                                                             │   │
+│  │        ▼                                                             │   │
+│  │  Wait poll_interval (e.g., 100ms)                                   │   │
+│  │        │                                                             │   │
+│  │        ▼                                                             │   │
+│  │  Capture Screenshot → Compute MD5 Hash                              │   │
+│  │        │                    │                                         │   │
+│  │        ▼                    ▼                                         │   │
+│  │  ┌─────────┐         ┌─────────┐                                   │   │
+│  │  │ Frame 2 │         │ Hash:   │                                   │   │
+│  │  │ (bytes) │         │ abc123  │ ← Same as frame 1?                │   │
+│  │  └─────────┘         └─────────┘                                   │   │
+│  │        │                                                             │   │
+│  │        ▼                                                             │   │
+│  │  Increment consecutive_count (if hash matches)                      │   │
+│  │        │                                                             │   │
+│  │        ▼                                                             │   │
+│  │  consecutive_count >= stable_frames? ──Yes──▶ STABLE!               │   │
+│  │        │                                                             │   │
+│  │        No                                                            │   │
+│  │        │                                                             │   │
+│  │        Reset counter, continue polling...                            │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+⚙️  CONFIGURATION
+───────────────────────────────────────────────────────────────────────────────
+```python
+waiter = Waiter(
+    poll_interval=0.1,      # Time between screenshots (seconds)
+    stable_frames=3,        # Consecutive matching hashes required
+    timeout_ms=30000         # Maximum wait time
+)
+```
+
+Faster polling (more CPU): `poll_interval=0.05`
+Slower polling (less CPU): `poll_interval=0.2`
+Stricter stability: `stable_frames=5`
+Looser stability: `stable_frames=2`
+
+💡 USE CASES
+───────────────────────────────────────────────────────────────────────────────
+• After navigation: Wait for page load animations to complete
+• After click: Wait for modal/dialog to appear and stabilize
+• After type: Wait for autocomplete dropdown to appear
+• Before screenshot: Ensure no loading spinners visible
+
+⚠️  WHEN TO USE VS FIXED DELAYS
+───────────────────────────────────────────────────────────────────────────────
+Use Waiter:
+• Unknown page load times
+• AJAX/React SPA rendering
+• Animations and transitions
+• Network-dependent content
+
+Use fixed delays:
+• Known constant wait times
+• Very short waits (<100ms)
+• When polling adds unnecessary overhead
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

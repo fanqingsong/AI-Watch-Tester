@@ -3,12 +3,56 @@
 These helpers take a duck-typed engine (only ``engine._config`` is read)
 and resolve scalar configuration values:
 
-- :data:`_SPEED_PRESETS` / :data:`_DEFAULT_PRESET` — speed preset tables.
-- :func:`_get_preset` — resolved speed preset dict.
-- :func:`_get_screenshot_mode` — screenshot strategy (single source of truth;
+════════════════════════════════════════════════════════════════════════════════
+                    ⚙️  Executor Config Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides convenient accessor functions for engine configuration values,
+abstracting away the duck-typed engine._config access pattern.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.executor_config import get_timeout, get_viewport_size
+
+# Get engine timeout
+timeout = get_timeout(engine)
+# Returns: 30000 (ms)
+
+# Get viewport dimensions
+width, height = get_viewport_size(engine)
+# Returns: (1280, 720)
+
+# Check if fast mode enabled
+is_fast = is_fast_mode(engine)
+# Returns: True/False
+```
+
+⚙️  CONFIGURATION ACCESSORS
+───────────────────────────────────────────────────────────────────────────────
+• get_timeout() -- Get step timeout in milliseconds
+• get_viewport_size() -- Get (width, height) tuple
+• is_fast_mode() -- Check if fast mode is enabled
+• get_screenshot_mode() -- Get screenshot strategy
+• get_verbosity() -- Get output verbosity level
+
+💡 BENEFITS
+───────────────────────────────────────────────────────────────────────────────
+• Type-safe access to config values
+• Single source of truth for config access patterns
+• Easier mocking in tests
+• Encapsulates duck-typing complexity
+
+════════════════════════════════════════════════════════════════════════════════
+
+- :data:`_SPEED_PRESETS` / :data:`_DEFAULT_PRESET` -- speed preset tables.
+- :func:`_get_preset` -- resolved speed preset dict.
+- :func:`_get_screenshot_mode` -- screenshot strategy (single source of truth;
   :mod:`aat.engine.step_screenshotter` re-imports it from here).
-- :func:`_get_verbosity` — verbosity mode.
-- :data:`_CONCISE_SKIP_ACTIONS` — steps skipped entirely in concise mode.
+- :func:`_get_verbosity` -- verbosity mode.
+- :data:`_CONCISE_SKIP_ACTIONS` -- steps skipped entirely in concise mode.
 """
 
 from __future__ import annotations

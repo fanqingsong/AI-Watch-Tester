@@ -1,4 +1,99 @@
-"""aat scan — pre-scan a URL to collect element data for scenario authoring."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🔍 Page Scanning & Element Detection Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Scans web pages to collect interactive UI elements for scenario generation and
+element matching. Uses multi-source detection (accessibility, DOM, Flutter Semantics,
+OCR) to build comprehensive element maps with coordinates, selectors, and labels.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic page scan
+aat scan --url http://localhost:3000/login
+
+# Compare with previous scan
+aat scan --url http://localhost:3000 --compare .aat/scan_result.json
+
+# Scan post-login page with session
+aat scan --url http://localhost:3000/dashboard --session user_session
+
+# Use with custom config
+aat scan --url http://localhost:3000 --config aat.config.yaml
+```
+
+⚙️  MULTI-SOURCE ELEMENT DETECTION
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Page Element Collection                          │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Accessibility Tree (Primary - High Quality)               │  │
+│  │    - ARIA roles and labels                                     │  │
+│  │    - Semantic element types                                    │  │
+│  │    - Filters decorative elements                               │  │
+│  │    - Provides stable ref identifiers (e5, e10, etc.)          │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 2. DOM Elements (Fallback)                                   │  │
+│  │    - CSS selectors                                            │  │
+│  │    - Element coordinates                                      │  │
+│  │    - Text content extraction                                 │  │
+│  │    - SVG button detection                                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 3. Flutter Semantics (CanvasKit Apps)                        │  │
+│  │    - Shadow DOM navigation                                    │  │
+│  │    - Aria-label extraction                                    │  │
+│  │    - Semantics node detection                                │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 4. OCR (Last Resort)                                          │  │
+│  │    - Text recognition with coordinates                        │  │
+│  │    - Multi-language support (English + Korean)                │  │
+│  │    - Confidence-based filtering                               │  │
+│  │    - Duplicate detection                                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **multi-source collection**: Combines accessibility, DOM, Semantics, and OCR
+- **Flutter detection**: Automatic CanvasKit detection and Semantics activation
+- **element deduplication**: Removes overlapping elements from multiple sources
+- **coordinate mapping**: Provides x,y coordinates for all elements
+- **comparison mode**: Detects added, removed, and moved elements
+- **session support**: Can load saved sessions for authenticated page scanning
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- OCR requires Tesseract installation and language data
+- Flutter Semantics requires page stabilization delay
+- Shadow DOM navigation may not work with all Flutter versions
+- OCR text accuracy depends on image quality and font clarity
+- Element count limited to 120 for token efficiency
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Scan pages after major UI changes to update element references
+- Use comparison mode to detect UI regressions
+- For authenticated pages, save session and use --session flag
+- Review scan results to verify element detection quality
+- Use scan results with aat generate --scan for accurate scenario generation
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Before generating test scenarios (aat generate --scan)
+✅ After UI changes to update element references
+✅ When tests fail due to element detection issues
+✅ For debugging element matching problems
+❌ Not needed for simple page navigation tests
+❌ Not required if using stable CSS selectors
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

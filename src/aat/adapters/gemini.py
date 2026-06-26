@@ -1,13 +1,98 @@
-"""GeminiAdapter — Google Gemini via OpenAI-compatible API.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    💎 Gemini Adapter Module
+════════════════════════════════════════════════════════════════════════════════
 
-Uses Gemini's OpenAI-compatible endpoint so we inherit all OpenAIAdapter
-logic. Only overrides client initialization to point at Google's endpoint.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Google Gemini API integration using OpenAI-compatible endpoint. Inherits all
+OpenAIAdapter logic while pointing at Google's Gemini API. Generous free tier
+for development and testing.
 
-Gemini supports JSON mode but NOT Structured Outputs (json_schema),
-similar to DeepSeek — falls back to json_object mode.
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.gemini import GeminiAdapter
+from aat.core import AIConfig
 
-Free tier: 15 RPM, 1M TPM, 1500 RPD — very generous for testing.
-API key: https://aistudio.google.com/apikey
+config = AIConfig(
+    provider="gemini",
+    api_key="AIza...",
+    model="gemini-2.0-flash"
+)
+
+adapter = GeminiAdapter(config)
+
+# Analyze test failure (text-only)
+analysis = await adapter.analyze_failure(test_result)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Generate scenarios from document
+scenarios = await adapter.generate_scenarios(document_text)
+```
+
+⚙️  GEMINI API FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• OpenAI-Compatible API — Same request/response format as OpenAI
+• Generous Free Tier — 15 RPM, 1M TPM, 1500 requests/day
+• JSON Mode — Supports response_format: {"type": "json_object"}
+• No Structured Outputs — Does NOT support json_schema (falls back to json_object)
+• Fast Models — gemini-2.0-flash optimized for speed
+• Text-Only — No vision/image support in OpenAI-compatible mode
+
+🔧 API INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  GeminiAdapter                                                              │
+│       │                                                                     │
+│       ├── Inherits from: OpenAIAdapter                                     │
+│       ├── Base URL: https://generativelanguage.googleapis.com/v1beta/openai/│
+│       ├── Default Model: gemini-2.0-flash                                  │
+│       └── JSON mode: json_object (no json_schema support)                  │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 SUPPORTED MODELS
+───────────────────────────────────────────────────────────────────────────────
+• gemini-2.0-flash — Fast, efficient, default model (free tier)
+• gemini-2.5-flash — Balanced speed and quality
+• gemini-2.5-pro — Highest quality, more expensive
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Failure Analysis — Text-based diagnosis (no screenshots)
+• Code Generation — Patch generation with source file analysis
+• Scenario Generation — Test case creation from specifications
+• Document Analysis — Requirement extraction from design docs
+
+⚠️  LIMITATIONS
+───────────────────────────────────────────────────────────────────────────────
+• No Vision Support — Cannot analyze screenshots in OpenAI-compatible mode
+• No Structured Outputs — json_schema not supported, uses json_object mode
+• Text-Only Operations — Images are ignored in all methods
+• JSON Mode Only — Relies on post-processing for validation
+
+💡 FREE TIER ADVANTAGE
+───────────────────────────────────────────────────────────────────────────────
+Gemini offers extremely generous free limits:
+• 15 requests per minute
+• 1M tokens per minute
+• 1500 requests per day
+Perfect for development, testing, and small-scale production use
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Development and testing with generous free tier
+✅ Cost-sensitive projects starting out
+✅ Text-only operations (failure analysis, code generation)
+✅ Fast scenario generation with gemini-2.0-flash
+❌ Visual debugging (use Claude/OpenAI instead)
+❌ Production workloads (consider paid models)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

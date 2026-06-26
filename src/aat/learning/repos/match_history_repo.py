@@ -1,4 +1,119 @@
-"""Repository for the ``match_history`` table."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                  📊 Match History Repository - Match Attempt Tracking
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Records all match attempt results (success/failure, method, timing, confidence)
+to learn which matching strategies work best for specific targets. Powers the
+intelligent selection of match methods based on historical performance.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.learning.repos import MatchHistoryRepo
+
+repo = MatchHistoryRepo(connection)
+
+# Record match attempt results
+repo.record_match(
+    target_name="login-button",
+    method="learned",
+    success=True,
+    confidence=0.95,
+    elapsed_ms=12.5,
+    tier=1
+)
+
+# Get best method for a target (by success rate, then speed)
+best_method = repo.get_best_method("login-button")
+if best_method:
+    print(f"Best method: {best_method}")
+
+# Get failure count for a specific target
+failures = repo.get_target_failure_count("login-button")
+print(f"Failed attempts: {failures}")
+
+# Get statistics for all targets
+stats = repo.get_match_stats()
+for stat in stats:
+    print(f"{stat['target']}: {stat['method']} - "
+          f"{stat['wins']}/{stat['total']} wins, "
+          f"avg {stat['avg_ms']}ms")
+```
+
+⚙️  DATABASE SCHEMA & RANKING
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ match_history TABLE                                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ id              INTEGER PRIMARY KEY AUTOINCREMENT                      │
+│ target_name     TEXT NOT NULL                                           │
+│ method          TEXT NOT NULL                                           │
+│ success         INTEGER NOT NULL DEFAULT 1 (1=True, 0=False)           │
+│ confidence      REAL DEFAULT 0.0                                       │
+│ elapsed_ms      REAL DEFAULT 0.0                                       │
+│ tier            INTEGER DEFAULT 1                                       │
+│ created_at      TEXT NOT NULL                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│ INDEX: idx_match_target (target_name, method)                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+BEST METHOD SELECTION ALGORITHM
+───────────────────────────────────────────────────────────────────────────────
+  success_rate = SUM(success) / COUNT(*)
+  avg_speed = AVG(elapsed_ms)
+
+  ORDER BY success_rate DESC, avg_speed ASC
+  LIMIT 1
+
+EXAMPLE: Which method works best for "submit-button"?
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────┬──────────┬──────────┬────────────┬─────────────┐
+│ Method       │ Attempts │ Wins     │ Win Rate   │ Avg Speed   │
+├──────────────┼──────────┼──────────┼────────────┼─────────────┤
+│ learned      │    25    │   24     │   96%      │   10.2ms    │
+│ image        │    18    │   15     │   83%      │  125.5ms    │
+│ text         │    12    │    8     │   67%      │   45.3ms    │
+│ ocr          │     8    │    3     │   38%      │  450.0ms    │
+└──────────────┴──────────┴──────────┴────────────┴─────────────┘
+
+Winner: "learned" (highest success rate, fastest speed)
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Attempt Recording - Log every match attempt with full context
+• Success Rate Calculation - Track wins/total attempts per method
+• Performance Metrics - Measure confidence scores and execution time
+• Best Method Selection - Rank methods by success rate + speed
+• Failure Counting - Count failed attempts for specific targets
+• Tier Tracking - Record which matching tier was used
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• No automatic cleanup of old history (table grows indefinitely)
+• Success rate can be misleading for small sample sizes
+• No distinction between permanent and transient failures
+• elapsed_ms depends on system load (not purely algorithm speed)
+• tier field present but not actively used for ranking
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Record ALL match attempts, not just successful ones
+• Monitor failure counts to identify flaky targets
+• Use best_method for intelligent retry strategies
+• Clear history when application UI changes significantly
+• Analyze patterns to improve matcher chain ordering
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Learning which match methods work best for specific elements
+✅ Building intelligent retry strategies based on history
+✅ Identifying consistently failing targets for investigation
+❌ Real-time decision making (use cached best_method instead)
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

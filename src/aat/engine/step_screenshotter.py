@@ -3,6 +3,53 @@
 Owns the three screenshot-saving responsibilities that previously lived
 inline on the executor:
 
+════════════════════════════════════════════════════════════════════════════════
+                    📸 Step Screenshotter Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Handles screenshot persistence for test steps, saving before/after images
+with configurable naming and directory structure.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.step_screenshotter import StepScreenshotter
+
+screenshotter = StepScreenshotter(
+    screenshots_dir=".aat/screenshots",
+    scenario_id="SC-001",
+    scenario_name="User Login"
+)
+
+# Save before screenshot
+path = await screenshotter.save_before(
+    step_num=1,
+    screenshot_bytes=image_bytes
+)
+
+# Save after screenshot
+path = await screenshotter.save_after(
+    step_num=1,
+    screenshot_bytes=image_bytes
+)
+```
+
+⚙️  FILE NAMING CONVENTION
+───────────────────────────────────────────────────────────────────────────────
+• Before: `SC-001_User_Login/step1_before.png`
+• After: `SC-001_User_Login/step1_after.png`
+• Failure: `SC-001_User_Login/step3_failed.png`
+
+💾 SCREENSHOT MODES
+───────────────────────────────────────────────────────────────────────────────
+• `all` — Save every step (default, maximum disk usage)
+• `before-after` — Save only action boundaries (70% fewer files)
+• `on-failure` — Save only failed steps (CI/CD optimized)
+
+════════════════════════════════════════════════════════════════════════════════
+
 - :meth:`StepScreenshotter.save` — a labelled one-off screenshot.
 - :meth:`StepScreenshotter.save_step` — before/after capture per the
   engine's ``screenshot_mode`` strategy.

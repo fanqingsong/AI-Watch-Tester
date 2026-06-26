@@ -1,4 +1,103 @@
-"""aat learn — design guide image learning."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   📚 Design Guide Learning Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Registers design guide images for learning element references and platform-
+specific testing tips. Enables manual training of the visual matching system
+with known-good UI components and framework-specific patterns.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Learn from single image
+aat learn add button.png --name submit_button
+
+# Learn from directory of images
+aat learn add design_system/ --name primary_buttons
+
+# Add platform-specific testing tip
+aat learn platform --platform flutter_canvaskit --tip "Wait for Semantics node stabilization"
+
+# Use with custom config
+aat learn add icons/ --name navigation_icons --config aat.config.yaml
+```
+
+⚙️  LEARNING PROCESS
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Design Guide Learning Workflow                        │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Image Collection                                          │  │
+│  │    → Accept .png, .jpg, .jpeg files                          │  │
+│  │    → Single file or directory input                           │  │
+│  │    → Verify file existence and readability                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Image Processing                                          │  │
+│  │    → Calculate SHA-256 hash for deduplication                │  │
+│  │    → Copy to .aat/assets/ for reference                      │  │
+│  │    → Extract image metadata and properties                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Element Registration                                     │  │
+│  │    → Create LearnedElement records                           │  │
+│  │    → Store with target_name and screenshot_hash              │  │
+│  │    → Set confidence=1.0 for manual registrations             │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Platform Tip Storage (Optional)                            │  │
+│  │    → Add framework-specific testing advice                    │  │
+│  │    → Associate with platform identifier                      │  │
+│  │    → Mark as user-added (vs builtin)                          │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Database Storage                                          │  │
+│  │    → Save to .aat/learned.db                                 │  │
+│  │    → Index by target_name and platform                        │  │
+│  │    → Enable fast lookup during matching                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **image learning**: Register design guide images for element reference
+- **platform tips**: Add framework-specific testing guidance
+- **deduplication**: SHA-256 hashing prevents duplicate registrations
+- **asset management**: Organized storage in .aat/assets/ directory
+- **database integration**: LearnedStore integration for persistent learning
+- **bulk import**: Process entire directories of design assets
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Manual learning requires high-quality reference images
+- Platform tips are text-only (no automated validation)
+- Learned elements require consistent visual appearance
+- Database size grows with accumulated learning data
+- No automatic learning from test failures (use --learn mode)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use consistent naming conventions for learned elements
+- Capture design system components for reliable matching
+- Add platform tips for framework-specific issues discovered
+- Register common UI patterns from design documentation
+- Use high-resolution images for better matching accuracy
+- Combine with automated learning for comprehensive coverage
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Training system with design system components
+✅ Adding framework-specific testing guidance
+✅ Improving element matching for custom UI components
+✅ Building knowledge base for specific applications
+❌ Not needed for standard web elements (already well-supported)
+❌ Not required for basic testing scenarios
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

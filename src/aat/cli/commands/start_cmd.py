@@ -1,7 +1,119 @@
-"""aat start — Interactive guided mode.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🎯 Interactive Guided Mode Module
+════════════════════════════════════════════════════════════════════════════════
 
-Walks the user through the entire AAT workflow:
-  Setup → Document Analysis → Scenario Generation → Test → Loop → Report
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Interactive wizard that guides users through the complete AAT workflow:
+AI provider setup → document analysis → scenario generation → test execution →
+DevQA loop → report generation. Designed for beginners and comprehensive project
+setup.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Start guided mode
+aat start
+
+# With custom config
+aat start --config aat.config.yaml
+
+# Example flow:
+# Step 1/5: AI Provider Setup → Select provider, enter API key, test connection
+# Step 2/5: Document Analysis → Analyze spec.md, extract screens/elements/flows
+# Step 3/5: Scenario Selection → Choose scenarios to test
+# Step 4/5: Target URL → Enter application URL, verify connectivity
+# Step 5/5: Test Execution → Run tests, optionally start DevQA Loop
+```
+
+⚙️  GUIDED WORKFLOW ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Interactive Guided Mode Flow                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. AI Provider Setup                                         │  │
+│  │    → Select provider (claude, openai, ollama)                │  │
+│  │    → Choose model (provider-specific options)                 │  │
+│  │    → Enter API key (skip for ollama)                          │  │
+│  │    → Test connection & save config                            │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Document Analysis (Optional)                                │  │
+│  │    → Path to spec documents (.md, .txt)                       │  │
+│  │    → AI analysis of screens, elements, flows                  │  │
+│  │    → Optional scenario generation from documents               │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Scenario Selection                                         │  │
+│  │    → Path to scenario files (YAML)                           │  │
+│  │    → Load and display available scenarios                     │  │
+│  │    → Show step counts and descriptions                        │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Target URL Setup                                          │  │
+│  │    → Enter application URL                                    │  │
+│  │    → Verify connectivity (http://localhost:3000)              │  │
+│  │    → Optional continue if URL check fails                     │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Test Execution                                            │  │
+│  │    → Run selected scenarios                                   │  │
+│  │    → Display step-by-step progress                            │  │
+│  │    → Show pass/fail results                                   │  │
+│  │    → Optional: start DevQA Loop on failures                   │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 6. Optional DevQA Loop                                       │  │
+│  │    → AI analysis of failures                                  │  │
+│  │    → Rich approval menu for fixes                             │  │
+│  │    → Automated re-testing until pass                          │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 7. Report Generation                                          │  │
+│  │    → Generate test report (Markdown)                          │  │
+│  │    → Save to reports/ directory                               │  │
+│  │    → Display final summary                                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **step-by-step guidance**: Interactive wizard with numbered steps
+- **AI provider setup**: Complete configuration with connection testing
+- **document analysis**: Optional spec analysis and scenario generation
+- **scenario management**: Load, display, and select test scenarios
+- **connectivity verification**: URL testing with continuation options
+- **integrated testing**: Full test execution with optional DevQA Loop
+- **cancellation support**: Ctrl+C with partial result saving
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires user interaction throughout the process
+- Network connectivity needed for AI provider setup and analysis
+- Document analysis supports .md and .txt files only
+- Cancellation may result in incomplete test data
+- Assumes typical web application testing scenarios
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use for first-time AAT project setup and exploration
+- Have spec documents ready for comprehensive scenario generation
+- Test AI provider connectivity before proceeding through steps
+- Prepare application URL and ensure it's accessible
+- Review generated scenarios before test execution
+- Use DevQA Loop option for complex debugging scenarios
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ First-time AAT users learning the system
+✅ Complete project setup from scratch
+✅ Exploratory testing with AI assistance
+✅ Comprehensive workflow with document analysis
+❌ Not for experienced users (use specific commands)
+❌ Not for CI/CD automation (use aat run instead)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

@@ -1,7 +1,119 @@
-"""BaseMatcher ABC — image matching interface.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🎯 Base Matcher Module
+════════════════════════════════════════════════════════════════════════════════
 
-TemplateMatcher, OCRMatcher, FeatureMatcher etc. implement this.
-HybridMatcher injects list[BaseMatcher] via constructor to form a chain.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Abstract base class for image matching implementations. Defines the contract
+that all matchers (Template, OCR, Feature, Vision AI) must implement for
+element location and coordinate detection.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.matchers.template import TemplateMatcher
+from aat.matchers.ocr import OCRMatcher
+from aat.matchers.base import BaseMatcher
+
+# All matchers implement the same interface
+matchers: list[BaseMatcher] = [
+    TemplateMatcher(),
+    OCRMatcher(),
+]
+
+for matcher in matchers:
+    if matcher.can_handle(target):
+        result = await matcher.find(target, screenshot)
+        if result:
+            print(f"Found via {matcher.name}: ({result.x}, {result.y})")
+        break
+```
+
+⚙️  MATCHER INTERFACE
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Method              │  Returns                │  Purpose                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  name (property)     │  str                    │  Matcher identifier         │
+│  can_handle()        │  bool                   │  Check if target supported  │
+│  find()              │  MatchResult | None     │  Locate element coords      │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 IMPLEMENTING MATCHERS
+───────────────────────────────────────────────────────────────────────────────
+• TemplateMatcher — OpenCV template matching (fast, requires image)
+• OCRMatcher — Tesseract text recognition (requires text)
+• FeatureMatcher — ORB feature point matching (requires image)
+• VisionAIMatcher — AI vision API (requires text, expensive)
+• LearnedMatcher — Database of previously learned coordinates
+
+💡 DESIGN PATTERN
+───────────────────────────────────────────────────────────────────────────────
+Strategy Pattern with Exception Safety:
+```
+          BaseMatcher (ABC)
+                 │
+    ┌────────────┼────────────┬────────────┬────────────┐
+    │            │            │            │            │
+TemplateMatcher OCRMatcher FeatureMatcher VisionAIMatcher LearnedMatcher
+```
+
+🛡️  EXCEPTION HANDLING CONTRACT
+───────────────────────────────────────────────────────────────────────────────
+All implementations MUST handle exceptions internally and return None on
+failure. This allows the matcher chain (HybridMatcher) to fall through to the
+next matcher when one fails.
+
+Recommended pattern:
+```python
+async def find(self, target, screenshot) -> MatchResult | None:
+    try:
+        # ... matching logic ...
+        return MatchResult(...)
+    except Exception:
+        logger.exception("MatcherName.find failed")
+        return None
+```
+
+⚠️  ERROR HANDLING RULES
+───────────────────────────────────────────────────────────────────────────────
+• Operational errors → Return None (allows fallback chain)
+• Programmer errors → Raise ValueError (invalid input)
+• Log all failures for debugging
+• Never let exceptions propagate to caller
+
+🎯 CAN_HANDLE LOGIC
+───────────────────────────────────────────────────────────────────────────────
+Each matcher checks if it can process the target:
+• TemplateMatcher — requires target.image (file path or bytes)
+• OCRMatcher — requires target.text (search string)
+• FeatureMatcher — requires target.image (file path or bytes)
+• VisionAIMatcher — requires target.text AND valid API key
+
+📦 MATCH RESULT STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+```python
+MatchResult(
+    found=True,                    # Element located successfully
+    x=100,                         # Center X coordinate
+    y=200,                         # Center Y coordinate
+    width=50,                      # Element width (optional)
+    height=30,                     # Element height (optional)
+    confidence=0.95,               # Confidence score 0.0-1.0
+    method=MatchMethod.TEMPLATE,   # Which method succeeded
+    elapsed_ms=123.45             # Operation duration
+)
+```
+
+🔧 INTEGRATION NOTES
+───────────────────────────────────────────────────────────────────────────────
+• HybridMatcher chains multiple BaseMatcher implementations
+• Matchers are tried in order (fast → slow, free → paid)
+• Successful matches short-circuit the chain
+• All operations are async for non-blocking execution
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

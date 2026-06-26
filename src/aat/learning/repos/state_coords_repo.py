@@ -1,4 +1,106 @@
-"""Repository for the ``state_coords`` table."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+             🔄 State Coordinates Repository - Page State Position Tracking
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages state-aware element positions, storing different coordinates for the
+same target based on page state (normal, modal, loading, error, etc.). This enables
+accurate targeting when UI elements move or change appearance across states.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.learning.repos import StateCoordsRepo
+
+repo = StateCoordsRepo(connection)
+
+# Save coordinates for same button in different states
+repo.save_state_coords("submit-button", "normal", x=100, y=200)
+repo.save_state_coords("submit-button", "modal", x=150, y=250)
+repo.save_state_coords("submit-button", "loading", x=100, y=300)
+
+# Retrieve coordinates based on current page state
+coords = repo.find_state_coords("submit-button", "modal")
+if coords:
+    x, y, confidence = coords
+    print(f"Submit button at ({x}, {y}) in modal state")
+
+# Handles default "normal" state automatically
+coords = repo.find_state_coords("submit-button")  # Uses "normal" by default
+```
+
+⚙️  DATABASE SCHEMA & FLOW
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ state_coords TABLE                                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│ id              INTEGER PRIMARY KEY AUTOINCREMENT                      │
+│ target_name     TEXT NOT NULL                                           │
+│ page_state      TEXT NOT NULL DEFAULT 'normal'                         │
+│ correct_x       INTEGER NOT NULL                                        │
+│ correct_y       INTEGER NOT NULL                                        │
+│ confidence      REAL DEFAULT 1.0                                       │
+│ use_count       INTEGER DEFAULT 0                                      │
+│ created_at      TEXT NOT NULL                                           │
+│ updated_at      TEXT NOT NULL                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│ INDEX: idx_state_coords (target_name, page_state)                       │
+│ UNIQUE: (target_name, page_state) via upsert logic                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+MULTI-STATE ELEMENT EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ "submit-button" can have different positions based on page state:       │
+│                                                                         │
+│  NORMAL STATE                  MODAL STATE                LOADING STATE │
+│  ┌─────────┐                  ┌─────────┐                ┌─────────┐  │
+│  │ Submit  │                  │ Submit  │                │ Submit  │  │
+│  │ x:100   │                  │ x:150   │                │ x:100   │  │
+│  │ y:200   │                  │ y:250   │                │ y:300   │  │
+│  └─────────┘                  └─────────┘                └─────────┘  │
+│                                                                         │
+│  SELECT flow:                                                          │
+│  1. Query by (target_name, current_state)                              │
+│  2. Order by use_count DESC (most-used first)                          │
+│  3. Return (x, y, confidence) or None                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• State-Aware Storage - Store multiple positions per target by state
+• Default State Handling - "normal" state used when not specified
+• Usage Ranking - Return most-used coordinates when multiple exist
+• Upsert Logic - Update existing or insert new coordinates
+• Confidence Tracking - Store confidence scores with coordinates
+• No Conflict Detection - Allows overlapping coordinates (unlike element_repo)
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• No validation of page_state values (free-form text field)
+• use_count never decrements (monotonically increasing)
+• No cleanup of old/unused state coordinates
+• Returns None if no exact (target_name, state) match found
+• No fallback to "normal" state if specific state not found
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Use consistent page_state names (normal, modal, loading, error, etc.)
+• Always store coordinates for the most common page states
+• Monitor use_count to identify most reliable positions
+• Clear state data when page layout changes significantly
+• Combine with element_repo for complete element tracking
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Elements that move between different page states
+✅ Modal dialogs, loading overlays, error states
+✅ Responsive layouts that change based on application state
+❌ Stable elements that never move (use element_repo instead)
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

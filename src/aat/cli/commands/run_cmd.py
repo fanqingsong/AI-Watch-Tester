@@ -1,4 +1,119 @@
-"""aat run — single test execution (no loop)."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   ▶️ Test Execution Engine Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Executes AAT test scenarios with comprehensive element matching, platform
+detection, failure diagnosis, and AI-powered verification. Supports multiple
+execution modes (headed/headless), screenshot strategies, and skill mode for
+AI coding assistants.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic test execution
+aat run scenarios/login_test.yaml
+
+# Fast mode for CI/CD
+aat run scenarios/ --fast --screenshots on-failure
+
+# Skill mode for AI assistants
+aat run scenarios/login.yaml --skill-mode --learn
+
+# Debug mode with verbose output
+aat run scenarios/ --debug --slow-mo 500
+
+# Concise mode for speed
+aat run scenarios/ --verbosity concise --screenshots before-after
+```
+
+⚙️  TEST EXECUTION ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Test Execution Pipeline                          │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Scenario Loading & Validation                             │  │
+│  │    → Load YAML scenarios                                     │  │
+│  │    → Topological sort by depends_on                          │  │
+│  │    → Inject {{url}} variables                                │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Approval Gate (Layer 4 Security)                          │  │
+│  │    → Human approval via /dev/tty (stdin bypass prevented)    │  │
+│  │    → One-time token validation for parent processes          │  │
+│  │    → Audit logging of all execution attempts                │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Browser Engine Initialization                             │  │
+│  │    → Start Playwright (WebEngine)                             │  │
+│  │    → Configure viewport, slow_mo, headed mode                │  │
+│  │    → Load matchers (template → OCR → Vision AI)             │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Step Execution Loop                                        │  │
+│  │    ┌────────────────────────────────────────────────────┐    │  │
+│  │    │ For each step in scenario:                           │    │  │
+│  │    │   → Browser overlay display (headed mode)            │    │  │
+│  │    │   → Execute step via StepExecutor                    │    │  │
+│  │    │   → Hybrid matcher: template → OCR → Vision AI       │    │  │
+│  │    │   → Platform detection & tips (first navigate)        │    │  │
+│  │    │   → Structured diagnosis on failure                   │    │  │
+│  │    │   → Screenshot capture (configurable strategy)        │    │  │
+│  │    └────────────────────────────────────────────────────┘    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Teardown Execution                                        │  │
+│  │    → Run cleanup steps (logout, reset, etc.)               │  │
+│  │    → Skip if --skip-teardown flag                            │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 6. Results & Learning                                        │  │
+│  │    → Save .aat/last_run.json                                 │  │
+│  │    → Learn from fixes (if --learn)                           │  │
+│  │    → Generate structured output (skill-mode)                │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **3-tier matching**: Template matching → OCR → Vision AI with priority ordering
+- **platform detection**: Automatic Flutter CanvasKit, React, Vue, SPA detection
+- **skill mode**: Structured JSON output for AI coding assistants
+- **learning mode**: Record and learn from successful fixes
+- **screenshot strategies**: all, before-after, on-failure options
+- **browser overlay**: Real-time progress display in headed mode
+- **failure diagnosis**: Detailed error analysis with learned hints
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Vision AI (Tier 3) requires configured provider and API key
+- OCR requires Tesseract installation for text recognition
+- Headed mode requires display environment (not in CI/CD)
+- Platform detection heuristics may not identify all frameworks
+- Skill mode bypasses approval but requires valid token
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use --fast mode for CI/CD pipelines (skip Vision AI/OCR)
+- Use --screenshots on-failure for production test runs
+- Enable --learn to build knowledge base over time
+- Use skill-mode for AI assistant integration
+- Run with --debug for troubleshooting element matching issues
+- Configure test accounts in config for authentication scenarios
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Single test execution without loop iteration
+✅ CI/CD integration with appropriate flags
+✅ Manual testing with visual feedback (headed mode)
+✅ AI-powered testing with skill-mode for assistants
+❌ Not for automated fixing (use aat loop or aat devqa)
+❌ Not for initial scenario generation (use aat generate)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

@@ -1,8 +1,86 @@
-"""Helpers to load and format ``.aat/scan_result.json`` for scenario generation.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   📄 Scan Context Loader & Formatter Module
+════════════════════════════════════════════════════════════════════════════════
 
-These let ``aat generate --scan`` enrich the LLM prompt with the page's real
-interactive elements, so generated scenarios use actual element labels instead
-of labels guessed from spec prose.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Loads and formats scan result data for AI-powered scenario generation.
+Enriches LLM prompts with actual page elements from .aat/scan_result.json,
+ensuring generated scenarios use real element selectors instead of guessed labels.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Load scan result for scenario generation
+from aat.cli.commands._scan_context import load_scan_result, format_scan_context
+
+scan_data = load_scan_result(Path(".aat"))
+context_block = format_scan_context(scan_data)
+
+# Use in AI prompt
+prompt = f"{spec_text}\n\n{context_block}"
+```
+
+⚙️  SCAN RESULT ENRICHMENT FLOW
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  Scan Result Integration Flow                                        │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Load Scan Result                                          │  │
+│  │    load_scan_result(data_dir)                               │  │
+│  │    → Reads .aat/scan_result.json                             │  │
+│  │    → Validates JSON structure                                │  │
+│  │    → Returns element dictionary                              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 2. Format Elements for LLM                                   │  │
+│  │    format_scan_context(scan_data)                            │  │
+│  │    → Creates "## PAGE ELEMENTS" section                      │  │
+│  │    → Formats: role | "label" | selector | source           │  │
+│  │    → Caps at 120 elements (token efficiency)                │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 3. Enrich AI Prompt                                          │  │
+│  │    prompt = f"{spec}\n\n{scan_context}"                     │  │
+│  │    → LLM uses exact element selectors                        │  │
+│  │    → Generated scenarios have accurate targets               │  │
+│  │    → Reduces "element not found" errors                      │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **load_scan_result**: Read and validate scan_result.json
+- **format_scan_context**: Convert scan data to LLM-friendly format
+- **element filtering**: Skip elements without usable labels
+- **token management**: Limit to 120 elements for cost efficiency
+- **multi-source support**: Handle accessibility, DOM, Semantics, and OCR sources
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires valid scan_result.json from recent aat scan
+- Element quality depends on original scan accuracy
+- Truncation at 120 elements may skip some elements
+- Label extraction is best-effort (may miss some valid elements)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Always scan pages before generating scenarios with --scan flag
+- Re-scan after major UI changes for updated element references
+- Review formatted context to verify element quality
+- Use with aat generate --scan for best scenario accuracy
+- Combine with test account credentials for complete scenarios
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Automatically used by aat generate --scan
+✅ Manual scenario generation with real element data
+✅ Improving scenario accuracy with exact selectors
+❌ Not needed for manual scenario writing
+❌ Not required if using stable CSS selectors
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

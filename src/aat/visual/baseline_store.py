@@ -1,4 +1,113 @@
-"""Baseline screenshot storage for visual regression."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    📸 Baseline Screenshot Storage Manager
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages persistent storage of baseline screenshots for visual regression testing.
+Provides disk-backed storage with metadata tracking, multi-viewport support,
+and CRUD operations for baseline lifecycle management in the AAT system.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Create a new baseline from test execution screenshots
+store = BaselineStore(data_dir=Path(".aat/data"))
+baseline_meta = store.save(
+    scenario_id="login_flow_001",
+    screenshot_paths={1: Path("screenshots/step1_after.png")},
+    scenario_name="User Login Flow",
+    url="https://example.com/login",
+    viewport="desktop"
+)
+
+# Later: retrieve baseline for comparison
+baseline_images = store.load("login_flow_001", viewport="desktop")
+for step_num, img_path in baseline_images.items():
+    compare_with_current_run(img_path)
+```
+
+⚙️  CORE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+    BaselineStore
+         ├── save()      → Store screenshots + metadata as baseline
+         ├── load()      → Retrieve baseline images by scenario + viewport
+         ├── load_meta() → Fetch baseline metadata (no images)
+         ├── exists()    → Check if baseline exists
+         ├── clear()     → Delete single baseline
+         └── clear_all() → Delete all baselines (bulk cleanup)
+
+    Storage Layout:
+    {data_dir}/baselines/
+      ├── login_flow_001/
+      │   ├── meta.json
+      │   ├── step001_after.png
+      │   ├── step002_after.png
+      │   └── step001-mobile_after.png    (viewport variant)
+      ├── checkout_flow_002/
+      │   ├── meta.json
+      │   └── step001_after.png
+      └── ...
+
+    Multi-Viewport File Naming:
+    No viewport:     step001_after.png
+    With viewport:   step001-{viewport}_after.png
+    Example:        step001-mobile_after.png, step001-tablet_after.png
+
+    Save Flow:
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ Input: scenario_id, screenshot_paths, metadata                 │
+    │                         ↓                                        │
+    │ 1. Create scenario directory: {data_dir}/baselines/{scenario_id}/│
+    │                         ↓                                        │
+    │ 2. Copy screenshot files with viewport suffix (if provided)      │
+    │                         ↓                                        │
+    │ 3. Generate metadata (timestamp, step count, URL, etc.)          │
+    │                         ↓                                        │
+    │ 4. Write meta.json for later reference                         │
+    │                         ↓                                        │
+    │ 5. Return BaselineMeta object                                  │
+    └─────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- Baseline Creation: Save step screenshots as reference images with metadata
+- Viewport Support: Store multiple viewport variants (mobile, tablet, desktop)
+- Metadata Tracking: Captures scenario details, timestamp, URL, step count
+- Baseline Retrieval: Load images by scenario ID and optional viewport filter
+- Existence Checking: Verify if baseline exists without loading files
+- Bulk Operations: List all baselines, clear individual or all baselines
+- Safe Overwrites: Preserves viewport variants when overwriting main baseline
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Only supports PNG format (hardcoded in file naming pattern)
+- No built-in image compression or optimization
+- Baseline deletion is permanent (no undo/restore mechanism)
+- Concurrent writes to same scenario_id can cause race conditions
+- No schema validation for metadata (relies on Pydantic BaselineMeta model)
+- File operations are synchronous (not async)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Create separate baselines for each viewport configuration
+- Include viewport label when testing responsive designs
+- Use consistent scenario naming (lowercase, underscores, descriptive)
+- Archive old baselines before major UI overhauls
+- Commit baselines to version control for reproducible regression tests
+- Use meta.json for baseline version tracking and migration
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Establishing visual baselines for new test scenarios
+✅ Comparing current runs against approved reference states
+✅ Multi-viewport testing (mobile, tablet, desktop)
+✅ Visual regression workflows with diff generation
+❌ Don't use for temporary storage (use in-memory caches instead)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

@@ -1,0 +1,195 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e203]:
+      - generic [ref=e204]:
+        - navigation [ref=e205]:
+          - generic [ref=e207]:
+            - img "Product Logo" [ref=e209] [cursor=pointer]
+            - button "Collapse Sidebar" [ref=e210] [cursor=pointer]:
+              - img [ref=e211]
+          - generic [ref=e213]:
+            - button "Home" [ref=e215] [cursor=pointer]:
+              - generic [ref=e216]:
+                - img [ref=e217]
+                - paragraph [ref=e220]: Home
+            - button "Agent Hub" [ref=e222] [cursor=pointer]:
+              - generic [ref=e223]:
+                - img [ref=e224]
+                - paragraph [ref=e229]: Agent Hub
+            - button "Studio" [ref=e231] [cursor=pointer]:
+              - generic [ref=e232]:
+                - img [ref=e233]
+                - paragraph [ref=e236]: Studio
+            - button "Knowledge Transfer" [ref=e238] [cursor=pointer]:
+              - generic [ref=e239]:
+                - img [ref=e240]
+                - paragraph [ref=e244]: Knowledge Transfer
+            - button "MyJourney" [ref=e247] [cursor=pointer]:
+              - generic [ref=e248]:
+                - img [ref=e249]
+                - paragraph [ref=e251]: MyJourney
+            - button "Graph Explorer" [ref=e254] [cursor=pointer]:
+              - generic [ref=e255]:
+                - img [ref=e256]
+                - paragraph [ref=e262]: Graph Explorer
+            - button "Memory" [ref=e264] [cursor=pointer]:
+              - generic [ref=e265]:
+                - img [ref=e266]
+                - paragraph [ref=e267]: Memory
+            - button "Policy Library" [ref=e269] [cursor=pointer]:
+              - generic [ref=e270]:
+                - img [ref=e271]
+                - paragraph [ref=e274]: Policy Library
+            - button "PFile" [ref=e276] [cursor=pointer]:
+              - generic [ref=e277]:
+                - img [ref=e278]
+                - paragraph [ref=e282]: PFile
+            - button "Info Hub" [ref=e284] [cursor=pointer]:
+              - generic [ref=e285]:
+                - img [ref=e286]
+                - paragraph [ref=e290]: Info Hub
+            - button "Vision" [ref=e292] [cursor=pointer]:
+              - generic [ref=e293]:
+                - img [ref=e294]
+                - paragraph [ref=e298]: Vision
+            - button "Workflow" [ref=e300] [cursor=pointer]:
+              - generic [ref=e301]:
+                - img [ref=e302]
+                - paragraph [ref=e307]: Workflow
+            - button "Canvas" [ref=e309] [cursor=pointer]:
+              - generic [ref=e310]:
+                - img [ref=e311]
+                - paragraph [ref=e316]: Canvas
+            - button "Message Center" [ref=e318] [cursor=pointer]:
+              - generic [ref=e319]:
+                - img [ref=e320]
+                - paragraph [ref=e323]: Message Center
+            - button "Dimension" [ref=e325] [cursor=pointer]:
+              - generic [ref=e326]:
+                - img [ref=e327]
+                - paragraph [ref=e331]: Dimension
+            - button "Admin" [ref=e333] [cursor=pointer]:
+              - generic [ref=e334]:
+                - img [ref=e335]
+                - paragraph [ref=e340]: Admin
+        - generic [ref=e342]:
+          - generic [ref=e345]:
+            - button "Request LLM credit" [ref=e346] [cursor=pointer]:
+              - paragraph [ref=e350]: 100%
+            - generic [ref=e351]:
+              - button "Notifications" [ref=e352] [cursor=pointer]:
+                - img [ref=e353]
+              - generic [ref=e356]: "47"
+            - button "qingsong fan" [ref=e357] [cursor=pointer]:
+              - img [ref=e359]
+              - generic: qingsong fan
+              - img [ref=e363]
+          - generic [ref=e368]:
+            - generic [ref=e369]:
+              - img "Risk Management Background" [ref=e370]
+              - generic [ref=e372]:
+                - heading "BRAYN.AI" [level=2] [ref=e373]
+                - paragraph [ref=e374]: Intelligent answers and support for everyday work.
+            - generic [ref=e378]:
+              - button "Add" [ref=e379] [cursor=pointer]:
+                - img [ref=e380]
+              - textbox "How can I assist you today?" [ref=e381] [cursor=pointer]
+              - button "Send" [ref=e384] [cursor=pointer]:
+                - img [ref=e385]
+            - generic [ref=e389]:
+              - group [ref=e390]:
+                - button "Agent Hub" [ref=e391] [cursor=pointer]:
+                  - img [ref=e393]
+                  - text: Agent Hub
+              - group [ref=e394]:
+                - button "Policy Library" [ref=e395] [cursor=pointer]:
+                  - img [ref=e397]
+                  - text: Policy Library
+              - group [ref=e398]:
+                - button "Canvas" [ref=e399] [cursor=pointer]:
+                  - img [ref=e401]
+                  - text: Canvas
+              - group [ref=e402]:
+                - button "Workflow" [ref=e403] [cursor=pointer]:
+                  - img [ref=e405]
+                  - text: Workflow
+      - contentinfo [ref=e406]:
+        - generic [ref=e407]:
+          - img "Product Logo" [ref=e409]
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - generic [ref=e412] [cursor=pointer]: Home
+              - generic [ref=e413] [cursor=pointer]: Agent Hub
+              - generic [ref=e414] [cursor=pointer]: Policy Library
+              - generic [ref=e415] [cursor=pointer]: Canvas
+              - generic [ref=e416] [cursor=pointer]: Workflow
+            - paragraph [ref=e417]: Copyright EIM 2026
+      - button "Open AI Assistant" [ref=e419] [cursor=pointer]
+      - generic:
+        - generic:
+          - generic:
+            - generic [ref=e420]:
+              - generic:
+                - paragraph [ref=e421]: Conversations
+                - button "Collapse sidebar" [ref=e422] [cursor=pointer]:
+                  - img [ref=e423]
+              - button "New chat" [ref=e425] [cursor=pointer]:
+                - img [ref=e427]
+                - text: New chat
+            - generic [ref=e429]:
+              - paragraph: No conversation history yet.
+          - generic:
+            - generic [ref=e430]:
+              - generic:
+                - generic:
+                  - generic [ref=e431]:
+                    - button "Open sidebar" [ref=e432] [cursor=pointer]:
+                      - img [ref=e433]
+                    - generic [ref=e435]:
+                      - generic [ref=e436]:
+                        - combobox [disabled] [ref=e437]:
+                          - option "No chat mode assigned" [disabled] [selected]
+                        - generic:
+                          - img
+                      - paragraph [ref=e438]: Contact your administrator to get access to chat modes.
+                    - button "Edit prompt" [ref=e439] [cursor=pointer]:
+                      - img [ref=e440]
+                  - generic [ref=e444]:
+                    - button "Refresh" [ref=e445] [cursor=pointer]:
+                      - img [ref=e446]
+                    - button "Maximize" [ref=e450] [cursor=pointer]:
+                      - img [ref=e451]
+                    - button "Close" [ref=e453] [cursor=pointer]:
+                      - img [ref=e454]
+            - generic [ref=e457]:
+              - generic:
+                - paragraph [ref=e458]: Start a conversation with the AI assistant
+                - generic [ref=e459]:
+                  - paragraph: For reference only. Please refer to source documents for full details. AI-generated outputs should be validated with professional judgment before use.
+            - generic [ref=e460]:
+              - generic:
+                - paragraph: Contact your administrator to get access to chat modes.
+                - textbox "No chat mode assigned" [disabled] [ref=e461]
+                - generic:
+                  - button "Attach file" [disabled] [ref=e462]:
+                    - img [ref=e463]
+                  - button "Send message" [disabled] [ref=e465]:
+                    - img [ref=e466]
+    - contentinfo:
+      - button "Open TanStack Router Devtools" [ref=e25] [cursor=pointer]:
+        - generic [ref=e26]:
+          - img [ref=e28]
+          - img [ref=e63]
+        - generic [ref=e97]: "-"
+        - generic [ref=e98]: TanStack Router
+    - generic [ref=e99]:
+      - img [ref=e101]
+      - button "Open Tanstack query devtools" [ref=e149] [cursor=pointer]:
+        - img [ref=e150]
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"

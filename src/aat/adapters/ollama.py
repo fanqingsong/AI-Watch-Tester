@@ -1,4 +1,110 @@
-"""OllamaAdapter — Local Ollama LLM integration."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🦙 Ollama Adapter Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Local Ollama LLM integration for free, offline AI operations. Uses Ollama's
+HTTP API for text-based failure analysis, code generation, and scenario
+creation without any API costs.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.ollama import OllamaAdapter
+from aat.core import AIConfig
+
+config = AIConfig(
+    provider="ollama",
+    api_key="http://localhost:11434",  # Use api_key as base_url override
+    model="llama3.2"
+)
+
+adapter = OllamaAdapter(config)
+
+# Analyze test failure (text-only, offline)
+analysis = await adapter.analyze_failure(test_result)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Generate scenarios from document
+scenarios = await adapter.generate_scenarios(document_text)
+```
+
+⚙️  OLLAMA API FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• 100% Free & Offline — No API costs, runs locally
+• HTTP API — Simple REST endpoints for chat completion
+• JSON Mode — Supports "format": "json" for structured output
+• Text-Only — Most local models don't support vision
+• Model Flexibility — Support for Llama, Mistral, CodeLlama, etc.
+• Privacy — Data never leaves your machine
+
+🔧 API INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  OllamaAdapter                                                              │
+│       │                                                                     │
+│       ├── HTTP Client: httpx.AsyncClient                                    │
+│       ├── Base URL: http://localhost:11434 (default)                       │
+│       ├── Endpoint: /api/chat                                              │
+│       └── JSON format: "format": "json"                                     │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 POPULAR OLLAMA MODELS
+───────────────────────────────────────────────────────────────────────────────
+• llama3.2 — Latest Llama, great for general tasks
+• codellama — Specialized for code generation
+• mistral — Excellent reasoning quality
+• phi3 — Small, fast, good for lightweight tasks
+• deepseek-coder — Specialized for code completion
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Failure Analysis — Text-based diagnosis (no screenshots)
+• Code Generation — Patch generation with source file analysis
+• Scenario Generation — Test case creation from specifications
+• Document Analysis — Requirement extraction from design docs
+
+⚠️  LIMITATIONS
+───────────────────────────────────────────────────────────────────────────────
+• No Vision Support — Local models generally don't support images
+• Text-Only Operations — Screenshots are ignored with a warning
+• Quality Variance — Local models may have lower quality than cloud APIs
+• Hardware Dependent — Performance depends on your CPU/GPU
+• Connection Required — Ollama service must be running locally
+
+💡 COST ADVANTAGE
+───────────────────────────────────────────────────────────────────────────────
+Ollama is completely free:
+• Zero API costs — Run locally forever
+• No rate limits — Constrained only by your hardware
+• Privacy — No data sent to external services
+• Great for development, testing, and offline workflows
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Development and testing without API costs
+✅ Offline environments and air-gapped systems
+✅ Privacy-sensitive projects (data stays local)
+✅ Learning and experimentation
+❌ Production workloads requiring high quality
+❌ Visual debugging (requires vision-capable models)
+❌ Time-sensitive operations (local models can be slow)
+
+🔧 SETUP REQUIREMENTS
+───────────────────────────────────────────────────────────────────────────────
+1. Install Ollama: https://ollama.com/download
+2. Pull a model: `ollama pull llama3.2`
+3. Start service: `ollama serve` (usually auto-started)
+4. Configure adapter: Set api_key to Ollama URL if non-default
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

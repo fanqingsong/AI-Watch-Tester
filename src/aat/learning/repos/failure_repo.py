@@ -1,4 +1,122 @@
-"""Repository for the ``failure_patterns`` table."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                  ⚠️  Failure Repository - Error Pattern Learning
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Tracks recurring error patterns and their successful fixes, building a knowledge
+base of solutions that can be suggested when similar errors occur. Enables
+intelligent error recovery and automated fix suggestions.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.learning.repos import FailureRepo
+
+repo = FailureRepo(connection)
+
+# Record a failure pattern
+repo.record_failure(
+    error_type="TimeoutError",
+    error_message="Element not found after 5000ms",
+    url_pattern="/checkout",
+    action="click_submit_button",
+    fix_description="Increase wait timeout to 10000ms"
+)
+
+# Later, when similar error occurs...
+similar = repo.find_similar_failure("TimeoutError", "click_submit_button")
+if similar and similar["fix_applied"]:
+    print(f"Suggested fix: {similar['fix_description']}")
+    print(f"Hit count: {similar['hit_count']}")
+
+# Mark a fix as successful
+repo.mark_fix_applied("TimeoutError", "Increase wait timeout to 10000ms")
+
+# Get failure statistics for analysis
+stats = repo.get_failure_stats()
+for stat in stats:
+    print(f"{stat['error_type']}: {stat['hit_count']} hits, "
+          f"fix: {stat['fix_description']}")
+```
+
+⚙️  DATABASE SCHEMA & FLOW
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ failure_patterns TABLE                                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ id              INTEGER PRIMARY KEY AUTOINCREMENT                      │
+│ error_type      TEXT NOT NULL                                           │
+│ error_message   TEXT NOT NULL                                           │
+│ url_pattern     TEXT DEFAULT ''                                        │
+│ action          TEXT DEFAULT ''                                        │
+│ fix_description TEXT DEFAULT ''                                        │
+│ fix_applied     INTEGER DEFAULT 0 (0=False, 1=True)                     │
+│ hit_count       INTEGER DEFAULT 1                                      │
+│ created_at      TEXT NOT NULL                                           │
+│ updated_at      TEXT NOT NULL                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│ INDEX: idx_failure_type (error_type, action)                           │
+│ UNIQUE: (error_type, action) via upsert logic                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+FAILURE PATTERN LIFECYCLE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. First Occurrence                                                      │
+│    error_type: "TimeoutError"                                          │
+│    action: "click_submit_button"                                       │
+│    hit_count: 1                                                         │
+│    fix_applied: 0                                                       │
+│                                                                         │
+│ 2. Same Error Recurs (Upsert)                                           │
+│    hit_count: 2                                                         │
+│    error_message: updated with latest message                           │
+│                                                                         │
+│ 3. Fix Discovered & Applied                                             │
+│    fix_description: "Increase timeout to 10000ms"                       │
+│    fix_applied: 1                                                       │
+│                                                                         │
+│ 4. Future Occurrences (Suggested Fix)                                  │
+│    find_similar_failure() returns pattern with fix_description         │
+│    System suggests: "Try: Increase timeout to 10000ms"                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Pattern Recording - Track errors by type, action, and context
+• Hit Counting - Increment count for recurring error patterns
+• Fix Storage - Store successful fix descriptions for patterns
+• Fix Application - Mark patterns as having verified fixes
+• Similar Failure Lookup - Find historical fixes by error type + action
+• Statistics Reporting - List most common failure patterns
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• No automatic validation that fixes actually work
+• hit_count never decrements (monotonically increasing)
+• No pattern expiration - old patterns remain indefinitely
+• No fix success rate tracking - binary fix_applied flag only
+• No contextual parameters beyond error_type + action
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Record failures with specific error_type values
+• Include context in action field (what action caused the error)
+• Update fix_description when better solutions are found
+• Mark fix_applied only after verifying the fix works
+• Review high hit_count patterns for systemic issues
+• Clear patterns when application behavior changes significantly
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Tracking recurring errors and their solutions
+✅ Building intelligent error recovery suggestions
+✅ Identifying systemic issues through failure frequency
+❌ One-time errors with no actionable pattern
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

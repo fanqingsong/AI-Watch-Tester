@@ -1,4 +1,103 @@
-"""aat setup — interactive AI provider configuration."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🔑 AI Provider Setup & Configuration Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Interactive configuration wizard for setting up AI providers and API keys.
+Supports multiple providers with model selection, connection testing, and
+automatic .gitignore management for secure credential handling.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Initial setup with interactive wizard
+aat setup
+
+# Setup with custom config path
+aat setup --config /path/to/custom.yaml
+
+# Skip setup (for automated installations)
+aat init --skip-setup
+```
+
+⚙️  SUPPORTED PROVIDERS & MODELS
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  AI PROVIDERS                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Claude (Anthropic)                                         │  │
+│  │    - claude-sonnet-4-20250514 (Latest)                        │  │
+│  │    - claude-3-5-sonnet-20241022                               │  │
+│  │    - High quality, good for complex reasoning                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 2. OpenAI (GPT)                                               │  │
+│  │    - gpt-4o (Latest)                                          │  │
+│  │    - gpt-4o-mini (Fast, cost-effective)                       │  │
+│  │    - Good balance of speed and quality                        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 3. Gemini (Google)                                           │  │
+│  │    - gemini-2.0-flash (Latest, generous free tier)            │  │
+│  │    - gemini-1.5-flash                                        │  │
+│  │    - Fast, with good free tier for testing                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 4. DeepSeek                                                   │  │
+│  │    - deepseek-chat (Cost-optimized)                           │  │
+│  │    - Budget-friendly alternative                              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 5. ZhipuAI (智谱AI)                                          │  │
+│  │    - glm-5.1 (Latest, most powerful)                          │  │
+│  │    - glm-4.7 (Stable, recommended)                            │  │
+│  │    - glm-4-flash (Fast, cost-effective)                       │  │
+│  │    - Chinese-optimized, stable defaults                      │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 6. Ollama (Local, Free)                                      │  │
+│  │    - codellama:7b (Default)                                   │  │
+│  │    - No API key required                                      │  │
+│  │    - Free, offline, privacy-focused                           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **provider selection**: Interactive menu with provider descriptions
+- **model selection**: Provider-specific model choices with recommendations
+- **connection testing**: Validates API keys and connectivity
+- **vision AI setup**: Optional Tier-3 matching configuration
+- **security management**: Automatic .gitignore updates for API keys
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires network connectivity for cloud providers (except Ollama)
+- API keys are stored in plaintext in aat.config.yaml (file system security)
+- Connection tests may timeout in restrictive network environments
+- Some providers may have rate limits during testing
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Run setup in project root to ensure proper file placement
+- Use Ollama for local development and testing
+- Start with generous free tiers (Gemini, Ollama) before paid providers
+- Test API keys with connection verification before use
+- Never commit aat.config.yaml to version control
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Initial project setup with aat init
+✅ Changing AI providers or models
+✅ Updating expired or invalid API keys
+✅ Setting up Vision AI for Tier-3 matching
+❌ Not needed for Ollama (no API key required)
+❌ Not required if using existing valid configuration
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

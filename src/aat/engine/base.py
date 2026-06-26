@@ -1,7 +1,79 @@
-"""BaseEngine ABC — test engine interface.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       🏗️  Base Engine Module
+════════════════════════════════════════════════════════════════════════════════
 
-WebEngine(Playwright), DesktopEngine(PyAutoGUI) etc. implement this.
-Provides screenshot capture, mouse/keyboard control, and navigation.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Defines BaseEngine abstract interface that all test engines must implement.
+WebEngine (Playwright) and DesktopEngine (PyAutoGUI) inherit from this ABC.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.web import WebEngine
+from aat.engine.desktop import DesktopEngine
+from aat.core import EngineConfig
+
+# Web engine (Playwright)
+web_engine = WebEngine(EngineConfig(type="web", browser="chromium"))
+await web_engine.start()
+await web_engine.navigate("https://example.com")
+screenshot = await web_engine.screenshot()
+await web_engine.stop()
+
+# Desktop engine (PyAutoGUI)
+desktop_engine = DesktopEngine(EngineConfig(type="desktop"))
+await desktop_engine.start()
+await desktop_engine.click_at(100, 200)
+await desktop_engine.stop()
+```
+
+⚙️  ENGINE INTERFACE
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  BaseEngine (Abstract Interface)                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Lifecycle:                                                                 │
+│  • start()              → Initialize engine (launch browser/app)           │
+│  • stop()               → Cleanup and close resources                       │
+│                                                                             │
+│  Navigation:                                                                 │
+│  • navigate(url)       → Navigate to URL (web only)                       │
+│  • go_back()            → Go back in history (web only)                     │
+│  • refresh()            → Reload current page (web only)                    │
+│                                                                             │
+│  Mouse:                                                                      │
+│  • click(x, y)         → Click at coordinates                              │
+│  • double_click(x, y)   → Double-click at coordinates                      │
+│  • right_click(x, y)    → Right-click at coordinates                       │
+│                                                                             │
+│  Keyboard:                                                                   │
+│  • type_text(text)      → Type text string                                  │
+│  • press_key(key)       → Press single key                                  │
+│  • key_combo(keys)      → Press key combination                             │
+│                                                                             │
+│  Utilities:                                                                 │
+│  • screenshot()         → Capture screenshot bytes                           │
+│  • get_url()            → Get current URL (web only)                       │
+│  • get_page_text()      → Get page source/text                             │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔧 ENGINE IMPLEMENTATIONS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  WebEngine (Playwright)                  │  DesktopEngine (PyAutoGUI)       │
+├────────────────────────────────────────────────────────────────────────────┤
+│  • Async API                             │  • Sync operations (run in executor) │
+│  • Multi-browser support                 │  • OS-level UI automation         │
+│  • Fast, reliable                        │  • Works with any desktop app      │
+│  • Headless mode support                 │  • Coordinate-based interaction    │
+│  • Network interception                  │  • Limited reliability              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

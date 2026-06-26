@@ -67,3 +67,11 @@ reports/
 
 # OMC (oh-my-claudecode) local state and memory
 .omc/
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

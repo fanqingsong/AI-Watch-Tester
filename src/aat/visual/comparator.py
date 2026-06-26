@@ -1,7 +1,118 @@
-"""Visual regression comparator — SSIM + diff image generation.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🔍 Visual Regression Image Comparator
+════════════════════════════════════════════════════════════════════════════════
 
-Uses OpenCV (already a project dependency) for all image operations.
-No additional dependencies required.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides structural similarity (SSIM) analysis and visual diff generation
+for screenshot comparison. Uses OpenCV for efficient image processing,
+enabling automated detection of UI changes with highlighted difference
+visualization for regression testing workflows.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Compare baseline vs current screenshot
+comparator = VisualComparator()
+
+# Calculate similarity score (0.0 to 1.0, where 1.0 = identical)
+similarity = comparator.ssim(baseline_bytes, current_bytes)
+if similarity < 0.95:
+    print(f"Visual regression detected! Similarity: {similarity:.2%}")
+
+# Generate 3-panel diff image for human review
+diff_png = comparator.make_diff_image(
+    baseline=baseline_bytes,
+    current=current_bytes,
+    highlight_color=(0, 0, 255),  # Red highlights
+    opacity=0.5
+)
+Path("diff.png").write_bytes(diff_png)
+```
+
+⚙️  CORE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+    VisualComparator
+         ├── ssim()           → Calculate structural similarity [0.0, 1.0]
+         ├── make_diff_image()     → Generate 3-panel comparison image
+         └── make_diff_overlay()   → Generate single-panel diff overlay
+
+    SSIM Algorithm (Wang et al. 2004):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ Input: baseline PNG, current PNG                                │
+    │                         ↓                                        │
+    │ 1. Decode to OpenCV BGR arrays                                  │
+    │                         ↓                                        │
+    │ 2. Resize to match dimensions (if needed)                       │
+    │                         ↓                                        │
+    │ 3. Convert to grayscale for luminance analysis                 │
+    │                         ↓                                        │
+    │ 4. Apply Gaussian blur for local statistics                     │
+    │                         ↓                                        │
+    │ 5. Calculate SSIM formula:                                      │
+    │    (2*μ_ab + C1) * (2*σ_ab + C2)                                │
+    │    ─────────────────────────────────                            │
+    │    (μ_a² + μ_b² + C1) * (σ_a² + σ_b² + C2)                      │
+    │                         ↓                                        │
+    │ 6. Return mean SSIM value [0.0, 1.0]                            │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Diff Image Generation (3-Panel):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  Panel 1        Panel 2        Panel 3                          │
+    │  [Baseline]  +  [Current]   +  [Diff Overlay]                  │
+    │                 (original)     (red highlights on changes)       │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Processing Flow:
+    1. Match dimensions between baseline and current
+    2. Compute absolute pixel difference: absdiff(baseline, current)
+    3. Threshold differences (pixel > 25 = changed)
+    4. Dilate mask for visibility (3x3 kernel, 2 iterations)
+    5. Apply highlight color to changed regions
+    6. Blend with original using opacity weighting
+    7. Add labeled headers and white separators
+    8. Encode as PNG bytes
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- SSIM Calculation: Perceptual similarity metric better than pixel diff
+- Dimension Matching: Automatic resize for images of different sizes
+- Multi-Panel Diff: Side-by-side baseline/current/diff visualization
+- Single-Panel Overlay: Lightweight diff with highlights on current image
+- Customizable Highlighting: Configurable color and opacity for changes
+- Grayscale Processing: Converts to grayscale for luminance-based SSIM
+- Gaussian Filtering: Smooths noise for robust local statistics
+- Threshold Tuning: Fixed 25-value threshold for change detection
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Uses fixed C1=(0.01*255)² and C2=(0.03*255)² constants from paper
+- Resize uses INTER_AREA interpolation (quality tradeoff for speed)
+- No anti-aliasing for dimension mismatch scenarios
+- Fixed threshold (25) may miss subtle differences or flag noise
+- 3-panel layout hardcoded (no custom panel arrangements)
+- Memory usage scales with image resolution (watch for 4K screenshots)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use SSIM threshold 0.95+ for strict regression tests
+- Use 0.85-0.95 range for tolerance of minor rendering differences
+- Pair with pixel-perfect checks for critical UI elements
+- Archive diff images for regression investigation
+- Use viewport-specific baselines to avoid dimension mismatches
+- Consider separate thresholds for different page sections
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Automated visual regression testing with similarity thresholds
+✅ Generating diff reports for manual review of UI changes
+✅ Continuous integration with screenshot comparison gates
+✅ Multi-viewport testing (mobile, tablet, desktop) comparisons
+❌ Don't use for layout testing (use DOM comparison instead)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

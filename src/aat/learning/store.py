@@ -1,11 +1,162 @@
-"""LearnedStore — SQLite-based learning data storage.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🗄️ Learned Store - Learning Database Facade
+════════════════════════════════════════════════════════════════════════════════
 
-This module now exposes a thin facade over six single-concern repositories
-(see :mod:`aat.learning.repos`). The facade preserves the exact public API
-that callers depend on (same constructor signature, same method names and
-signatures) while delegating each method to the repository that owns the
-underlying table. SQL, parameters, and control flow are reproduced verbatim
-from the previous monolithic implementation.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides a unified facade over the learning database, coordinating six specialized
+repositories that store element positions, match history, failure patterns,
+test strategies, state-aware coordinates, and platform-specific tips. The facade
+maintains backward compatibility while delegating to single-responsibility repos.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.learning.store import LearnedStore
+from aat.core.learning_models import LearnedElement
+
+# Initialize store (creates/opens SQLite database)
+store = LearnedStore(Path(".aat/learning.db"))
+
+# Save learned element position
+element = LearnedElement(
+    scenario_id="login-flow",
+    step_number=1,
+    target_name="username-field",
+    screenshot_hash="abc123...",
+    correct_x=100,
+    correct_y=250,
+    cropped_image_path="/tmp/username.png"
+)
+saved = store.save(element)
+
+# Query by target name for reuse
+found = store.find_by_name("username-field")
+if found:
+    print(f"Found at ({found.correct_x}, {found.correct_y})")
+
+# Record match attempt for learning
+store.record_match("username-field", "learned", success=True)
+best_method = store.get_best_method("username-field")
+
+# Export/import learning data
+store.export_json(Path("learning_backup.json"))
+count = store.import_json(Path("learning_backup.json"))
+```
+
+⚙️  ARCHITECTURE & DATA FLOW
+───────────────────────────────────────────────────────────────────────────────
+LearnedStore composes six specialized repositories, each managing one table:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        LEARNED STORE FACADE                             │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ ElementRepo (learned_elements)                                   │  │
+│  │ • save/find/delete learned coordinates                           │  │
+│  │ • track usage frequency (use_count)                               │  │
+│  │ • index by (scenario, step, target) and screenshot_hash          │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ StateCoordsRepo (state_coords)                                  │  │
+│  │ • state-aware positioning (normal, modal, loading, etc.)         │  │
+│  │ • multiple positions per target based on page state              │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ MatchHistoryRepo (match_history)                                 │  │
+│  │ • record match attempts (success/failure, method, time)          │  │
+│  │ • compute best method per target (success rate + speed)           │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ FailureRepo (failure_patterns)                                   │  │
+│  │ • track recurring errors by type and action                     │  │
+│  │ • store and retrieve fix descriptions                            │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ StrategyRepo (test_strategies)                                   │  │
+│  │ • learn which strategies work for specific situations           │  │
+│  │ • rank by success rate for intelligent selection                 │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ PlatformRepo (platform_patterns)                                  │  │
+│  │ • store platform-specific tips (builtin + user-contributed)     │  │
+│  │ • indexed by platform_key (e.g., "windows.chrome", "mac.safari") │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+DATABASE SCHEMA
+───────────────────────────────────────────────────────────────────────────────
+Six tables with foreign key relationships via target_name:
+
+learned_elements          state_coords           match_history
+├─ id (PK)               ├─ id (PK)             ├─ id (PK)
+├─ scenario_id           ├─ target_name         ├─ target_name
+├─ step_number           ├─ page_state          ├─ method
+├─ target_name ──────────┼─ correct_x           ├─ success
+├─ screenshot_hash       ├─ correct_y           ├─ confidence
+├─ correct_x             ├─ confidence          ├─ elapsed_ms
+├─ correct_y             ├─ use_count           ├─ tier
+├─ cropped_image         ├─ created_at          └─ created_at
+├─ confidence            └─ updated_at
+├─ use_count
+└─ created_at
+
+failure_patterns         test_strategies        platform_patterns
+├─ id (PK)              ├─ id (PK)             ├─ id (PK)
+├─ error_type           ├─ situation           ├─ platform_key
+├─ error_message        ├─ strategy            ├─ tip
+├─ url_pattern          ├─ success_count       ├─ source
+├─ action               ├─ fail_count          └─ created_at
+├─ fix_description      ├─ created_at
+├─ fix_applied          └─ updated_at
+├─ hit_count
+└─ created_at
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Element Storage - Save, find, update, delete learned element positions
+• Usage Tracking - Increment use_count on each successful match
+• State Management - Handle different page states (normal, modal, etc.)
+• Match Optimization - Learn and recommend best matching methods
+• Failure Learning - Track errors and suggest previously successful fixes
+• Strategy Evolution - Rank test approaches by historical success rates
+• Import/Export - JSON backup/restore of learning data
+• Platform Tips - Store OS/browser-specific testing knowledge
+• Bulk Operations - Clear all data via CLI command
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• SQLite-based - not suitable for high-concurrency distributed systems
+• Synchronous I/O - all database operations block the calling thread
+• No schema migrations - manual intervention required for schema changes
+• No foreign key constraints - referential integrity enforced at application level
+• WAL mode enabled - allows concurrent readers, but writes are serialized
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Always call close() when done to release database connections
+• Use find_by_name() for simple queries by target name
+• Use find_by_target() for precise scenario+step lookups
+• Export learning data before major UI changes
+• Clear learning data when application layout changes significantly
+• Monitor use_count to identify flaky or unreliable elements
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Storing learned element positions for fast re-testing
+✅ Tracking which match methods work best for specific elements
+✅ Building intelligent retry strategies based on historical patterns
+✅ Maintaining platform-specific testing knowledge
+❌ High-velocity concurrent writes (use PostgreSQL instead)
+❌ Complex relational queries across many tables
+❌ Real-time analytics (use OLAP database instead)
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

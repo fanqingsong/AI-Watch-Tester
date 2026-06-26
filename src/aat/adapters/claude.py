@@ -1,4 +1,104 @@
-"""ClaudeAdapter — Anthropic Claude API integration."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                     🧠 Claude Adapter Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Anthropic Claude API integration for AI-powered test failure analysis, code
+fix generation, and test scenario creation. Supports vision capabilities for
+screenshot-based debugging.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.claude import ClaudeAdapter
+from aat.core import AIConfig
+
+config = AIConfig(
+    provider="claude",
+    api_key="sk-ant-...",
+    model="claude-sonnet-4-20250514"
+)
+
+adapter = ClaudeAdapter(config)
+
+# Analyze test failure with screenshot
+analysis = await adapter.analyze_failure(
+    test_result=result,
+    screenshots=[screenshot_bytes]
+)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Verify step result visually
+passed, reason = await adapter.verify_step(
+    screenshot=screenshot_bytes,
+    step_num=1,
+    action="find_and_click",
+    description="Click login button"
+)
+```
+
+⚙️  CAPABILITIES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Method              │  Vision  │  Purpose                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│  analyze_failure()   │    ✅     │  Diagnose failures with screenshots │
+│  generate_fix()      │    ❌     │  Generate code patches             │
+│  generate_scenarios()│    ✅     │  Create scenarios from specs       │
+│  analyze_document()  │    ✅     │  Extract requirements from docs     │
+│  verify_step()       │    ✅     │  Visual step verification           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🧠 CLAUDE API FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• Vision API — Analyze screenshots for visual debugging
+• Long context windows — Handle large source files and complex scenarios
+• High reasoning quality — Excellent for failure diagnosis
+• JSON mode — Structured output with markdown fence handling
+• Streaming responses — Fast time-to-first-token
+
+🔧 API INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ClaudeAdapter                                                              │
+│       │                                                                     │
+│       ├── AsyncAnthropic client (anthropic SDK)                            │
+│       ├── Messages API (model: claude-sonnet-4-20250514)                   │
+│       ├── Vision support (image/* + base64)                                │
+│       └── JSON parsing (strip markdown fences)                             │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Failure Analysis — Root cause identification with visual context
+• Code Generation — Patch generation with file-level precision
+• Scenario Generation — Test case creation from specifications
+• Document Analysis — Requirement extraction from design docs
+• Step Verification — Visual confirmation of test step success
+
+⚠️  ERROR HANDLING
+───────────────────────────────────────────────────────────────────────────────
+• TimeoutError — API calls timeout after 120 seconds
+• AdapterError — Parse failures and API errors wrapped
+• Empty response — Handles truncated responses gracefully
+• JSON decode errors — Strips markdown fences before parsing
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Use claude-sonnet-4-20250514 for best reasoning quality
+• Use claude-haiku-4-5-20251001 for fast, cost-effective operations
+• Provide screenshots for visual debugging context
+• Handle AdapterError exceptions in calling code
+• Set appropriate max_tokens for complex tasks (4096+)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

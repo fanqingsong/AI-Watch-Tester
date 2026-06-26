@@ -1,4 +1,114 @@
-"""aat generate — AI scenario generation."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🎲 AI Scenario Generation Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Generates test scenarios from specification documents using AI. Converts
+natural language requirements and design specs into executable YAML scenarios
+with real element selectors and comprehensive test steps.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Generate scenarios from specification
+aat generate --from spec.md
+
+# Enrich with real page elements from scan
+aat generate --from requirements.md --scan
+
+# Specify output directory
+aat generate --from design.txt --output scenarios/auth/
+
+# Use custom config
+aat generate --from api_spec.md --config aat.config.yaml
+```
+
+⚙️  SCENARIO GENERATION ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                  AI-Powered Scenario Generation                          │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Document Parsing                                          │  │
+│  │    → Load spec document (.md, .txt)                            │  │
+│  │    → Extract text content and images                           │  │
+│  │    → Identify test requirements and user stories                │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Scan Enrichment (Optional)                                  │  │
+│  │    → Load .aat/scan_result.json                               │  │
+│  │    → Format real page elements as LLM context                  │  │
+│  │    → Append "## PAGE ELEMENTS" section to prompt               │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. AI Generation                                             │  │
+│  │    → Send spec + elements to AI adapter                       │  │
+│  │    → Generate scenario YAML with:                              │  │
+│  │    - Scenario ID and name                                      │  │
+│  │    - Test steps with actions and targets                       │  │
+│  │    - Real element selectors from scan                          │  │
+│  │    - Assertions and validation steps                           │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Cost Estimation & Confirmation                            │  │
+│  │    → Estimate input/output tokens                              │  │
+│  │    → Calculate cost based on provider pricing                  │  │
+│  │    → Show estimate and request confirmation                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Cache Check                                                │  │
+│  │    → Generate cache key from spec + URL                        │  │
+│  │    → Check .aat/scenarios_cache.json                          │  │
+│  │    → Return cached scenarios if available                      │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 6. Scenario Output                                            │  │
+│  │    → Save each scenario to scenarios/ directory                │  │
+│  │    → Use format: {id}_{name}.yaml                              │  │
+│  │    → Log cost to .aat/cost_log.json                           │  │
+│  │    → Cache results for future reuse                            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **AI generation**: Convert natural language to executable test scenarios
+- **scan enrichment**: Use real page elements for accurate selectors
+- **cost estimation**: Preview AI costs before generation
+- **result caching**: Avoid regenerating identical scenarios
+- **multi-format support**: Handle .md and .txt specification files
+- **cost tracking**: Log AI usage for budget monitoring
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires valid AI provider configuration
+- Generation quality depends on spec document clarity
+- Large documents may exceed token limits
+- Scan enrichment requires prior aat scan execution
+- Generated scenarios may require manual review and adjustment
+- Cost estimates may vary from actual charges
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Run aat scan before generating with --scan flag
+- Use detailed, well-structured specification documents
+- Review generated scenarios before test execution
+- Combine with test accounts for authentication scenarios
+- Monitor cost logs for expensive generation operations
+- Cache scenarios to regenerate quickly during development
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Converting design specs to test scenarios
+✅ Rapid scenario creation from requirements
+✅ Generating tests with real element selectors
+✅ Prototyping test coverage from documentation
+❌ Not for manual scenario writing
+❌ Not needed if scenarios already exist
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

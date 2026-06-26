@@ -1,4 +1,89 @@
-"""aat validate — scenario YAML validation with optional strict mode."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   ✅ Scenario Validation Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Validates AAT scenario YAML files for syntax errors, structural issues, and
+quality problems. Supports both basic validation and strict quality checks with
+detailed warnings.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic validation
+aat validate scenarios/login_test.yaml
+
+# Validate all scenarios in directory
+aat validate scenarios/
+
+# Strict mode with quality checks
+aat validate scenarios/ --strict
+
+# Validate specific file
+aat validate scenarios/SC-001_login.yaml --strict
+```
+
+⚙️  VALIDATION PROCESS
+───────────────────────────────────────────────────────────────────────────────
+                    ┌───────────────────┐
+                    │  Load YAML File   │
+                    └────────┬──────────┘
+                             │
+                    ┌────────▼──────────┐
+                    │  Parse & Schema   │
+                    │    Validation     │
+                    └────────┬──────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+      ┌───────▼────────┐          ┌────────▼────────┐
+      │  Basic Checks  │          │  Strict Mode    │
+      │  - Syntax      │          │  - Assertions   │
+      │  - Schema      │          │  - URLs         │
+      │  - Structure   │          │  - Depends_on  │
+      └───────┬────────┘          └────────┬────────┘
+              │                             │
+              └──────────────┬──────────────┘
+                             │
+                    ┌────────▼──────────┐
+                    │  Report Results   │
+                    └───────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **syntax validation**: YAML parsing and schema compliance
+- **structural validation**: Required fields, step numbering, action types
+- **strict quality checks**: Assertions, hardcoded URLs, depends_on chains
+- **bulk validation**: Process entire directories recursively
+- **detailed reporting**: Per-file and per-scenario error/warning reporting
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Strict mode may flag acceptable patterns as warnings
+- Cannot detect logical errors in test flows
+- URL pattern matching is conservative (may miss some variants)
+- depends_on validation only checks IDs, not logical correctness
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Run validation before committing scenarios to version control
+- Use strict mode during development for higher quality scenarios
+- Fix errors before warnings, but address warnings for robustness
+- Use {{url}} variables instead of hardcoded URLs
+- Include assertions to verify expected results
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Before running tests (aat run, aat loop)
+✅ Before committing scenarios to version control
+✅ During scenario development and debugging
+✅ Quality assurance and code reviews
+❌ Not needed during normal test execution (run includes basic validation)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

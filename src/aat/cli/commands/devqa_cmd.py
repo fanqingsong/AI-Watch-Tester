@@ -1,10 +1,125 @@
-"""aat devqa — fully automated test loop orchestrator.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🔄 DevQA Loop Orchestrator Module
+════════════════════════════════════════════════════════════════════════════════
 
-Single command that controls the entire test cycle:
-  URL detect → scan → scenario generate → run → fix → retry
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Fully automated DevQA loop that orchestrates the complete testing lifecycle:
+URL detection → page scanning → scenario generation → test execution → failure
+analysis → code fixing → re-testing. Designed for AI coding assistants with
+minimal human intervention required.
 
-The AI coding assistant only runs this command.
-AWT handles everything else — no AI intervention in the loop.
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic DevQA loop with auto-detected URL
+aat devqa "Test login functionality with valid credentials"
+
+# With specific URL and options
+aat devqa "Test shopping cart checkout" --url http://localhost:3000 --max-attempts 3
+
+# Fast mode for CI/CD
+aat devqa "Test user registration" --fast --screenshots on-failure
+
+# Concise mode for faster execution
+aat devqa "Test search functionality" --verbosity concise --max-attempts 5
+```
+
+⚙️  DEVQA LOOP ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DevQA Automated Loop                            │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. URL Detection                                             │  │
+│  │    → Auto-detect localhost:3000, :8080, :5000, etc.         │  │
+│  │    → Fallback to config.url or manual prompt                 │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Page Scanning                                             │  │
+│  │    → Collect UI elements via accessibility/DOM/OCR          │  │
+│  │    → Compare with previous scan for changes                  │  │
+│  │    → Save to .aat/scan_result.json                           │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Scenario Generation                                       │  │
+│  │    → Generate test steps from description                    │  │
+│  │    → Use real element selectors from scan                    │  │
+│  │    → Show to user for approval (required!)                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Test Execution (Repeat until pass or max_attempts)        │  │
+│  │    ┌────────────────────────────────────────────────────┐    │  │
+│  │    │ aat run --skill-mode --learn scenarios/SC-*.yaml  │    │  │
+│  │    │ → Execute test with approval token bypass          │    │  │
+│  │    │ → Learn from fixed steps                             │    │  │
+│  │    └──────────────┬───────────────────────────────────────┘    │  │
+│  │                   │                                            │  │
+│  │         ┌─────────┴─────────┐                                 │  │
+│  │         │                   │                                 │  │
+│  │    ┌────▼────┐        ┌────▼────┐                            │  │
+│  │    │ PASSED  │        │ FAILED  │                            │  │
+│  │    └────┬────┘        └────┬────┘                            │  │
+│  │         │                   │                                 │  │
+│  │         │              ┌────▼────┐                            │  │
+│  │         │              │  Fix    │                            │  │
+│  │         │              │  Loop   │                            │  │
+│  │         │              └────┬────┘                            │  │
+│  │         │                   │                                 │  │
+│  │         │         ┌─────────┴─────────┐                      │  │
+│  │         │         │                   │                      │  │
+│  │         │    ┌────▼────┐        ┌────▼────┐                   │  │
+│  │         │    │ Re-scan │        │  Show   │                   │  │
+│  │         │    │ & Regenerate   │Diff &  │                   │  │
+│  │         │    │ Scenario │   │Approve  │                   │  │
+│  │         │    └────┬────┘        └────┬────┘                   │  │
+│  │         │         │                   │                       │  │
+│  │         └─────────┴───────────────────┘                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Report Results                                             │  │
+│  │    → Show pass/fail summary                                   │  │
+│  │    → Display screenshots on failure                           │  │
+│  │    → Suggest fixes for remaining issues                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **automated URL detection**: Checks common localhost ports automatically
+- **intelligent scenario generation**: Creates tests from natural language + scan data
+- **smart element matching**: Uses accessibility, DOM, and OCR with priority ordering
+- **self-healing tests**: Automatically re-scans and regenerates on failure
+- **AI-powered parameter extraction**: Intelligently infers input values from descriptions
+- **multi-attempt retry**: Configurable retry loop with progressive fixing
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires human approval at scenario generation stage (security measure)
+- AI parameter extraction may need refinement for complex inputs
+- Limited to web applications (WebEngine support)
+- Dependent on quality of scan data for element matching
+- May not handle highly dynamic content well
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Start with clear, specific test descriptions
+- Use --fast mode for CI/CD pipelines
+- Review generated scenarios before approving
+- Check screenshots on failure to diagnose issues
+- Increase --max-attempts for complex multi-page flows
+- Use --verbosity concise for faster test cycles
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ AI coding assistant automation (Claude Code, Copilot, etc.)
+✅ Rapid test generation from natural language
+✅ Continuous testing during development
+✅ Exploratory testing with automatic documentation
+❌ Not for production CI/CD without human oversight
+❌ Not for complex authentication scenarios without test accounts
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

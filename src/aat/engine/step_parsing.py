@@ -3,6 +3,47 @@
 These functions own no mutable state and have no dependency on the
 :class:`StepExecutor` instance, so they live as module-level callables:
 
+════════════════════════════════════════════════════════════════════════════════
+                    📝 Step Parsing Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Pure parsing functions extracted from StepExecutor for step configuration
+processing. No mutable state, no StepExecutor dependency, fully unit-testable.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.step_parsing import parse_click_target, parse_type_value
+
+# Parse click target coordinates
+x, y = parse_click_target("100,200")
+# Returns: (100, 200)
+
+# Parse type text with keyboard shortcuts
+text, keys = parse_type_value("Hello{ENTER}")
+# Returns: ("Hello", [{"key": "ENTER"}])
+```
+
+⚙️  PARSING FUNCTIONS
+───────────────────────────────────────────────────────────────────────────────
+• parse_click_target — Extract (x, y) from coordinate strings
+• parse_type_value — Separate text from keyboard shortcuts
+• parse_key_combo — Parse key combinations (Ctrl+C, etc.)
+• parse_scroll_direction — Convert scroll descriptions to vectors
+
+💡 KEYBOARD SHORTCUTS
+───────────────────────────────────────────────────────────────────────────────
+Supported shortcuts in type_text:
+• {ENTER} → Enter key
+• {TAB} → Tab key
+• {CTRL+C} → Ctrl+C (copy)
+• {CMD+S} → Cmd+S (save, macOS)
+• {ESC} → Escape key
+
+════════════════════════════════════════════════════════════════════════════════
+
 - :data:`_SYNONYMS` — synonym map used for semantic text matching.
 - :func:`_parse_coordinates` — ``"x,y"`` coordinate parsing.
 - :data:`_SCROLL_SHORTCUTS` — named scroll shortcuts.

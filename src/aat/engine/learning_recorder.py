@@ -3,6 +3,75 @@
 Owns the step-level learning responsibilities that previously lived inline
 on :class:`StepExecutor`:
 
+════════════════════════════════════════════════════════════════════════════════
+                    🧠  Learning Recorder Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Records successful element matches for future test runs, enabling instant
+position-based targeting without image matching on subsequent executions.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.learning_recorder import LearningRecorder
+
+recorder = LearningRecorder(store=learning_store, enabled=True)
+
+# After successful match
+await recorder.record_learned_element(
+    scenario_id="SC-001",
+    step_number=3,
+    target_name="Submit Button",
+    screenshot_hash="abc123",
+    correct_x=100,
+    correct_y=200,
+    cropped_image_path="submit_button.png"
+)
+
+# Next run: instant match (no image matching needed)
+learned = await store.find_learned_element("SC-001", 3, "abc123")
+if learned:
+    await engine.click(learned.correct_x, learned.correct_y)
+```
+
+⚙️  LEARNING PROCESS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  First Run (No Learning)                                                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│  1. Image matching (template/OCR/feature)                                │
+│  2. Click at (100, 200)                                                   │
+│  3. Record: scenario_id + step + screenshot_hash + coordinates          │
+└────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Second Run (Learning Enabled)                                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  1. Lookup: scenario_id + step + screenshot_hash                           │
+│  2. Found? → Click at learned (100, 200) instantly!                       │
+│  3. Not found → Fall back to image matching                                │
+└────────────────────────────────────────────────────────────────────────────┘
+
+💡 LEARNING STRATEGY
+───────────────────────────────────────────────────────────────────────────────
+• Screenshot hash as key (detects page changes)
+• Per-step and per-scenario learning
+• Confidence scores for learned positions
+• Usage tracking (most-used elements prioritized)
+
+⚠️  WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Stable UI elements (buttons, navigation)
+✅ Repeated test scenarios
+✅ Performance-critical tests
+❌ Dynamic content (timestamps, counters)
+❌ Frequent UI changes
+
+════════════════════════════════════════════════════════════════════════════════
+
 - :func:`record_step` — record every step outcome to learned.db for adaptive
   learning, including match history, failure patterns, and strategy learning.
 - :func:`classify_situation` — classify the test situation for strategy learning.

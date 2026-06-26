@@ -1,4 +1,105 @@
-"""Repository for the ``learned_elements`` table."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                  🎯 Element Repository - Learned Element Storage
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages CRUD operations for the learned_elements table, storing UI element
+positions learned from previous test runs. This repository tracks where elements
+appear on screen, how often they're used, and which screenshots they belong to.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.learning.repos import ElementRepo
+from aat.core.learning_models import LearnedElement
+
+repo = ElementRepo(connection)
+
+# Save a newly learned element position
+element = LearnedElement(
+    scenario_id="checkout-flow",
+    step_number=3,
+    target_name="buy-button",
+    screenshot_hash="def456...",
+    correct_x=200,
+    correct_y=400,
+    cropped_image_path="/tmp/buy_button.png"
+)
+saved = repo.save(element)
+
+# Find element when retesting same scenario
+found = repo.find_by_target("checkout-flow", 3, "buy-button")
+if found:
+    print(f"Buy button at ({found.correct_x}, {found.correct_y})")
+
+# Query by target name across all scenarios
+element = repo.find_by_name("buy-button")
+if element:
+    print(f"Most used: {element.use_count} times")
+
+# Find all elements in current screenshot
+elements = repo.find_by_hash(current_screenshot_hash)
+```
+
+⚙️  DATABASE SCHEMA
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────┐
+│ learned_elements TABLE                                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│ id              INTEGER PRIMARY KEY AUTOINCREMENT                      │
+│ scenario_id     TEXT NOT NULL                                           │
+│ step_number     INTEGER NOT NULL                                        │
+│ target_name     TEXT NOT NULL                                           │
+│ screenshot_hash TEXT NOT NULL                                           │
+│ correct_x       INTEGER NOT NULL                                        │
+│ correct_y       INTEGER NOT NULL                                        │
+│ cropped_image   TEXT NOT NULL                                           │
+│ confidence      REAL DEFAULT 1.0                                       │
+│ use_count       INTEGER DEFAULT 0                                      │
+│ created_at      TEXT NOT NULL                                           │
+│ updated_at      TEXT NOT NULL                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│ INDEXES:                                                                │
+│ • idx_learned_target (scenario_id, step_number, target_name)           │
+│ • idx_learned_hash (screenshot_hash)                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• CRUD Operations - save, find, update, delete elements
+• Target Lookup - Find by (scenario + step + name) for precise matches
+• Name Lookup - Find most-used element by name across scenarios
+• Hash Lookup - Find all elements in a specific screenshot
+• Usage Tracking - Increment use_count on successful matches
+• Duplicate Detection - Warn if coordinates conflict with other elements
+• Top Elements - List most-used elements for CLI display
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• No automatic cleanup of old/unused elements
+• Duplicate coordinate detection only warns, doesn't prevent
+• Cropped images stored as paths, not binary data
+• Screenshot hash uses MD5 (fast but not cryptographically secure)
+• use_count never decrements (monotonically increasing)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Always call find_by_target with scenario_id + step_number for precision
+• Use find_by_name for cross-scenario element reuse
+• Monitor use_count to identify flaky or frequently-used elements
+• Delete elements manually when UI changes significantly
+• Export data before major application updates
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Storing element positions discovered during test runs
+✅ Retrieving previously learned positions for fast re-testing
+✅ Tracking element usage frequency for analytics
+❌ Real-time position updates (use state_coords_repo instead)
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

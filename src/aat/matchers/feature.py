@@ -1,4 +1,117 @@
-"""FeatureMatcher — ORB/SIFT feature point matching."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                🔗 Feature Point Matcher Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Computer vision-based feature point matching using ORB (Oriented FAST and Rotated BRIEF).
+Detects and matches distinctive local features between template images and screenshots,
+enabling element detection even when the target has undergone scale, rotation, or
+partial occlusion transformations.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Find a logo that may appear at different sizes/rotations
+target = TargetSpec(image="company_logo.png")
+result = await feature_matcher.find(target, screenshot)
+if result:
+    print(f"Logo found at ({result.x}, {result.y}) with {result.confidence:.0%} confidence")
+```
+
+⚙️  FEATURE MATCHING PIPELINE
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Template Image ──────┐  ┌───────── Screenshot             │
+│                    (Reference Target)    │  │  (Current Screen State)        │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │           │
+                                    ▼           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│              ORB Feature Detection (1000 features per image)                   │
+│         • FAST corner detection • BRIEF descriptor extraction               │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │           │
+                                    ▼           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                   Keypoints + Descriptors Extracted                          │
+│            Template: [kp1, kp2, ..., kpN]  Screen: [kp1, kp2, ..., kpM]    │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│              Brute-Force Matcher (Hamming distance for binary)               │
+│                   kNN matching with k=2 for ratio test                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│              Lowe's Ratio Test (threshold = 0.75)                             │
+│        Keep only matches where: distance(m1) < 0.75 × distance(m2)           │
+│              Eliminates ambiguous/false matches                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                  RANSAC Homography (5.0 pixel threshold)                      │
+│      • Robust outlier rejection • Geometric transformation estimation         │
+│      • Transform template corners → screenshot space for bounding box         │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        Match Result                                           │
+│         position: (cx, cy) bounding_box: (w, h) confidence: inlier_ratio      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• ORB feature detection: 1000 features per image (Oriented FAST + rotated BRIEF)
+• Brute-force matching: Hamming distance matcher for binary descriptors
+• Lowe's ratio test: 0.75 threshold for match quality filtering
+• RANSAC homography: Robust geometric transformation with outlier rejection
+• Bounding box estimation: Transform template corners to screenshot space
+• Confidence scoring: Based on inlier ratio and match count
+• Fallback position estimation: Average of matched keypoints if homography fails
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• Requires minimum 8 good matches after ratio test (configurable via _MIN_GOOD_MATCHES)
+• Requires minimum 2 keypoints in both images for matching to proceed
+• May fail on uniform/repetitive patterns (solid colors, grids, simple shapes)
+• Slower than template matching (feature detection is computationally expensive)
+• Homography may fail if transformation is too extreme (>45° rotation, >2x scale)
+• No multi-scale pyramid (ORB handles limited scale variation)
+• Binary descriptors (BRIEF) are less distinctive than SIFT/SURF
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+1. Use as Tier 2.5 matcher (after OCR, before Vision AI) in HybridMatcher
+2. Best for: logos, icons, distinct graphical elements with corner features
+3. Avoid for: solid color buttons, simple geometric shapes, text-only regions
+4. Combine with template matching for robust detection across transformations
+5. Adjust _MIN_GOOD_MATCHES based on template complexity (8 for simple, 15+ for complex)
+6. Use RANSAC threshold 5.0 for most cases; lower for precise alignment, higher for noise tolerance
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ GOOD USE CASES:
+  • Logo/brand detection that may appear at different sizes or slight rotations
+  • Icon detection in desktop/mobile apps with variable scaling
+  • Elements with distinctive corner features (shapes, logos, symbols)
+  • When template matching fails due to scale/rotation (within ORB's limits)
+  • Verifying UI elements appear in correct viewport position despite responsive scaling
+
+❌ BAD USE CASES:
+  • Text/labels (use OCR instead)
+  • Solid color buttons without features (use template matching instead)
+  • Real-time tracking (use optical flow or template matching instead)
+  • Elements under extreme transformation (>45° rotation, >2x scale change)
+  • When template matching works perfectly (ORB is slower, use faster method first)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

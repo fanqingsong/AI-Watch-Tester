@@ -1,7 +1,107 @@
-"""Shared prompt templates for AI adapters.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                 📝 AI Prompt Templates Module
+════════════════════════════════════════════════════════════════════════════════
 
-This module contains common prompt templates used across multiple AI adapters
-(Claude, OpenAI, Ollama, etc.) to avoid duplication.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Shared prompt templates for AI adapters. Contains common system prompts used
+across multiple AI providers (Claude, OpenAI, Ollama, etc.) to ensure
+consistent behavior and avoid duplication.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.prompts import _SYSTEM_ANALYZE_FAILURE, _SYSTEM_GENERATE_SCENARIOS
+
+# Use in any AI adapter
+messages = [
+    {"role": "system", "content": _SYSTEM_ANALYZE_FAILURE},
+    {"role": "user", "content": failure_context}
+]
+
+response = await client.chat.completions.create(messages=messages)
+```
+
+⚙️  AVAILABLE PROMPTS
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Prompt Template            │  Purpose                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│  _SYSTEM_ANALYZE_FAILURE    │  Diagnose test failure root causes    │
+│  _SYSTEM_GENERATE_FIX       │  Generate code patches for fixes       │
+│  _SYSTEM_GENERATE_SCENARIOS │  Create test scenarios from specs      │
+│  _SYSTEM_ANALYZE_DOCUMENT   │  Extract requirements from documents    │
+│  _SYSTEM_VERIFY_STEP        │  Visual step verification (Claude)      │
+│  _SYSTEM_EXTRACT_PARAMS     │  Extract test parameters from text      │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 PROMPT CATEGORIES
+───────────────────────────────────────────────────────────────────────────────
+Core Templates (used by all adapters):
+• _SYSTEM_ANALYZE_FAILURE — Failure diagnosis with cause/suggestion/severity
+• _SYSTEM_GENERATE_FIX — Code patch generation with file changes
+• _SYSTEM_GENERATE_SCENARIOS — Test scenario creation from specifications
+• _SYSTEM_ANALYZE_DOCUMENT — Requirement extraction from design documents
+
+Provider-Specific Templates:
+• _SYSTEM_VERIFY_STEP — Claude-specific visual step verification
+• _SYSTEM_EXTRACT_PARAMS — Parameter extraction from natural language
+
+🔧 PROMPT DESIGN PRINCIPLES
+───────────────────────────────────────────────────────────────────────────────
+• JSON Output — All prompts request structured JSON responses
+• No Markdown Fences — Explicitly request raw JSON (no ```json ... ```)
+• Clear Field Specifications — Define exact JSON structure required
+• Error Handling — Include instructions for handling edge cases
+• Context Awareness — Provide relevant context for each task
+
+📋 SCENARIO GENERATION FEATURES
+───────────────────────────────────────────────────────────────────────────────
+The _SYSTEM_GENERATE_SCENARIOS prompt includes:
+• URL Extraction — Instructions to extract base URLs from specifications
+• Action Validation — Valid action names and required fields
+• Business Flow Ordering — Logical scenario sequencing
+• Dependency Management — depends_on field for prerequisite scenarios
+• Page Element Integration — Using scan data for reliable selectors
+• Expected Result Format — Structured assertions with type/value pairs
+
+⚠️  PROMPT MAINTENANCE
+───────────────────────────────────────────────────────────────────────────────
+• Version Control — Changes affect all adapters simultaneously
+• Testing Required — Test with multiple providers after modifications
+• Backward Compatibility — Consider impact on existing scenarios
+• Provider Differences — Some providers may need slight variations
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+• Keep prompts language-agnostic — Avoid provider-specific terminology
+• Specify JSON structure clearly — Define exact field names and types
+• Include examples — Show expected input/output format
+• Request raw JSON — Explicitly forbid markdown fences
+• Handle edge cases — Provide instructions for ambiguous situations
+
+🎯 USAGE PATTERN
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Import required prompts
+from aat.adapters.prompts import (
+    _SYSTEM_ANALYZE_FAILURE,
+    _SYSTEM_GENERATE_FIX,
+    _SYSTEM_GENERATE_SCENARIOS
+)
+
+# Use in adapter methods
+messages = [
+    {"role": "system", "content": _SYSTEM_ANALYZE_FAILURE},
+    {"role": "user", "content": user_context}
+]
+
+response = await client.messages.create(messages=messages)
+result = json.loads(response.content[0].text)
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 # ---------------------------------------------------------------------------

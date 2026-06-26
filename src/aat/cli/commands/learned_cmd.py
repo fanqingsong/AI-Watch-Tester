@@ -1,4 +1,105 @@
-"""aat learned — learned element and pattern management."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🧠 Learned Data Management Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages learned elements, failure patterns, and platform tips accumulated
+during test execution. Provides commands to view, analyze, and clear learning
+data stored in the SQLite database.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# View learned elements and patterns
+aat learned list
+
+# Clear all learned data
+aat learned clear
+
+# Clear with confirmation bypass
+aat learned clear --yes
+
+# Use with custom config
+aat learned list --config aat.config.yaml
+```
+
+⚙️  LEARNING DATABASE STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  .aat/learned.db                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ learned_elements Table                                        │  │
+│  │  - id (primary key)                                          │  │
+│  │  - scenario_id                                               │  │
+│  │  - step_number                                               │  │
+│  │  - target_name (element identifier)                           │  │
+│  │  - screenshot_hash (image fingerprint)                        │  │
+│  │  - correct_x, correct_y (coordinates)                        │  │
+│  │  - cropped_image_path (element reference)                    │  │
+│  │  - confidence (match quality)                                │  │
+│  │  - use_count (usage frequency)                                │  │
+│  │  - created_at, updated_at (timestamps)                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ failure_patterns Table                                       │  │
+│  │  - id (primary key)                                          │  │
+│  │  - error_type (failure classification)                       │  │
+│  │  - error_message (original error text)                       │  │
+│  │  - action (failed action type)                               │  │
+│  │  - fix_description (successful fix)                           │  │
+│  │  - fix_applied (boolean)                                     │  │
+│  │  - hit_count (frequency)                                      │  │
+│  │  - created_at (timestamp)                                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ platform_tips Table                                          │  │
+│  │  - id (primary key)                                          │  │
+│  │  - platform (e.g., flutter_canvaskit, react_spa)              │  │
+│  │  - tip (testing advice)                                      │  │
+│  │  - source (builtin or user-added)                            │  │
+│  │  - created_at (timestamp)                                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **list**: Display learned elements, failure patterns, and platform tips
+- **clear**: Remove all learned data with confirmation prompt
+- **element tracking**: Show most frequently used elements with statistics
+- **failure analysis**: Display common error types and successful fixes
+- **platform guidance**: Show framework-specific testing recommendations
+- **usage statistics**: Track learning data frequency and recency
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Learning data accumulates over time with --learn flag
+- Clear operation is irreversible (requires confirmation)
+- Database may grow large with extensive testing
+- Element matching quality depends on screenshot consistency
+- Platform tips are cumulative (builtin + user-added)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Review learned data periodically to identify common issues
+- Use platform tips for framework-specific testing guidance
+- Clear data when switching to significantly different applications
+- Monitor failure patterns to improve test reliability
+- Combine with aat run --learn for continuous improvement
+- Export important learned patterns before clearing
+
+🎯 WHEN TO USE
+──────────────────────────────────────────────────────────────────────────────️
+✅ Analyzing common test failures and patterns
+✅ Understanding element matching behavior
+✅ Getting framework-specific testing recommendations
+✅ Managing learning database size and quality
+❌ Not needed during normal test execution
+❌ Not required for new projects without learning history
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

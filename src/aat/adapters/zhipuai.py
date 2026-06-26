@@ -1,4 +1,117 @@
-"""ZhipuAIAdapter — 智谱AI GLM API integration."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🇨🇳 ZhipuAI Adapter Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+智谱AI GLM API integration for Chinese-language AI operations. Provides text-based
+failure analysis, code generation, and scenario creation with optimized support
+for Chinese text processing and YAML response handling.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.zhipuai import ZhipuAIAdapter
+from aat.core import AIConfig
+
+config = AIConfig(
+    provider="zhipuai",
+    api_key="your-zhipuai-api-key",
+    model="glm-4.7"
+)
+
+adapter = ZhipuAIAdapter(config)
+
+# Analyze test failure (Chinese-friendly)
+analysis = await adapter.analyze_failure(test_result)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Generate scenarios from document
+scenarios = await adapter.generate_scenarios(document_text)
+```
+
+⚙️  ZHIPUAI API FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• Chinese Optimization — Specialized for Chinese text processing
+• OpenAI-Compatible — Uses standard OpenAI API format
+• YAML Support — Handles YAML responses (common with GLM models)
+• JSON+Fallback — Parses JSON first, falls back to YAML
+• Text-Only — No vision/image support
+• GLM-4 Models — Access to latest GLM-4.7, GLM-4, GLM-5.1
+
+🔧 API INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ZhipuAIAdapter                                                             │
+│       │                                                                     │
+│       ├── AsyncOpenAI client (OpenAI-compatible)                            │
+│       ├── Base URL: https://open.bigmodel.cn/api/coding/paas/v4/           │
+│       ├── Default Model: glm-4.7                                           │
+│       ├── JSON + YAML parsing (dual fallback)                               │
+│       └── Text-only operations                                              │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+📦 SUPPORTED MODELS
+───────────────────────────────────────────────────────────────────────────────
+• glm-4.7 — Latest recommended model (default)
+• glm-4 — Previous generation, still reliable
+• glm-4-plus — Enhanced capabilities
+• glm-4-0520 — Specific version snapshot
+• glm-5.1 — Next-generation model
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Failure Analysis — Root cause identification with Chinese support
+• Code Generation — Patch generation with source file analysis
+• Scenario Generation — Test case creation from specifications
+• Document Analysis — Requirement extraction from design docs
+• YAML Parsing — Handles YAML responses from GLM models
+
+⚠️  LIMITATIONS
+───────────────────────────────────────────────────────────────────────────────
+• No Vision Support — Cannot analyze screenshots
+• Text-Only Operations — Images are ignored in all methods
+• YAML Dependency — Requires YAML fallback for some responses
+• Chinese Focus — Optimized for Chinese, but supports English
+
+💡 UNIQUE FEATURES
+───────────────────────────────────────────────────────────────────────────────
+• Dual-Format Parsing — Handles both JSON and YAML responses
+• Chinese Optimization — Better performance on Chinese text
+• Coding-Specialized Endpoint — Uses `/api/coding/paas/v4/` for code tasks
+• Markdown Fence Handling — Strips ```yaml ```json wrappers
+• Error Recovery — Graceful fallback between formats
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Chinese-language projects and teams
+✅ Code generation tasks requiring Chinese comments/docs
+✅ Cost-effective alternative to Western APIs
+✅ Projects requiring YAML response handling
+❌ Visual debugging (no vision support)
+❌ English-only projects (consider English-optimized models)
+
+🔧 SETUP REQUIREMENTS
+───────────────────────────────────────────────────────────────────────────────
+1. Get API key from https://open.bigmodel.cn/
+2. Configure adapter with ZhipuAI API key
+3. Specify model (default: glm-4.7)
+4. Use standard OpenAI-compatible interface
+
+💡 PRICING ADVANTAGE
+───────────────────────────────────────────────────────────────────────────────
+ZhipuAI offers competitive pricing for Chinese market:
+• Lower costs than Western APIs for Chinese text
+• Specialized coding endpoints for better code generation
+• Generous free tier for development and testing
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

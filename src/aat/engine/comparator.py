@@ -2,6 +2,54 @@
 
 Checks assertions like text_visible, url_contains, screenshot_match
 against the current state of the test engine.
+
+════════════════════════════════════════════════════════════════════════════════
+                        ✅  Comparator Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Evaluates ExpectedResult assertions against the current state of the test
+engine, including text visibility, URL verification, and screenshot comparison.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.comparator import Comparator
+from aat.core import ExpectedResult, AssertType
+
+comparator = Comparator(engine)
+
+# Check text is visible on screen
+result = await comparator.check(ExpectedResult(
+    type=AssertType.TEXT_VISIBLE,
+    value="Welcome"
+))
+
+# Check URL contains path
+result = await comparator.check(ExpectedResult(
+    type=AssertType.URL_CONTAINS,
+    value="/dashboard"
+))
+
+# Compare screenshots
+result = await comparator.check(ExpectedResult(
+    type=AssertType.SCREENSHOT_MATCH,
+    value="baseline.png",
+    tolerance=0.05
+))
+```
+
+⚙️  ASSERTION TYPES
+───────────────────────────────────────────────────────────────────────────────
+• TEXT_VISIBLE    → Check if text exists on screen
+• TEXT_EQUALS     → Check if text exactly matches screen content
+• IMAGE_VISIBLE   → Check if target image is visible
+• URL_CONTAINS    → Check if current URL contains substring
+• URL_NOT_CONTAINS→ Check if current URL does NOT contain substring
+• SCREENSHOT_MATCH→ Compare current screenshot with baseline
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

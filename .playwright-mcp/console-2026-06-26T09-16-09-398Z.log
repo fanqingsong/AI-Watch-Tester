@@ -1,0 +1,215 @@
+[    6116ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-VZA4JSNL.js?v=cd2f9487:21608
+[    6160ms] [LOG] 🔧 API Configuration: {environment: dev, baseUrl: , apiUrl: /api/v1, hostname: localhost, port: 5173} @ http://localhost:5173/src/config/api.ts:103
+[    6575ms] [LOG] Tabs: {$$typeof: Symbol(react.forward_ref), render: , displayName: undefined} @ http://localhost:5173/src/routes/_layout/my-account.tsx?t=1782457042806:25
+[    6575ms] [LOG] TabList: {$$typeof: Symbol(react.forward_ref), render: , displayName: undefined} @ http://localhost:5173/src/routes/_layout/my-account.tsx?t=1782457042806:26
+[    6575ms] [LOG] Tab: {$$typeof: Symbol(react.forward_ref), render: , displayName: undefined} @ http://localhost:5173/src/routes/_layout/my-account.tsx?t=1782457042806:27
+[    6575ms] [LOG] TabPanels: {$$typeof: Symbol(react.forward_ref), render: , displayName: undefined} @ http://localhost:5173/src/routes/_layout/my-account.tsx?t=1782457042806:28
+[    6575ms] [LOG] TabPanel: {$$typeof: Symbol(react.forward_ref), render: , displayName: undefined} @ http://localhost:5173/src/routes/_layout/my-account.tsx?t=1782457042806:29
+[    6607ms] [LOG] 🔧 OpenAPI Configuration: {BASE: , apiUrl: http://localhost:5173, hasToken: false, token: No token} @ http://localhost:5173/src/main.tsx:125
+[    6689ms] [LOG] MenuContext: updating activeMenuPath to / @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[    6694ms] [LOG] MenuContext: updating activeMenuPath to / @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[    6711ms] [LOG] MenuContext: updating activeMenuPath to /login @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[    6779ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[    6780ms] [LOG] 1. Raw token from localStorage: null @ http://localhost:5173/src/utils/api.ts:6
+[    6780ms] [LOG] 2. Token type: object @ http://localhost:5173/src/utils/api.ts:7
+[    6780ms] [LOG] 3. Token truthiness (!!token): false @ http://localhost:5173/src/utils/api.ts:8
+[    6780ms] [LOG] 4. Token length: 0 @ http://localhost:5173/src/utils/api.ts:9
+[    6780ms] [LOG] 5. Auth header object: {} @ http://localhost:5173/src/utils/api.ts:13
+[    6780ms] [LOG] 6. Default headers: {} @ http://localhost:5173/src/utils/api.ts:17
+[    6781ms] [LOG] 7. Final headers after merging options: {} @ http://localhost:5173/src/utils/api.ts:22
+[    6781ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[    6781ms] [LOG] API Request Debug: {endpoint: /system-config/deployment-version, token: No token, tokenLength: 0, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[    6782ms] [LOG] requiresMFA state changed to: false mfaSessionToken: null @ http://localhost:5173/src/routes/login.tsx:92
+[    6783ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[    6783ms] [LOG] 1. Raw token from localStorage: null @ http://localhost:5173/src/utils/api.ts:6
+[    6783ms] [LOG] 2. Token type: object @ http://localhost:5173/src/utils/api.ts:7
+[    6783ms] [LOG] 3. Token truthiness (!!token): false @ http://localhost:5173/src/utils/api.ts:8
+[    6784ms] [LOG] 4. Token length: 0 @ http://localhost:5173/src/utils/api.ts:9
+[    6784ms] [LOG] 5. Auth header object: {} @ http://localhost:5173/src/utils/api.ts:13
+[    6784ms] [LOG] 6. Default headers: {} @ http://localhost:5173/src/utils/api.ts:17
+[    6784ms] [LOG] 7. Final headers after merging options: {} @ http://localhost:5173/src/utils/api.ts:22
+[    6784ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[    6784ms] [LOG] API Request Debug: {endpoint: /system-config/sso/status, token: No token, tokenLength: 0, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[    6787ms] [LOG] requiresMFA state changed to: false mfaSessionToken: null @ http://localhost:5173/src/routes/login.tsx:92
+[    6788ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[    6788ms] [LOG] 1. Raw token from localStorage: null @ http://localhost:5173/src/utils/api.ts:6
+[    6788ms] [LOG] 2. Token type: object @ http://localhost:5173/src/utils/api.ts:7
+[    6788ms] [LOG] 3. Token truthiness (!!token): false @ http://localhost:5173/src/utils/api.ts:8
+[    6788ms] [LOG] 4. Token length: 0 @ http://localhost:5173/src/utils/api.ts:9
+[    6788ms] [LOG] 5. Auth header object: {} @ http://localhost:5173/src/utils/api.ts:13
+[    6788ms] [LOG] 6. Default headers: {} @ http://localhost:5173/src/utils/api.ts:17
+[    6788ms] [LOG] 7. Final headers after merging options: {} @ http://localhost:5173/src/utils/api.ts:22
+[    6789ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[    6789ms] [LOG] API Request Debug: {endpoint: /system-config/sso/status, token: No token, tokenLength: 0, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[    6926ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/login:0
+[  309056ms] [LOG] 🔑 OpenAPI Token: No token @ http://localhost:5173/src/main.tsx:46
+[  345295ms] [LOG] useAuth - MFA check: {requiresMFA: false, mfaSessionToken: undefined, access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3O…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM, tokenData: Object} @ http://localhost:5173/src/hooks/useAuth.ts:118
+[  345410ms] [LOG] MenuContext: updating activeMenuPath to / @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[  345717ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  345718ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  345723ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  345723ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  345724ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  345724ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  345724ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  345725ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  345730ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  345743ms] [LOG] API Request Debug: {endpoint: /menu-items/tree, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  345745ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:21:55 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  345775ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  345776ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  345777ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  345777ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  345788ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  345789ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  345790ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  345791ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  345804ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  345805ms] [LOG] API Request Debug: {endpoint: /users/me/allowed-menus, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  345817ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:21:55 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  345832ms] [LOG] Login result: {access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3O…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM, token_type: bearer, password_expires_in_days: -93, requires_mfa: false, mfa_session_token: null} @ http://localhost:5173/src/routes/login.tsx:195
+[  345847ms] [LOG] Login result type: object @ http://localhost:5173/src/routes/login.tsx:196
+[  345848ms] [LOG] Login result keys: [access_token, token_type, password_expires_in_days, requires_mfa, mfa_session_token, requires_initial_password_change] @ http://localhost:5173/src/routes/login.tsx:197
+[  345875ms] [LOG] MFA check - requiresMFA: false mfaSessionToken: null @ http://localhost:5173/src/routes/login.tsx:202
+[  345876ms] [LOG] access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/routes/login.tsx:203
+[  346893ms] [LOG] 🔑 OpenAPI Token: eyJhbGciOiJIUzI1NiIs... @ http://localhost:5173/src/main.tsx:46
+[  348662ms] [LOG] Layout component rendered @ http://localhost:5173/src/routes/_layout.tsx?t=1782457042789:797
+[  348663ms] [LOG] Layout component rendered @ http://localhost:5173/src/routes/_layout.tsx?t=1782457042789:797
+[  358119ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358119ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358120ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358120ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358120ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358121ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358121ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358122ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358124ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358125ms] [LOG] API Request Debug: {endpoint: /system-config/deployment-version, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358126ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:07 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358169ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358170ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358170ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358170ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358171ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358171ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358183ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358184ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358185ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358185ms] [LOG] API Request Debug: {endpoint: /menu-items/tree, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358186ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:07 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358214ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358215ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358216ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358216ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358216ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358217ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358244ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358245ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358246ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358246ms] [LOG] API Request Debug: {endpoint: /users/me/allowed-menus, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358247ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:07 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358327ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358328ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358370ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358371ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358372ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358372ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358373ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358373ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358374ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358386ms] [LOG] API Request Debug: {endpoint: /llm-usage/me/credit, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358388ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:07 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358448ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358450ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358477ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358478ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358478ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358479ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358480ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358492ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358493ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358494ms] [LOG] API Request Debug: {endpoint: /users/me/allowed-menus, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358494ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:07 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358538ms] [LOG] 🔑 OpenAPI Token: eyJhbGciOiJIUzI1NiIs... @ http://localhost:5173/src/main.tsx:46
+[  358568ms] [LOG] MenuContext: updating activeMenuPath to / @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[  358615ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358615ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358616ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358616ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358617ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358617ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358617ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358628ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358629ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358630ms] [LOG] API Request Debug: {endpoint: /menu-items/tree, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358631ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:08 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358645ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358646ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358646ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358647ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358648ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358659ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358660ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358661ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358661ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358663ms] [LOG] API Request Debug: {endpoint: /users/me/allowed-menus, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358675ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:08 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358678ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358689ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358690ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358690ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358691ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358692ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358693ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358704ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358705ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358706ms] [LOG] API Request Debug: {endpoint: /llm-usage/me/credit, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358707ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:08 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358734ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  358735ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  358736ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  358737ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  358737ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  358737ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  358750ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  358751ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  358751ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  358752ms] [LOG] API Request Debug: {endpoint: /users/me/allowed-menus, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  358752ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:22:08 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  358873ms] [LOG] MenuContext: updating activeMenuPath to / @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[  675787ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  675787ms] [LOG] 1. Raw token from localStorage: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMxNTY5MDcsInN1YiI6IjhiODQ2YWVkLTBhMTctNDE1MC05ZjE2LTMxNDE2OWZiZWIzNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM @ http://localhost:5173/src/utils/api.ts:6
+[  675787ms] [LOG] 2. Token type: string @ http://localhost:5173/src/utils/api.ts:7
+[  675787ms] [LOG] 3. Token truthiness (!!token): true @ http://localhost:5173/src/utils/api.ts:8
+[  675787ms] [LOG] 4. Token length: 165 @ http://localhost:5173/src/utils/api.ts:9
+[  675787ms] [LOG] 5. Auth header object: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:13
+[  675788ms] [LOG] 6. Default headers: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:17
+[  675788ms] [LOG] 7. Final headers after merging options: {Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleH…zNyJ9.zQzUAQMjFNdnecGTg8HDMlJMyCn39CK8H6Rq0t3JZZM} @ http://localhost:5173/src/utils/api.ts:22
+[  675788ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  675788ms] [LOG] API Request Debug: {endpoint: /llm-usage/me/credit, token: eyJhbGciOiJIUzI1NiIs..., tokenLength: 165, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  675788ms] [LOG] Token payload: {exp: 1783156907, expDate: Sat Jul 04 2026 17:21:47 GMT+0800 (China Standard Time), currentTime: Fri Jun 26 2026 17:27:25 GMT+0800 (China Standard Time), isExpired: false, sub: 8b846aed-0a17-4150-9f16-314169fbeb37} @ http://localhost:5173/src/utils/api.ts:42
+[  772533ms] [LOG] MenuContext: updating activeMenuPath to /login @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[  772533ms] [LOG] MenuContext: updating activeMenuPath to /login @ http://localhost:5173/src/components/Common/MenuContext.tsx:67
+[  772983ms] [LOG] requiresMFA state changed to: false mfaSessionToken: null @ http://localhost:5173/src/routes/login.tsx:92
+[  772987ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  772988ms] [LOG] 1. Raw token from localStorage: null @ http://localhost:5173/src/utils/api.ts:6
+[  772989ms] [LOG] 2. Token type: object @ http://localhost:5173/src/utils/api.ts:7
+[  772992ms] [LOG] 3. Token truthiness (!!token): false @ http://localhost:5173/src/utils/api.ts:8
+[  772993ms] [LOG] 4. Token length: 0 @ http://localhost:5173/src/utils/api.ts:9
+[  772993ms] [LOG] 5. Auth header object: {} @ http://localhost:5173/src/utils/api.ts:13
+[  773001ms] [LOG] 6. Default headers: {} @ http://localhost:5173/src/utils/api.ts:17
+[  773002ms] [LOG] 7. Final headers after merging options: {} @ http://localhost:5173/src/utils/api.ts:22
+[  773003ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  773003ms] [LOG] API Request Debug: {endpoint: /system-config/sso/status, token: No token, tokenLength: 0, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  773019ms] [LOG] requiresMFA state changed to: false mfaSessionToken: null @ http://localhost:5173/src/routes/login.tsx:92
+[  773021ms] [LOG] === DEBUG: apiRequest headers construction === @ http://localhost:5173/src/utils/api.ts:5
+[  773021ms] [LOG] 1. Raw token from localStorage: null @ http://localhost:5173/src/utils/api.ts:6
+[  773022ms] [LOG] 2. Token type: object @ http://localhost:5173/src/utils/api.ts:7
+[  773022ms] [LOG] 3. Token truthiness (!!token): false @ http://localhost:5173/src/utils/api.ts:8
+[  773023ms] [LOG] 4. Token length: 0 @ http://localhost:5173/src/utils/api.ts:9
+[  773023ms] [LOG] 5. Auth header object: {} @ http://localhost:5173/src/utils/api.ts:13
+[  773024ms] [LOG] 6. Default headers: {} @ http://localhost:5173/src/utils/api.ts:17
+[  773025ms] [LOG] 7. Final headers after merging options: {} @ http://localhost:5173/src/utils/api.ts:22
+[  773025ms] [LOG] === END DEBUG === @ http://localhost:5173/src/utils/api.ts:23
+[  773038ms] [LOG] API Request Debug: {endpoint: /system-config/sso/status, token: No token, tokenLength: 0, headers: Object} @ http://localhost:5173/src/utils/api.ts:32
+[  773186ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/login:0

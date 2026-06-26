@@ -1,8 +1,67 @@
-"""Humanizer — Bezier mouse movement, variable typing speed.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🎭 Humanizer Module
+════════════════════════════════════════════════════════════════════════════════
 
-Wraps engine mouse/keyboard calls with human-like behavior:
-- Mouse: Bezier curve movement via engine.move_mouse()
-- Typing: Variable delay per character via engine.type_text()
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Adds human-like behavior to automated actions: Bezier curve mouse movement,
+variable typing cadence, and random delays to make tests less detectable as bots.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.humanizer import Humanizer
+
+humanizer = Humanizer(
+    mouse_speed_min=0.1,
+    mouse_speed_max=0.25,
+    typing_delay_min=0.05,
+    typing_delay_max=0.15
+)
+
+# Natural mouse movement (Bezier curve)
+await humanizer.move_mouse((0, 0), (100, 200))
+
+# Human-like typing with variable delays
+await humanizer.type_text("Hello, World!")
+```
+
+⚙️  HUMANIZATION FEATURES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Feature             │  Purpose                    │  Example                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Mouse Curves        │  Natural mouse movement     │  Bezier curve path      │
+│  Typing Cadence      │  Variable typing speed      │  "H-e-l-l-o" delays      │
+│  Random Delays       │  Unpredictable pauses       │  50-250ms between keys  │
+│  Micro-movements     │  Subtle position jitter     │  ±2px on clicks         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🖱️  MOUSE MOVEMENT (Bezier Curves)
+───────────────────────────────────────────────────────────────────────────────
+Instead of straight lines, uses cubic Bezier curves:
+```python
+# Direct (robot-like)
+(0, 0) ━━━━━━━━━━━━━━━━━━━━━━━▶ (100, 200)
+
+# Human-like (Bezier curve)
+(0, 0) ━━━━🔄━━━━━━━🔄━━━━━━━▶ (100, 200)
+          └─ curve point 1  └─ curve point 2
+```
+
+⌨️  TYPING BEHAVIOR
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Robot-like (no humanizer)
+await engine.type_text("Hello")  # H-e-l-l-o (instant, same speed)
+
+# Human-like (with humanizer)
+await humanizer.type_text("Hello")
+# H (80ms) ━━ e (120ms) ━━ l (95ms) ━━ l (110ms) ━━ o (85ms)
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

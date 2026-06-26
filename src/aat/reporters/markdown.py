@@ -1,4 +1,112 @@
-"""MarkdownReporter — Markdown report generator."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    📝 Markdown Test Report Generator
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Concrete implementation of BaseReporter that generates human-readable
+Markdown reports with machine-readable JSON summaries. Supports both
+single test runs (TestResult) and DevQA loops (LoopResult) with detailed
+step breakdowns, iteration tracking, and AI analysis integration.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Generate comprehensive test report after scenario execution
+reporter = MarkdownReporter()
+report_path = await reporter.generate(
+    result=test_result,
+    output_dir=Path("reports/2026-06-26_login_test")
+)
+
+# Creates:
+# - report.md (detailed Markdown with tables, timestamps, links)
+# - summary.json (machine-readable metrics for CI/CD integration)
+```
+
+⚙️  CORE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+    MarkdownReporter extends BaseReporter
+         ├── format_name: "markdown"
+         ├── generate() → Creates report.md + summary.json
+         ├── _render_test_report() → TestResult → Markdown tables
+         ├── _render_loop_report() → LoopResult → Iteration details
+         ├── _build_test_summary() → TestResult → JSON dict
+         └── _build_loop_summary() → LoopResult → JSON dict
+
+    Report Structure (TestResult):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ # Test Report: {scenario_name}                                  │
+    │ **Status:** PASS/FAIL                                           │
+    │ **Duration:** {duration_ms}ms                                   │
+    │                                                                 │
+    │ ## Summary                                                      │
+    │ | Metric | Value |                                              │
+    │ | Total Steps | {total} |                                       │
+    │                                                                 │
+    │ ## Step Details                                                 │
+    │ | Step | Action | Status | Duration | Screenshot Links |       │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Report Structure (LoopResult):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ # DevQA Loop Report                                            │
+    │ **Status:** SUCCESS/FAILURE                                     │
+    │ **Total Iterations:** {count}                                   │
+    │                                                                 │
+    │ ## Iteration 1                                                 │
+    │ **Scenario:** login_test (FAIL)                                │
+    │ ### Analysis                                                    │
+    │ - **Cause:** Element not found                                  │
+    │ - **Suggestion:** Update selector to #login-btn                │
+    │ ### Fix Applied                                                │
+    │ - **Files:** scenarios/login.yaml                              │
+    │ - **Confidence:** 95%                                           │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Output Files:
+    {output_dir}/
+      ├── report.md      → Human-readable with tables and formatting
+      └── summary.json   → Machine-readable metrics for automation
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- Dual Output: Generates both Markdown (.md) and JSON (.json) reports
+- TestResult Rendering: Step-by-step tables with status, duration, screenshots
+- LoopResult Rendering: Iteration tracking with AI analysis and fix details
+- JSON Summaries: Machine-readable metrics for CI/CD integration
+- Screenshot Links: Automatic linking to before/after screenshots
+- Git Integration: Shows branch/commit when available in loop results
+- Error Context: Includes error messages in step descriptions
+- Time Formatting: ISO 8601 timestamps for reproducibility
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Screenshot links assume relative paths from report location
+- Large tables may be unwieldy in some Markdown viewers
+- JSON summary contains subset of full data (not complete result dump)
+- No built-in chart generation (text tables only)
+- Report regeneration overwrites existing files (no append mode)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use timestamped output directories for historical tracking
+- Pair with HTMLReporter for richer visualization in CI/CD dashboards
+- Leverage JSON summary for automated pass/fail gates in pipelines
+- Keep scenario names concise for readable report titles
+- Archive reports from production runs for regression analysis
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Standard test execution reports for human review
+✅ DevQA loop documentation with AI fix tracking
+✅ Lightweight CI/CD integration (JSON summary for automation)
+✅ Git-based test result archiving and comparison
+❌ Avoid for real-time streaming (use WebSocket dashboard instead)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

@@ -4,6 +4,57 @@ Extracted verbatim from ``StepExecutor`` (EXEC-6) so the OpenCV absdiff math
 that previously lived in both ``_compute_change_ratio`` and
 ``_check_screen_changed`` has a single, unit-testable source of truth.
 
+════════════════════════════════════════════════════════════════════════════════
+                    🖼️  Image Diff Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Pure-function screen-change detection helpers using OpenCV absdiff math.
+Provides unit-testable image comparison utilities for visual regression testing.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.image_diff import compute_change_ratio, check_screen_changed
+
+# Compute pixel change ratio between two screenshots
+ratio = compute_change_ratio(img1_bytes, img2_bytes)
+# Returns: 0.0 (identical) to 1.0 (completely different)
+
+# Check if screen changed beyond threshold
+changed = check_screen_changed(
+    img1_bytes,
+    img2_bytes,
+    threshold=0.05
+)
+# Returns: True if change > 5%
+```
+
+⚙️  CHANGE DETECTION ALGORITHM
+───────────────────────────────────────────────────────────────────────────────
+1. Decode both screenshots to numpy arrays
+2. Compute absolute difference: `absdiff(img1, img2)`
+3. Count changed pixels: `(diff > 0).sum()`
+4. Calculate ratio: `changed_pixels / total_pixels`
+5. Compare against threshold
+
+📊 CHANGE RATIO INTERPRETATION
+───────────────────────────────────────────────────────────────────────────────
+• 0.0 = Identical (no pixels changed)
+• 0.01-0.05 = Minor change (cursor, spinner)
+• 0.05-0.20 = Moderate change (text update, element appear)
+• >0.20 = Major change (navigation, modal)
+
+⚠️  USE CASES
+───────────────────────────────────────────────────────────────────────────────
+• assert_screen_changed verification
+• Detecting page updates after actions
+• Visual regression testing
+• Checking if modal appeared/disappeared
+
+════════════════════════════════════════════════════════════════════════════════
+
 Behaviour is byte-for-byte identical to the inlined implementation:
 - screenshots are decoded to grayscale
 - when shapes differ, ``after`` is resized to ``before``'s dimensions

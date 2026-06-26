@@ -1,4 +1,101 @@
-"""aat hook — git hook management for auto-scan on commit."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🪝 Git Hook Management Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages Git post-commit hooks for automatic page scanning when UI files change.
+Enables continuous visual regression detection by automatically running aat scan
+after commits containing UI-related file modifications.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Install post-commit hook
+aat hook install
+
+# Remove AWT hook
+aat hook uninstall
+
+# Manual hook execution (for testing)
+.git/hooks/post-commit
+```
+
+⚙️  GIT HOOK ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Auto-Scan Git Hook System                              │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Hook Installation                                         │  │
+│  │    → Create .git/hooks/post-commit                           │  │
+│  │    → Add executable permission (chmod +x)                     │  │
+│  │    → Preserve existing hooks (append mode)                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Post-Commit Trigger                                        │  │
+│  │    → Runs automatically after each git commit                  │  │
+│  │    → Checks for UI file changes (*.dart, *.tsx, *.vue)       │  │
+│  │    → Triggers: git diff --name-only HEAD~1 HEAD               │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. UI File Detection                                         │  │
+│  │    → Pattern matching: *.dart, *.tsx, *.jsx, *.vue, *.html │  │
+│  │    → Grep for changed files matching patterns                 │  │
+│  │    → Exit if no UI files changed                              │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Auto-Scan Execution                                       │  │
+│  │    → Read URL from existing .aat/scan_result.json              │  │
+│  │    → Run: aat scan --url $URL --compare $PREV_SCAN             │  │
+│  │    → Show element additions, removals, movements                │  │
+│  │    → Non-failing (errors don't block commit)                  │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Result Reporting                                         │  │
+│  │    → Display scan diff in commit output                       │  │
+│  │    → Show changed element counts                             │  │
+│  │    → Suggest manual scan if baseline missing                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **hook installation**: Create and configure post-commit hooks
+- **UI file detection**: Pattern matching for frontend file types
+- **auto-scan triggering**: Automatic page scanning on UI changes
+- **comparison mode**: Diff against previous scan for change detection
+- **non-blocking**: Hook failures don't prevent git commits
+- **hook management**: Install and remove AWT hooks cleanly
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires git repository with .git/hooks directory
+- Only works with local git commits (not CI/CD systems)
+- Depends on existing .aat/scan_result.json for URL
+- Hook execution adds time to git commit process
+- May not work with all git configurations or hooks
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Install hook in project root for proper git integration
+- Review scan diff in commit output for UI change awareness
+- Ensure aat scan has been run at least once for URL reference
+- Remove hook if it interferes with workflow or slows commits
+- Use with aat watch for comprehensive change monitoring
+- Combine with visual regression testing for complete coverage
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Continuous monitoring of UI changes during development
+✅ Automatic visual regression detection on commits
+✅ Teams working on UI-heavy applications
+✅ Projects requiring frequent visual consistency checks
+❌ Not needed for CI/CD pipelines (use aat diff instead)
+❌ Not suitable for projects without UI components
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

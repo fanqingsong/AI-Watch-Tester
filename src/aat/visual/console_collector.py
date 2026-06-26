@@ -1,7 +1,116 @@
-"""Console error collector — captures browser JS errors during test execution.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    🐛 Browser Console Error Collector
+════════════════════════════════════════════════════════════════════════════════
 
-Attaches to Playwright page events (console, pageerror) and collects
-errors/warnings for reporting.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Captures and aggregates browser console errors, warnings, and page errors
+during test execution. Attaches to Playwright page event handlers to collect
+JavaScript issues in real-time, providing diagnostic context for test failures
+and frontend quality monitoring.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Attach collector to Playwright page before test execution
+collector = ConsoleCollector()
+collector.attach(page)
+
+# Run test steps (errors collected automatically)
+await page.click("#submit-button")
+await page.wait_for_url("*/success")
+
+# Check for errors after execution
+if collector.error_count > 0:
+    print(f"Test completed with {collector.error_count} console errors:")
+    for error in collector.errors:
+        print(f"  → {error.text} at {error.url}:{error.line_number}")
+
+# Clear for next scenario
+collector.reset()
+```
+
+⚙️  CORE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+    ConsoleCollector
+         ├── attach()           → Register listeners on Playwright page
+         ├── _on_console()      → Handle console message events
+         ├── _on_pageerror()    → Handle uncaught exception events
+         ├── errors             → Filter only error-level entries
+         ├── warnings           → Filter only warning-level entries
+         ├── error_count        → Quick access to error total
+         ├── reset()            → Clear entries for next scenario
+         ├── format_summary()   → One-line status string
+         └── format_details()   → Multi-line error listing
+
+    Event Attachment:
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ page.on("console", collector._on_console)                       │
+    │   ↓ Captures: console.log(), console.error(), console.warn()    │
+    │                                                                 │
+    │ page.on("pageerror", collector._on_pageerror)                   │
+    │   ↓ Captures: Uncaught exceptions, rejected promises            │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Data Flow:
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ Browser Event                                                   │
+    │    ↓                                                            │
+    │ Callback Handler (_on_console or _on_pageerror)                 │
+    │    ↓                                                            │
+    │ Extract: level, text, url, line_number                         │
+    │    ↓                                                            │
+    │ Store ConsoleEntry in entries list                             │
+    │    ↓                                                            │
+    │ Query via errors/warnings/error_count properties               │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Entry Structure:
+    ConsoleEntry:
+      ├── level: "error" | "warning" | "info" | "log"
+      ├── text: Error message or log content
+      ├── url: Source file URL (if available)
+      └── line_number: Line number in source file
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- Real-Time Collection: Attaches to browser events for immediate capture
+- Event Filtering: Automatically filters errors and warnings from noise
+- Source Tracking: Captures URL and line numbers for debugging
+- Dual Event Types: Handles both console API calls and uncaught errors
+- Filtered Views: Separate accessors for errors and warnings
+- Reset Capability: Clear state between test scenarios
+- Formatted Output: Ready-to-use summary and detail strings for reports
+- Idempotent Attachment: Safe to call attach() multiple times
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- No duplicate detection (same error logged multiple times)
+- No grouping by error type (each entry is separate)
+- URL extraction may fail for some browser errors (empty string fallback)
+- Line numbers not always available (0 when unknown)
+- No buffering/limit (memory grows with error count in long sessions)
+- Only captures errors from attached page (not iframes or web workers)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Always attach collectors before running test steps
+- Reset collectors between scenarios to avoid cross-contamination
+- Use error_count for quick pass/fail gates in assertions
+- Archive format_details() output when investigating failures
+- Pair with screenshot capture for full context on errors
+- Consider implementing grouping for duplicate error suppression
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ E2E test execution with frontend quality validation
+✅ Regression testing with console error monitoring
+✅ Pre-production deployment smoke tests
+✅ Detecting JavaScript errors not visible in UI
+❌ Don't use for backend error monitoring (server logs instead)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

@@ -1,4 +1,112 @@
-"""OCRMatcher — pytesseract based text matching (no pandas required)."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🔍 OCR Text Matcher Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Optical Character Recognition (OCR) based text matching using Tesseract.
+Locates text elements on screen by converting screenshot pixels to searchable
+text data with enhanced preprocessing for Canvas-rendered and pixel-based text.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Find a "Submit" button on any web page
+target = TargetSpec(text="Submit")
+result = await ocr_matcher.find(target, screenshot)
+if result:
+    print(f"Found button at ({result.x}, {result.y})")
+```
+
+⚙️  PREPROCESSING PIPELINE
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         Raw Screenshot (PNG bytes)                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Step 1: Grayscale Conversion (BGR→Gray)                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│           Step 2: CLAHE (Contrast Limited Adaptive Histogram Equalization)  │
+│                      • clipLimit=3.0 for Canvas text enhancement            │
+│                      • tileGridSize=(8, 8) for local contrast                │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Step 3: Sharpening Filter (Edge Enhancement)              │
+│              Kernel: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]]                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       Step 4: 2x Upscale (INTER_CUBIC)                       │
+│                    Improves small text recognition accuracy                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Step 5: Tesseract OCR (pytesseract)                       │
+│              • Multi-language support via --oem 3 (LSTM only)                 │
+│              • Output.DICT format (no pandas dependency)                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Single-token matching: Finds individual words/phrases with confidence scoring
+• Phrase matching: Concatenates words per text line for multi-word searches
+• Multi-language support: Configurable via MatchingConfig.ocr_languages
+• Confidence filtering: Only returns results above threshold (default 0.7)
+• Index-based selection: Supports match_index for Nth occurrence selection
+• Coordinate normalization: Converts 2x upscaled coordinates back to original
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• Requires Tesseract OCR installation + pytesseract Python package
+• Canvas/CanvasKit text may require preprocessing enhancements (already applied)
+• Large screenshots (4K+) may be slow due to 2x upscale + OCR processing
+• Handwriting or decorative fonts may have low recognition accuracy
+• Confidence scores are Tesseract's internal estimates (may not reflect actual precision)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+1. Install Tesseract OCR system package before use:
+   • Linux: sudo apt-get install tesseract-ocr
+   • macOS: brew install tesseract
+   • Windows: Download installer from github.com/UB-Mannheim/tesseract/wiki
+
+2. Install language packs for non-English text:
+   • sudo apt-get install tesseract-ocr-[langcode]
+
+3. Use OCR as Tier 2 matcher (after template, before AI vision) in HybridMatcher
+
+4. For dynamic text (buttons, labels), prefer OCR over template matching
+
+5. Adjust confidence_threshold based on testing with your application's font rendering
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ GOOD USE CASES:
+  • Finding dynamic text (button labels, menu items, status messages)
+  • Multi-language applications with i18n text variations
+  • Canvas-rendered text (React Canvas, CanvasKit, custom WebGL text)
+  • When no reference image is available, only text description
+  • Accessibility testing (verify visible text matches expected strings)
+
+❌ BAD USE CASES:
+  • Icon/graphic detection (use template or feature matching instead)
+  • Extremely stylized or decorative fonts (low OCR accuracy)
+  • Real-time performance requirements (OCR is slower than template matching)
+  • Text with low contrast or poor readability
+  • When you have a perfect reference image available (template matching is faster)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,83 @@
-"""aat cost — view AI API usage costs."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   💰 AI Cost Tracking & Reporting Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Provides cost tracking and reporting for AI API usage across all AAT operations.
+Monitors token consumption, calculates costs, and provides detailed breakdowns
+by time period and provider.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# View cost summary by day
+aat cost summary
+
+# View monthly cost breakdown
+aat cost summary --group month
+
+# Show recent API call log
+aat cost log --last 50
+
+# View cost with specific config
+aat cost summary --config aat.config.yaml
+```
+
+⚙️  COST DATA STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  .aat/cost_log.json                                                 │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ [                                                              │  │
+│  │   {                                                            │  │
+│  │     "timestamp": "2026-06-25T10:30:45",                      │  │
+│  │     "provider": "claude",                                     │  │
+│  │     "operation": "generate_scenarios",                        │  │
+│  │     "model": "claude-sonnet-4-20250514",                      │  │
+│  │     "input_tokens": 1234,                                     │  │
+│  │     "output_tokens": 5678,                                    │  │
+│  │     "cost_usd": 0.0234                                        │  │
+│  │   },                                                          │  │
+│  │   ...                                                         │  │
+│  │ ]                                                              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **summary**: Display cost totals grouped by day or month
+- **log**: Show recent API call entries with full details
+- **provider breakdown**: Multi-provider cost comparison
+- **free tier detection**: Properly handle zero-cost operations (Ollama)
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Cost tracking requires write access to data directory
+- Estimates may vary slightly from actual billing due to rounding
+- Historical accuracy depends on continuous logging
+- Some providers may have complex pricing not fully captured
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Review costs weekly to monitor usage patterns
+- Use --group month for long-term trend analysis
+- Check log entries to identify expensive operations
+- Consider using Ollama for free local AI processing
+- Monitor costs during AI-heavy operations (generate, loop, analyze)
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Regular monitoring of AI spending
+✅ Budget optimization and cost control
+✅ Identifying expensive test operations
+✅ Multi-provider cost comparison
+❌ Not useful for free/local AI providers (Ollama)
+❌ Not needed for simple test runs without AI
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

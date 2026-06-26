@@ -1,6 +1,129 @@
-"""WebEngine — Playwright-based web test engine.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       🌐  Web Engine Module
+════════════════════════════════════════════════════════════════════════════════
 
-Implements BaseEngine using Playwright async API.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Playwright-based web test engine implementing BaseEngine interface. Provides
+async browser automation for Chromium, Firefox, and WebKit browsers.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.web import WebEngine
+from aat.core import EngineConfig
+
+config = EngineConfig(
+    type="web",
+    browser="chromium",
+    headless=False,
+    viewport_width=1280,
+    viewport_height=720,
+    timeout_ms=30000
+)
+
+engine = WebEngine(config)
+await engine.start()
+await engine.navigate("https://example.com")
+await engine.click(100, 200)
+screenshot = await engine.screenshot()
+await engine.stop()
+```
+
+⚙️  PLAYWRIGHT INTEGRATION
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  WebEngine Architecture                                                      │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     │
+│  │  Playwright     │────▶│  Browser        │────▶│  BrowserContext│     │
+│  │  Instance       │     │  (chrom/firefox)│     │  (cookies, etc)│     │
+│  └─────────────────┘     └─────────────────┘     └─────────────────┘     │
+│                                                                 │           │
+│                                                                 ▼           │
+│                                                    ┌─────────────────┐    │
+│                                                    │  Page           │    │
+│                                                    │  (DOM, Network) │    │
+│                                                    └─────────────────┘    │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Key Features:
+• Async API (non-blocking operations)
+• Multi-browser support (Chromium, Firefox, WebKit)
+• Headless mode (CI/CD friendly)
+• Viewport control (responsive testing)
+• Network interception (optional)
+• Console error collection
+• Session storage/restore
+
+🌐 BROWSER SUPPORT
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Browser    │  Status       │  Notes                                      │
+├────────────────────────────────────────────────────────────────────────────┤
+│  chromium   │  ✅ Stable    │  Default, fastest, most reliable             │
+│  firefox    │  ✅ Stable    │  Good for cross-browser testing               │
+│  webkit     │  ⚠️  Experimental│ Safari engine, limited support              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🎨 HEADLESS VS HEADED MODE
+───────────────────────────────────────────────────────────────────────────────
+Headless Mode (CI/CD):
+```python
+config = EngineConfig(
+    headless=True,      # No visible window
+    viewport_width=1280,
+    viewport_height=720
+)
+```
+
+Headed Mode (Development):
+```python
+config = EngineConfig(
+    headless=False,      # Visible browser window
+    slow_mo=100,         # Slow down actions (ms)
+    window_x=100,        # Window position
+    window_y=0
+)
+```
+
+💾 SESSION MANAGEMENT
+───────────────────────────────────────────────────────────────────────────────
+Save and restore browser sessions (cookies, localStorage):
+```python
+# Save session after login
+await engine.save_session("login_state")
+
+# Restore session on next run
+await engine.load_session("login_state")
+# Skips login, goes straight to logged-in state
+```
+
+📸 SCREENSHOT CAPTURE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Full page screenshot
+screenshot_bytes = await engine.screenshot()
+
+# Screenshot specific element (via Playwright)
+element_screenshot = await engine.page.screenshot(path="element.png")
+
+# Screenshot with clipping
+clipped = await engine.page.screenshot(
+    clip={"x": 0, "y": 0, "width": 800, "height": 600}
+)
+```
+
+⚡ PERFORMANCE OPTIMIZATIONS
+───────────────────────────────────────────────────────────────────────────────
+• Speed presets: "fast" (Next.js/React), "normal", "slow" (Flutter CanvasKit)
+• Screenshot modes: "all", "before-after", "on-failure"
+• Verbosity levels: "detailed" (all steps), "concise" (skip waits)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

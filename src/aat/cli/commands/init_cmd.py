@@ -1,4 +1,82 @@
-"""aat init — project initialization."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🚀 Project Initialization Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Initializes new AAT projects with directory structure, configuration files,
+and optional AI provider setup. Creates the foundation for test automation
+with sensible defaults and guided configuration.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic project initialization
+aat init
+
+# With custom project name and URL
+aat init --name my-web-app --url http://localhost:3000
+
+# With custom source path
+aat init --name ecommerce --source src/ --url https://example.com
+
+# Skip AI provider setup (configure later)
+aat init --skip-setup
+```
+
+⚙️  PROJECT STRUCTURE CREATED
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  Project Directory Layout                                             │
+│  .                                                                   │
+│  ├── aat.config.yaml          # Main configuration file             │
+│  ├── .aat/                    # AAT data directory                   │
+│  │   ├── scans/               # Page scan results                   │
+│  │   ├── screenshots/         # Test screenshots                    │
+│  │   ├── baselines/           # Visual regression baselines          │
+│  │   ├── reports/             # Test execution reports              │
+│  │   ├── sessions/            # Saved browser sessions              │
+│  │   └── learned.db           # Learning database                   │
+│  ├── scenarios/               # Test scenario YAML files            │
+│  └── .gitignore               # Updated with AAT exclusions          │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **directory creation**: Sets up .aat/ and scenarios/ directories
+- **configuration generation**: Creates aat.config.yaml with default settings
+- **git integration**: Updates .gitignore for sensitive files
+- **AI setup wizard**: Optional interactive provider configuration
+- **environment check**: Runs aat doctor for dependency verification
+- **customization options**: Project name, source path, and URL configuration
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Overwrites existing aat.config.yaml if present
+- Creates directories in current working directory only
+- AI setup requires network connectivity for provider verification
+- Git integration assumes standard .gitignore location
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Run from project root directory
+- Use descriptive project names for clarity
+- Set target URL early to avoid repetitive configuration
+- Complete AI setup during initialization for best experience
+- Review generated configuration before committing
+- Use --skip-setup for automated or CI/CD environments
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Starting a new AAT test automation project
+✅ Setting up test infrastructure for existing applications
+✅ Creating standardized project structure for teams
+❌ Not needed if project already initialized
+❌ Not for modifying existing project structure
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

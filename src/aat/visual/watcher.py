@@ -1,8 +1,133 @@
-"""File watcher for automatic test re-execution on changes.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    👁️ File System Watcher for Auto-Retest
+════════════════════════════════════════════════════════════════════════════════
 
-Watches source files and scenario files, then re-runs relevant scenarios
-when changes are detected. Uses watchfiles (Rust-based) for efficient
-file system monitoring, with a polling fallback.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Monitors source code and scenario files for changes, automatically triggering
+test re-execution when modifications are detected. Provides efficient native
+file system monitoring via watchfiles with polling fallback for cross-platform
+compatibility in development workflows.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Watch for changes and auto-run relevant tests
+watcher = FileWatcher()
+
+async def on_changed(files: set[str]) -> None:
+    scenarios_to_run = detect_changed_scenarios(files, scenarios_dir)
+    for scenario in scenarios_to_run:
+        await run_test(scenario)
+
+await watcher.watch_and_run(
+    watch_paths=[Path("src/"), Path("scenarios/")],
+    on_change=on_changed,
+    extensions={".py", ".yaml"},
+    debounce_ms=500
+)
+```
+
+⚙️  CORE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+    FileWatcher
+         ├── watch_and_run()    → Main entry point for file monitoring
+         ├── _watch_native()    → Efficient watchfiles-based monitoring
+         └── _watch_polling()   → Fallback polling-based monitoring
+
+    Module Functions (convenience helpers):
+    ├── detect_changed_scenarios()  → Map changed files → scenarios to run
+    ├── format_change_summary()     → Human-readable change summary
+    └── format_elapsed()            → Pretty-print elapsed time
+
+    Watch Strategy Selection:
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ watch_and_run() called                                            │
+    │                         ↓                                        │
+    │ Try import watchfiles                                            │
+    │                         ↓                                        │
+    │ Available? ──Yes→ _watch_native() [efficient, OS events]         │
+    │      │                                                           │
+    │      └──No→ _watch_polling() [fallback, periodic checks]         │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Native Flow (watchfiles):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 1. Register paths with watchfiles.awatch()                     │
+    │    - Native OS file events (inotify, FSEvents, ReadDirectoryChangesW) │
+    │                         ↓                                        │
+    │ 2. Wait for file changes (debounce_ms: 500ms default)            │
+    │                         ↓                                        │
+    │ 3. Filter by extension (e.g., .py, .yaml only)                  │
+    │                         ↓                                        │
+    │ 4. Call on_change(changed_files_set)                             │
+    │                         ↓                                        │
+    │ 5. Repeat (async for loop)                                       │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Polling Flow (fallback):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ 1. Scan all files and record mtimes                              │
+    │                         ↓                                        │
+    │ 2. Sleep for poll_interval (1.0s default)                        │
+    │                         ↓                                        │
+    │ 3. Rescan and compare mtimes                                     │
+    │                         ↓                                        │
+    │ 4. Call on_change() for files with newer mtimes                  │
+    │                         ↓                                        │
+    │ 5. Repeat                                                        │
+    └─────────────────────────────────────────────────────────────────┘
+
+    Scenario Detection Logic:
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ Changed File Type              → Action                          │
+    │──────────────────────────────────────────────────────────────────│
+    │ .yaml/.yml (scenario)          → Run that specific scenario      │
+    │ .py/.js/.css (source code)     → Run ALL scenarios (regression)  │
+    │ Any other file                 → Run ALL scenarios (safe default) │
+    └─────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- Dual Watch Modes: Native file events with polling fallback
+- Extension Filtering: Trigger only on relevant file types
+- Debouncing: Coalesce rapid changes into single event (500ms default)
+- Scenario Mapping: Intelligent test selection based on change type
+- Directory Exclusion: Skips node_modules, __pycache__, .venv, etc.
+- Cross-Platform: Works on Linux (inotify), macOS (FSEvents), Windows
+- Encapsulated State: FileWatcher class avoids global mutable state
+- Utility Functions: Formatted output and scenario detection helpers
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Polling mode has higher latency than native events (1s intervals)
+- File changes during polling scan may be missed (race condition)
+- No recursion depth limits (watched subdirectories can be very large)
+- No file count limits (memory scales with watched directory size)
+- watchfiles dependency optional but recommended for efficiency
+- No network file system support (local filesystem only)
+- Deprecated module-level functions still available (use FileWatcher class)
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Install watchfiles for efficient native file events
+- Use debounce_ms=200-500 for coalescing rapid save operations
+- Exclude build artifacts and dependency directories from watch paths
+- Prefer FileWatcher class over deprecated module-level functions
+- Use extension filters to reduce noise from irrelevant file changes
+- Monitor both source code and scenarios for complete coverage
+- Set appropriate poll_interval for polling mode (1-2 seconds typical)
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Development workflows with automatic test re-run on save
+✅ TDD workflows requiring immediate feedback on code changes
+✅ Scenario development with iterative refinement cycles
+✅ Regression testing after source code modifications
+❌ Don't use in CI/CD (single-pass tests more appropriate there)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

@@ -1,4 +1,104 @@
-"""aat watch — auto-run tests on file changes."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   👁️ Auto-Run Watch Mode Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Monitors file changes and automatically re-runs test scenarios. Enables
+continuous testing during development by detecting modifications to source code,
+scenarios, or test files and triggering test execution with visual diff.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Watch scenarios and run on changes
+aat watch scenarios/login_test.yaml
+
+# Watch with additional source directory
+aat watch scenarios/ --watch src/
+
+# Custom debounce interval and threshold
+aat watch scenarios/ --debounce 2000 --threshold 0.90
+
+# Skip initial run on start
+aat watch scenarios/ --no-run-on-start
+```
+
+⚙️  WATCH MODE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                    File Watch & Auto-Run System                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. File System Monitoring                                     │  │
+│  │    → Watch scenarios/ directory for changes                   │  │
+│  │    → Optional: watch src/ or custom directory                  │  │
+│  │    → Detect file modifications, additions, deletions            │  │
+│  │    → Debounce changes (default: 1000ms)                        │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Change Detection & Scenario Mapping                       │  │
+│  │    → Identify which scenarios changed                         │  │
+│  │    → For source changes: run all scenarios                    │  │
+│  │    → For scenario changes: run specific file                  │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Automatic Test Execution                                   │  │
+│  │    → Run aat run with optimized flags                         │  │
+│  │    → Use approval token for automation                        │  │
+│  │    → Capture screenshots and results                          │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Visual Regression (Optional)                               │  │
+│  │    → If baselines exist: run aat diff                          │  │
+│  │    → Compare current vs. baseline screenshots                  │  │
+│  │    → Report visual regressions with SSIM scores               │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Result Reporting                                           │  │
+│  │    → Show pass/fail status with colored output                │  │
+│  │    → Display execution time and step counts                    │  │
+│  │    → Return to watching state for next change                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **file monitoring**: Watches scenarios and optional source directories
+- **debounced execution**: Configurable delay to avoid excessive runs
+- **smart scenario mapping**: Runs only affected scenarios when possible
+- **visual regression integration**: Automatic diff when baselines exist
+- **approval token management**: Auto-approves internal test executions
+- **result formatting**: Clear pass/fail reporting with timing information
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires file system events (may not work on all platforms/containers)
+- Continuous execution may consume significant resources
+- Approval tokens enable automation but maintain security
+- Visual regression only runs if baselines previously captured
+- May miss rapid changes if debounce interval is too long
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use appropriate debounce interval (1-2 seconds for most development)
+- Monitor specific scenario files for focused testing
+- Use --watch src/ for comprehensive regression testing
+- Combine with visual regression for complete coverage
+- Set shorter thresholds for sensitive UI testing
+- Monitor resource usage during long watch sessions
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Active development with frequent code changes
+✅ Continuous testing during feature implementation
+✅ Visual regression monitoring during UI development
+✅ Automated regression testing with visual verification
+❌ Not for one-time test execution (use aat run)
+❌ Not suitable for CI/CD pipelines (use aat run directly)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

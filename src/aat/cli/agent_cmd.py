@@ -1,7 +1,85 @@
 """
-AWT CLI Agent Command
+════════════════════════════════════════════════════════════════════════════════
+                   🤖 AWT Smart Agent Command Module
+════════════════════════════════════════════════════════════════════════════════
 
-将智能测试代理集成到 AWT CLI 系统中
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Integrates intelligent AI-powered testing agents into the AWT CLI system.
+Provides autonomous test execution, conversational testing interface, page
+analysis, and test planning capabilities using advanced AI agents.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Run autonomous test from natural language
+aat agent test "Test login functionality" --url http://localhost:3000/login
+
+# Interactive conversational testing
+aat agent chat
+
+# Analyze page structure
+aat agent analyze http://localhost:3000 --depth detailed
+
+# Generate test plan without execution
+aat agent plan "Test shopping flow" --url http://localhost:3000 --type ecommerce
+
+# Run demonstrations
+aat agent demo --number 2
+```
+
+⚙️  AGENT ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+                    ┌────────────────────────────────┐
+                    │   SimpleSupervisorAgent       │
+                    │   (Orchestration Layer)       │
+                    └──────────┬─────────────────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+   ┌────▼────┐          ┌─────▼──────┐        ┌─────▼──────┐
+   │  Test   │          │   Chat     │        │  Analyze   │
+   │  Agent  │          │   Agent    │        │   Agent    │
+   └────┬────┘          └─────┬──────┘        └─────┬──────┘
+        │                      │                      │
+   ┌────▼────┐          ┌─────▼──────┐        ┌─────▼──────┐
+   │ Intent  │          │ Conversation│       │  Page      │
+   │Detection│          │   Handler   │        │  Scraper   │
+   └─────────┘          └─────────────┘        └────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **test**: Autonomous test execution from natural language descriptions
+- **chat**: Interactive conversational testing interface
+- **analyze**: Deep page analysis with element detection and flow extraction
+- **plan**: Test plan generation without execution
+- **demo**: Pre-built demonstration scenarios
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires valid AI provider configuration (Claude, OpenAI, or ZhipuAI)
+- Agent commands use Chinese-optimized models by default (glm-4.7)
+- Demo scripts must exist in examples/agent/ directory
+- Network connectivity required for AI operations
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Start with analyze command to understand page structure
+- Use chat mode for exploratory testing and learning
+- Employ test mode for repeatable, documented test scenarios
+- Use plan command before complex multi-step testing
+- Check demo scripts for usage patterns and examples
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Natural language test descriptions without writing YAML
+✅ Exploratory testing with AI assistance
+✅ Complex page analysis and flow discovery
+✅ Test planning and documentation generation
+❌ Not for production CI/CD pipelines (use aat run instead)
+❌ Not when precise YAML control is required
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 import asyncio

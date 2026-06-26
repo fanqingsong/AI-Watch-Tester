@@ -1,7 +1,86 @@
-"""AIAdapter ABC — AI tool integration interface.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                       🤖 AI Adapter Base Module
+════════════════════════════════════════════════════════════════════════════════
 
-ClaudeAdapter, GPTAdapter etc. implement this.
-Handles failure analysis, code fix generation, scenario generation, and document analysis.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Abstract interface for AI tool integration. Defines the contract that all AI
+providers (Claude, OpenAI, Gemini, DeepSeek, Ollama, Zhipu) must implement
+for failure analysis, code generation, and scenario creation.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.adapters.claude import ClaudeAdapter
+from aat.core import AIConfig
+
+config = AIConfig(
+    provider="claude",
+    api_key="sk-...",
+    model="claude-sonnet-4-20250514"
+)
+
+adapter = ClaudeAdapter(config)
+
+# Analyze test failure
+analysis = await adapter.analyze_failure(test_result)
+
+# Generate code fix
+fix = await adapter.generate_fix(analysis, source_files)
+
+# Generate test scenarios
+scenarios = await adapter.generate_scenarios(url="https://example.com", spec="test login")
+```
+
+⚙️  AI CAPABILITIES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Method                 │  Purpose                  │  Use Case                │
+├────────────────────────────────────────────────────────────────────────────┤
+│  analyze_failure()      │  Diagnose test failures   │  AI debugging loop       │
+│  generate_fix()          │  Generate code patches     │  Auto-fix with approval   │
+│  generate_scenarios()    │  Create test scenarios    │  Scan → Generate        │
+│  analyze_document()      │  Extract requirements     │  Spec → Test cases       │
+│  verify_step()           │  Visual step verification  │  AI-powered validation   │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔌 SUPPORTED PROVIDERS
+───────────────────────────────────────────────────────────────────────────────
+• Claude (Anthropic) — claude-sonnet-4-20250514, claude-haiku-4-5-20251001
+• OpenAI — gpt-4o, gpt-4o-mini, gpt-4
+• Gemini — gemini-2.0-flash, gemini-2.5-flash
+• DeepSeek — deepseek-chat
+• Ollama — Local models (free)
+• Zhipu — GLM-4
+
+💡 DESIGN PATTERN
+───────────────────────────────────────────────────────────────────────────────
+Adapter pattern with provider-specific implementations sharing common interface:
+```
+          AIAdapter (ABC)
+                 │
+    ┌────────────┼────────────┬────────────┬────────────┐
+    │            │            │            │            │
+ClaudeAdapter  OpenAIAdapter  GeminiAdapter  OllamaAdapter  DeepSeekAdapter
+```
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• Abstract Base Class (ABC) — enforces interface compliance
+• Provider-agnostic API — swap AI providers without changing application code
+• JSON response parsing — handles markdown fences and format variations
+• Vision support — image analysis for screenshot-based failure diagnosis
+
+🔧 ARCHITECTURAL NOTES
+───────────────────────────────────────────────────────────────────────────────
+• All AI operations are async for non-blocking execution
+• JSON response format is standardized across all providers
+• Vision capabilities vary by provider (Claude/OpenAI support images)
+• Structured Outputs (json_schema) supported only by OpenAI adapter
+• Fallback parsing handles YAML, JSON, and markdown-wrapped responses
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

@@ -3,6 +3,72 @@
 Owns the variable substitution responsibilities that previously lived inline
 on :class:`StepExecutor`:
 
+════════════════════════════════════════════════════════════════════════════════
+                    🔧 Variable Resolver Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Handles runtime variable substitution in test step values, supporting
+scenario variables, environment variables, and built-in dynamic variables.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.variable_resolver import resolve_variables
+
+# Resolve variables in step values
+variables = {
+    "url": "https://example.com",
+    "username": "testuser"
+}
+
+resolved = resolve_variables(
+    "Navigate to {{url}}/login as {{username}}",
+    variables
+)
+# Returns: "Navigate to https://example.com/login as testuser"
+```
+
+⚙️  VARIABLE SOURCES
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Source            │  Syntax               │  Example                    │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Scenario vars      │  {{var_name}}          │  {{url}}                    │
+│  Environment vars   │  {{env.VAR_NAME}}      │  {{env.API_KEY}}             │
+│  Built-in vars      │  {{timestamp}}         │  1719331200                  │
+│                     │  {{datetime}}          │  20260626_120000             │
+│                     │  {{random}}             │  abc12345                    │
+│                     │  {{uuid}}               │  123e4567-e89b-12d3...   │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🔄 RESOLUTION ORDER
+───────────────────────────────────────────────────────────────────────────────
+1. Built-in variables (timestamp, datetime, random, uuid)
+2. Environment variables ({{env.VAR_NAME}})
+3. Scenario-level variables ({{var_name}})
+4. Unresolved placeholders remain as-is (warned in strict mode)
+
+💡 BUILT-IN VARIABLES
+───────────────────────────────────────────────────────────────────────────────
+• `{{timestamp}}` — Unix timestamp (seconds since epoch)
+• `{{datetime}}` — ISO 8601 datetime (YYYYMMDD_HHMMSS)
+• `{{random}}` — 8-character random alphanumeric string
+• `{{uuid}}` — UUID v4 string
+
+⚠️  UNRESOLVED VARIABLES
+───────────────────────────────────────────────────────────────────────────────
+In strict mode, unresolved variables raise an error:
+```python
+# Scenario with {{undefined_var}}
+variables = {}
+resolved = resolve_variables("Go to {{undefined_var}}", variables)
+# → VariableResolutionError: Undefined variable: undefined_var
+```
+
+════════════════════════════════════════════════════════════════════════════════
+
 - :func:`resolve` — substitute {{var}} in step fields from runtime + env vars.
 
 This function is pure — it receives the runtime_vars, scenario_vars, and step

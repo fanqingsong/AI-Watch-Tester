@@ -1,7 +1,144 @@
-"""StepExecutor — individual test step runner.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                    ⚙️  Step Executor Module
+════════════════════════════════════════════════════════════════════════════════
 
-Orchestrates: screenshot_before → wait → match → action → compare → screenshot_after
-All dependencies are injected via constructor for testability.
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Core step execution orchestrator that coordinates screenshot capture, waiting,
+matching, action execution, comparison, and result recording for each test step.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.executor import StepExecutor
+from aat.core import StepConfig
+
+executor = StepExecutor(
+    engine=web_engine,
+    matchers=matchers,
+    humanizer=humanizer,
+    waiter=waiter,
+    config=config
+)
+
+# Execute a single step
+step_config = StepConfig(
+    step=1,
+    action=ActionType.FIND_AND_CLICK,
+    target=TargetSpec(text="Submit Button"),
+    description="Click submit button"
+)
+
+result = await executor.execute_step(step_config)
+print(f"Status: {result.status}")  # PASSED | FAILED | ERROR
+print(f"Match: x={result.match_result.x}, y={result.match_result.y}")
+```
+
+⚙️  EXECUTION FLOW
+───────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Step Input                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  StepConfig: {step: 1, action: find_and_click, target: {...}}    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Screenshot Before (if enabled)                                      │   │
+│  │  • Captures page state before action                                │   │
+│  │  • Stored in result.screenshot_before                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Wait (Pre-Action)                                                   │   │
+│  │  • Humanize delay (mouse speed, typing cadence)                      │   │
+│  │  • Configurable wait (slow_mo setting)                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Match Target                                                        │   │
+│  │  • Run through matcher chain (learned → template → OCR → feature)   │   │
+│  │  • Find coordinates: (x, y, width, height)                          │   │
+│  │  • Return MatchResult with confidence score                          │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Execute Action                                                       │   │
+│  │  • navigate → engine.navigate(url)                                  │   │
+│  │  • find_and_click → engine.click(x, y)                               │   │
+│  │  • find_and_type → engine.click + engine.type_text                   │   │
+│  │  • type_text → engine.type_text(text)                                 │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Compare/Assert (if action=assert*)                                  │   │
+│  │  • assert_text → Check if text exists on page                        │   │
+│  │  • assert_url → Check current URL                                     │   │
+│  │  • assert_screen_changed → Compare screenshots                        │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Screenshot After (if enabled)                                       │   │
+│  │  • Captures page state after action                                 │   │
+│  │  • Stored in result.screenshot_after                                │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Build StepResult                                                    │   │
+│  │  • status: PASSED | FAILED | ERROR                                   │   │
+│  │  • match_result: MatchResult or None                                 │   │
+│  │  • error_message: string or None                                     │   │
+│  │  • elapsed_ms: execution time                                       │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+🎨 DEPENDENCY INJECTION
+───────────────────────────────────────────────────────────────────────────────
+All major dependencies are injected via constructor for testability:
+```python
+executor = StepExecutor(
+    engine=engine,              # WebEngine | DesktopEngine
+    matchers=matchers,          # MatcherRegistry
+    humanizer=humanizer,        # Humanizer (mouse/keyboard realism)
+    waiter=waiter,              # Waiter (smart waits)
+    comparator=comparator,      # VisualComparator
+    config=config              # EngineConfig
+)
+```
+
+📦 STEP RESULT STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+```python
+StepResult(
+    step=1,
+    action=ActionType.FIND_AND_CLICK,
+    status=StepStatus.PASSED,    # or FAILED, ERROR
+    description="Click submit button",
+    match_result=MatchResult(
+        found=True,
+        x=100,
+        y=200,
+        confidence=0.95,
+        method=MatchMethod.TEMPLATE
+    ),
+    screenshot_before=".aat/screenshots/before_step1.png",
+    screenshot_after=".aat/screenshots/after_step1.png",
+    error_message=None,
+    elapsed_ms=1234.56,
+    timestamp=datetime.now()
+)
+```
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

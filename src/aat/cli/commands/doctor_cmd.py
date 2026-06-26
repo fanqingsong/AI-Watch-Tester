@@ -1,4 +1,116 @@
-"""aat doctor — environment health check."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   🏥 Environment Health Check Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Comprehensive environment health check for AAT dependencies and configuration.
+Validates Python version, CLI installation, browser engines, OCR tools, and
+AI provider connectivity with detailed diagnostics and fix suggestions.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Full environment check
+aat doctor
+
+# Skip AI connection test
+aat doctor --skip-connection
+
+# Check with custom config
+aat doctor --config aat.config.yaml
+
+# Automated health check
+aat doctor --skip-connection | grep -E "✓|✗"
+```
+
+⚙️  HEALTH CHECK CATEGORIES
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Health Check Dimensions                              │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Python Environment                                         │  │
+│  │    ✓ Python 3.11+ required                                     │  │
+│  │    ✓ Version compatibility check                              │  │
+│  │    ✗ Installation suggestions for outdated versions            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 2. AWT CLI Installation                                       │  │
+│  │    ✓ Package import verification                             │  │
+│  │    ✓ Version display                                         │  │
+│  │    ✗ Installation instructions for missing CLI                │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 3. Playwright & Browser Engines                              │  │
+│  │    ✓ Package installation check                              │  │
+│  │    ✓ Chromium browser availability                           │  │
+│  │    ✗ Browser installation commands                           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 4. Tesseract OCR Engine                                      │  │
+│  │    ✓ Binary availability check                               │  │
+│  │    ✓ Version detection                                       │  │
+│  │    ✗ Platform-specific installation commands                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 5. OpenCV Image Processing                                   │  │
+│  │    ✓ Python package verification                             │  │
+│  │    ✓ Version display                                         │  │
+│  │    ✗ Installation instructions for missing package            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 6. Configuration Files                                        │  │
+│  │    ✓ aat.config.yaml existence check                          │  │
+│  │    ✓ Configuration validation                                 │  │
+│  │    ⚠ Setup suggestions for missing config                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 7. AI Provider Connectivity                                   │  │
+│  │    ✓ API key validation                                      │  │
+│  │    ✓ Connection testing                                      │  │
+│  │    ✓ Provider-specific verification                           │  │
+│  │    ✗ Setup instructions for invalid configuration             │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **dependency validation**: Checks all required packages and binaries
+- **version compatibility**: Ensures Python and package versions meet requirements
+- **connectivity testing**: Validates AI provider API access and credentials
+- **platform-specific guidance**: Provides installation commands for each OS
+- **configuration verification**: Confures setup completeness and validity
+- **clear reporting**: Color-coded output with actionable suggestions
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Network connectivity required for AI provider testing
+- Some checks may fail in containerized environments
+- Platform-specific commands assume standard package managers
+- Cannot detect all environment issues (e.g., conflicting packages)
+- Connection tests may timeout in restrictive network environments
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Run after initial installation to verify setup
+- Use before reporting issues to ensure environment is correct
+- Check after system updates or package changes
+- Use --skip-connection for offline environment verification
+- Run in CI/CD pipelines for environment validation
+- Review warnings even if checks pass (potential issues)
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ After installation to verify correct setup
+✅ Before first test execution to ensure readiness
+✅ When troubleshooting test failures or environment issues
+✅ In CI/CD pipelines for environment validation
+✅ After system updates or dependency changes
+❌ Not needed during normal test execution
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

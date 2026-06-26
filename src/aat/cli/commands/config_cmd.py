@@ -1,4 +1,82 @@
-"""aat config — configuration management."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   ⚙️  Configuration Management Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Manages AAT configuration files (aat.config.yaml). Provides commands to view,
+modify, and validate configuration settings using dotted key notation for
+easy updates to nested values.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Show current configuration
+aat config show
+
+# Set individual configuration values
+aat config set ai.provider claude
+aat config set ai.model claude-sonnet-4-20250514
+aat config set engine.viewport_width 1280
+
+# Use with custom config path
+aat config show --config /path/to/custom.yaml
+aat config set engine.headless false --config custom.yaml
+```
+
+⚙️  CONFIGURATION STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  aat.config.yaml                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ ai:                                                           │  │
+│  │   provider: claude                                            │  │
+│  │   model: claude-sonnet-4-20250514                            │  │
+│  │   api_key: sk-ant-...                                        │  │
+│  │ engine:                                                       │  │
+│  │   type: web                                                   │  │
+│  │   headless: true                                              │  │
+│  │   viewport_width: 1280                                        │  │
+│  │ matching:                                                     │  │
+│  │   chain_order: [template, ocr, vision_ai]                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **show**: Display current configuration in YAML format
+- **set**: Modify configuration values using dotted key notation
+- **auto-discovery**: Automatically finds aat.config.yaml in current directory
+- **validation**: Ensures configuration values are valid before saving
+- **type conversion**: Handles string to proper type conversion
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Only handles scalar values (strings, numbers, booleans)
+- Cannot modify arrays or nested objects directly
+- No configuration schema validation beyond basic types
+- Must restart CLI for some configuration changes to take effect
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use aat setup for initial configuration instead of manual editing
+- Store sensitive values (API keys) in config, not environment variables
+- Keep config files in version control with API keys excluded
+- Use descriptive comments in config for team collaboration
+- Test configuration changes with aat doctor before use
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Quick configuration updates without editing YAML files
+✅ Scripting configuration changes
+✅ Verifying current configuration settings
+✅ Switching between different configurations
+❌ Not for complex configuration changes (edit YAML directly)
+❌ Not for initial setup (use aat setup instead)
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

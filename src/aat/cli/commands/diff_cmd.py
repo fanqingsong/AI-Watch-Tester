@@ -1,4 +1,112 @@
-"""aat diff — compare current screenshots against baselines."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   📊 Visual Regression Comparison Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Compares current screenshots against saved baselines using SSIM (Structural
+Similarity Index) analysis. Detects visual regressions with configurable thresholds,
+multiple output formats, and diff image generation for detailed analysis.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Basic visual regression test
+aat diff scenarios/login_test.yaml
+
+# Custom SSIM threshold
+aat diff scenarios/ --threshold 0.90
+
+# Multiple viewport testing
+aat diff scenarios/ --responsive
+
+# GitHub PR comment format
+aat diff scenarios/ --format github --output pr_comment.md
+
+# Auto-open diff images on failure
+aat diff scenarios/ --open
+```
+
+⚙️  VISUAL COMPARISON PROCESS
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Visual Regression Testing Pipeline                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Baseline Loading                                          │  │
+│  │    → Load .aat/baselines/{scenario_id}/                      │  │
+│  │    → Verify baseline existence for all scenarios              │  │
+│  │    → Report missing baselines with warnings                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Current Screenshot Capture                                 │  │
+│  │    → Run scenarios to generate current screenshots             │  │
+│  │    → Use same viewport/conditions as baselines                │  │
+│  │    → Handle multiple viewports separately                      │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. SSIM Analysis                                              │  │
+│  │    → Compare baseline vs. current pixel-by-pixel               │  │
+│  │    → Calculate structural similarity (0.0–1.0)                 │  │
+│  │    → Apply threshold: pass if score >= threshold              │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Diff Image Generation (Optional)                           │  │
+│  │    → Create visual diff images for failures                   │  │
+│  │    → Highlight differences in red                             │  │
+│  │    → Save to .aat/diffs/{timestamp}/                          │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Multi-Format Reporting                                     │  │
+│  │    → Table format (default, Rich tables)                       │  │
+│  │    → GitHub format (Markdown PR comments)                      │  │
+│  │    → JSON format (programmatic access)                         │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 6. Result Summary                                             │  │
+│  │    → Pass/fail counts per scenario                             │  │
+│  │    → Overall pass/fail determination                          │  │
+│  │    → Exit code 1 if any failures detected                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **SSIM analysis**: Structural similarity comparison with configurable thresholds
+- **multi-viewport support**: Compare mobile, tablet, and desktop variants
+- **diff image generation**: Visual highlights of regression areas
+- **multiple output formats**: Table, GitHub Markdown, and JSON output
+- **auto-open integration**: System image viewer for failed diffs
+- **responsive testing**: Standard viewport presets or custom dimensions
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires baseline screenshots from aat snapshot
+- SSIM may miss color-only changes or subtle animations
+- Diff image generation requires additional disk space
+- Auto-open may not work on all systems/containers
+- Threshold tuning required for different applications
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Start with default threshold (0.95) and adjust based on results
+- Use responsive mode for mobile-first applications
+- Review diff images to understand regression nature
+- Integrate GitHub format in CI/CD pipelines for PR comments
+- Capture new baselines after intentional UI changes
+- Use higher thresholds (0.98+) for strict visual requirements
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ After code changes to detect unintended visual regressions
+✅ Before releases to verify visual consistency
+✅ CI/CD integration with automated visual testing
+✅ Multi-device testing with responsive viewports
+❌ Not for functional testing (use aat run)
+❌ Not needed if visual regression not a concern
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

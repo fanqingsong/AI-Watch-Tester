@@ -3,6 +3,60 @@
 Owns the session persistence responsibilities that previously lived inline
 on :class:`StepExecutor`:
 
+════════════════════════════════════════════════════════════════════════════════
+                    💾  Session Handler Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Handles browser session persistence (cookies, localStorage, sessionStorage)
+for test reusability across scenario executions without re-authentication.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+from aat.engine.session_handler import SessionHandler
+
+handler = SessionHandler(engine, data_dir=".aat")
+
+# Save session after login
+await handler.save("login_state")
+# Stores: cookies, localStorage, sessionStorage
+
+# Restore session on next run
+await handler.load("login_state")
+# Skips login, goes straight to authenticated state
+```
+
+⚙️  SESSION STORAGE
+───────────────────────────────────────────────────────────────────────────────
+Stored data:
+• Browser cookies (authentication tokens, session IDs)
+• localStorage (user preferences, cached data)
+• sessionStorage (temporary state, form data)
+
+💡 USE CASES
+───────────────────────────────────────────────────────────────────────────────
+• Save login state → Reuse across multiple scenarios
+• Preserve test context → Avoid repeated authentication
+• Speed up tests → Skip login steps on subsequent runs
+
+📁 FILE STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+```
+.aat/sessions/
+├── login_state/
+│   ├── cookies.json
+│   ├── localStorage.json
+│   └── sessionStorage.json
+└── checkout_flow/
+    ├── cookies.json
+    └── localStorage.json
+```
+
+════════════════════════════════════════════════════════════════════════════════
+"""
+
 - :func:`save_session` — save browser session to .aat/sessions/{name}.json.
 - :func:`load_session` — load browser session from .aat/sessions/{name}.json.
 - :func:`upload_file` — upload file(s) via input[type=file].

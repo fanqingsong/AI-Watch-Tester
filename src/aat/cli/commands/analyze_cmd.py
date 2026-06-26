@@ -1,4 +1,103 @@
-"""aat analyze — document AI analysis."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   📖 Document Analysis Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Analyzes specification documents (Markdown, text) using AI to extract screens,
+UI elements, and user flows. Provides structured analysis for scenario generation
+and test planning with detailed component breakdown.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Analyze specification document
+aat analyze spec.md
+
+# Analyze with custom config
+aat analyze design_spec.txt --config aat.config.yaml
+
+# Use analysis output for scenario generation
+aat analyze requirements.md → generates .aat/analysis/analysis.json
+```
+
+⚙️  DOCUMENT ANALYSIS PIPELINE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Document Analysis Architecture                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Document Parsing                                          │  │
+│  │    → Load .md or .txt file                                   │  │
+│  │    → Extract text content                                     │  │
+│  │    → Parse embedded images                                    │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. AI-Powered Analysis                                       │  │
+│  │    → Extract screen definitions                               │  │
+│  │    → Identify UI elements and components                       │  │
+│  │    → Map user flows and interactions                           │  │
+│  │    → Detect input fields and actions                           │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Structured Output                                         │  │
+│  │    {                                                           │  │
+│  │      "screens": [                                              │  │
+│  │        { "name": "Login", "elements": [...] }                 │  │
+│  │      ],                                                        │  │
+│  │      "elements": [                                             │  │
+│  │        { "type": "button", "label": "Submit" }               │  │
+│  │      ],                                                        │  │
+│  │      "flows": [                                                │  │
+│  │        { "from": "Login", "to": "Dashboard" }                 │  │
+│  │      ]                                                         │  │
+│  │    }                                                           │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Result Storage                                            │  │
+│  │    → Save to .aat/analysis/{doc}_analysis.json               │  │
+│  │    → Include metadata and timestamp                           │  │
+│  │    → Enable downstream scenario generation                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **document parsing**: Support for Markdown and plain text formats
+- **AI analysis**: Intelligent extraction of screens, elements, and flows
+- **image processing**: Handle embedded images and diagrams
+- **structured output**: JSON format with categorized components
+- **storage management**: Organized analysis results in data directory
+- **adapter integration**: Works with all configured AI providers
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires AI provider with valid API key (except Ollama)
+- Analysis quality depends on document structure and clarity
+- Large documents may exceed token limits (chunked processing)
+- Image analysis quality varies by AI provider vision capabilities
+- No automatic document validation or format checking
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Use well-structured documents with clear headings and descriptions
+- Include UI mockups and screenshots for better element extraction
+- Organize documents by screen or feature for accurate analysis
+- Review analysis output before scenario generation
+- Combine with aat generate for complete automation pipeline
+- Use consistent terminology in documents for better recognition
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Converting design specs to test scenarios
+✅ Understanding application structure before testing
+✅ Planning test coverage based on documented features
+✅ Extracting test data from specification documents
+❌ Not needed if scenarios already written
+❌ Not required for manual scenario creation
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 

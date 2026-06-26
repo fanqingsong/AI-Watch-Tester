@@ -1,11 +1,154 @@
-"""HybridMatcher — 3-tier chain orchestrator for multiple matchers.
+"""
+════════════════════════════════════════════════════════════════════════════════
+                  🧬 Hybrid Matcher Orchestrator Module
+════════════════════════════════════════════════════════════════════════════════
 
-Tier 1: Template matching (OpenCV) — fast, free, uses saved templates
-Tier 2: OCR (Tesseract + CLAHE + sharpening) — free, medium speed
-Tier 3: Vision AI (Claude API) — expensive, last resort
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+3-tier matching chain orchestrator that coordinates multiple specialized matchers
+in a cost-optimized strategy. Attempts fast, free methods first before falling back
+to expensive AI vision, with automatic template caching and learned method selection
+for adaptive performance optimization.
 
-Successful matches are auto-saved as templates for future Tier 1 matching.
-Match history is recorded to SQLite for adaptive method selection.
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```python
+# Automatically finds element using optimal method
+target = TargetSpec(text="Submit button")
+result = await hybrid_matcher.find_with_options(
+    target,
+    screenshot,
+    method="auto",     # Let HybridMatcher choose best method
+    fallback=True,     # Fall back to other tiers if primary fails
+    learn=True,        # Record success for future optimization
+)
+```
+
+⚙️  3-TIER MATCHING ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           HybridMatcher Orchestrator                         │
+│              can_handle(): ANY (delegates to child matchers)                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+        ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+        │   Tier 1     │  │   Tier 2     │  │   Tier 3     │
+        │   FAST/FREE  │  │   MEDIUM     │  │   SLOW/$$$  │
+        └──────────────┘  └──────────────┘  └──────────────┘
+                    │               │               │
+                    ▼               ▼               ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Tier 1: Fast / Deterministic                             │
+│  1a. Learned data (SQLite) ──┐                                               │
+│  1b. Auto-saved templates ───┤  Template matching (OpenCV TM_CCOEFF_NORMED) │
+│  1c. User-provided images ───┘  • Free • ~10-50ms • No network dependency    │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    (If Tier 1 fails, cascade to Tier 2)
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Tier 2: Semantic / Free                                  │
+│  2a. OCR (Tesseract + CLAHE + sharpening)                                     │
+│      • Multi-language • ~100-500ms • No API cost                             │
+│  2b. Feature matching (ORB + RANSAC homography)                               │
+│      • Scale/rotation tolerant • ~50-200ms • No API cost                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    (If Tier 2 fails, cascade to Tier 3)
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    Tier 3: Vision AI (Last Resort)                            │
+│  3a. Claude Vision / OpenAI GPT-4o / Gemini Flash                             │
+│      • Semantic understanding • ~1-5s • API cost per query                   │
+│      • ONLY used when configured (api_key present)                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+⚙️  AUTO-LEARNING FEEDBACK LOOP
+───────────────────────────────────────────────────────────────────────────────
+┌──────────────────────────────────────────────────────────────────────────────┐
+│              Successful Match (Any Tier)                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+        ┌──────────────────────┐       ┌──────────────────────┐
+        │ Auto-save Template   │       │ Record to SQLite     │
+        │ ~/.awt/templates/    │       │ LearnedStore DB      │
+        │ <hash>.png           │       │ • Target name        │
+        │ • Cropped region     │       │ • Method used        │
+        │ • +5px padding       │       │ • Success rate       │
+        └──────────────────────┘       │ • Avg confidence     │
+                                        │ • Avg latency        │
+                                        └──────────────────────┘
+                                                    │
+                                                    ▼
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │                   Next Run: Adaptive Optimization                    │
+        │  • Check learned best method first (Tier 1 shortcut)                 │
+        │  • Skip failed methods historically                                    │
+        │  • Prioritize high-confidence methods                                │
+        └─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+• 3-tier cascade strategy: Fast/free → Medium/free → Slow/expensive
+• Learned data shortcut: Check SQLite for historically successful positions first
+• Auto-save templates: Cache successful matches as PNG files for future Tier 1 use
+• Method prioritization: Use learned best method before full cascade
+• Fallback support: Try specific method, fall back to full chain on failure
+• Statistics tracking: Record success/confidence/latency to learning database
+• Graceful degradation: Skip unconfigured matchers (Tier 3 only if api_key present)
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+• Tier 3 is expensive: API costs accumulate quickly with vision AI queries
+• No caching across sessions: Learned data persists, but template cache is file-based
+• Fallback may be slow: If specific method fails, full chain retry takes time
+• Race conditions: Template auto-save uses MD5 hash (potential collision, very unlikely)
+• No parallel execution: Tiers run sequentially (could parallelize Tier 2a/2b)
+• Network dependency: Tier 3 requires active internet connection
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+1. Always use method="auto" for first-time element discovery
+2. Use method="template" for stable UI elements with saved templates
+3. Use fallback=True to ensure robustness (default recommended)
+4. Use learn=True (default) to build adaptive performance profile over time
+5. Monitor Tier 3 usage via cost tracking to prevent bill surprises
+6. Clear ~/.awt/templates/ periodically to remove stale cached templates
+7. For CI/CD: Pre-seed template cache with known elements for speed
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ GOOD USE CASES:
+  • General-purpose element detection (default orchestrator for most tests)
+  • First-time test creation (no templates saved yet, need full cascade)
+  • Dynamic applications with changing UI (adaptive learning handles changes)
+  • Cost-sensitive testing (tier cascade minimizes expensive API calls)
+  • Cross-browser testing (different renderers handled by same cascade)
+
+❌ BAD USE CASES:
+  • Performance-critical real-time operations (use direct template matcher)
+  • Known stable elements with perfect templates (skip cascade, use template directly)
+  • Offline-only environments (Tier 3 will fail, configure without vision API)
+  • Budget-constrained high-volume testing (disable Tier 3, use Tiers 1-2 only)
+
+🎨 METHOD SELECTION GUIDE
+───────────────────────────────────────────────────────────────────────────────
+method="auto"         → Full 3-tier cascade with learned shortcut (default, recommended)
+method="template"      → Tier 1 only (saved templates + template matching)
+method="ocr"          → Try OCR first, fall back if enabled
+method="vision"       → Try AI vision first, fall back if enabled (expensive!)
+fallback=True         → Allow cascade if specific method fails (recommended)
+fallback=False        → Only try specified method, return None on failure (strict)
+learn=True            → Record success to learning DB (recommended for optimization)
+learn=False           → One-time match, no learning (useful for exploration)
+
+════════════════════════════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations

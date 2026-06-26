@@ -16,6 +16,7 @@
   <a href="https://ai-watch-tester.vercel.app"><img src="https://img.shields.io/badge/Cloud-Try_Now-00d4aa?logo=vercel&logoColor=white" alt="Cloud"></a>
   <a href="https://github.com/ksgisang/awt-skill"><img src="https://img.shields.io/badge/Agent_Skill-Available-brightgreen?logo=npm&logoColor=white" alt="Agent Skill"></a>
   <a href="https://github.com/ksgisang/AI-Watch-Tester/stargazers"><img src="https://img.shields.io/github/stars/ksgisang/AI-Watch-Tester?style=flat&logo=github" alt="GitHub Stars"></a>
+  <a href="docs/DEEPAGENT_SUMMARY.md"><img src="https://img.shields.io/badge/DeepAgent-Powered%20✅-purple?logo=anthropic&logoColor=white" alt="DeepAgent Powered"></a>
 </p>
 
 ---

@@ -1,4 +1,107 @@
-"""aat snapshot — capture baseline screenshots for visual regression."""
+"""
+════════════════════════════════════════════════════════════════════════════════
+                   📸 Baseline Screenshot Capture Module
+════════════════════════════════════════════════════════════════════════════════
+
+📋 MODULE PURPOSE
+───────────────────────────────────────────────────────────────────────────────
+Captures baseline screenshots for visual regression testing. Runs scenarios
+and saves after-screenshots as reference baselines, which are then used by
+aat diff to detect visual regressions in subsequent test runs.
+
+🎯 USE CASE EXAMPLE
+───────────────────────────────────────────────────────────────────────────────
+```bash
+# Capture baseline for single scenario
+aat snapshot scenarios/login_test.yaml
+
+# Capture baselines for all scenarios
+aat snapshot scenarios/
+
+# Capture multiple viewports for responsive testing
+aat snapshot scenarios/ --responsive
+
+# Capture with console error collection
+aat snapshot scenarios/ --console --console-fail
+
+# Capture specific viewport
+aat snapshot scenarios/ --viewport 375x812
+```
+
+⚙️  BASELINE CAPTURE ARCHITECTURE
+───────────────────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Baseline Capture Process                            │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Scenario Execution                                         │  │
+│  │    → Run scenarios with screenshot_mode="all"                  │  │
+│  │    → Execute each step sequentially                           │  │
+│  │    → Capture after-screenshot for each step                   │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 2. Screenshot Collection                                      │  │
+│  │    → Collect step_screenshots mapping                         │  │
+│  │    → Verify screenshot file existence                         │  │
+│  │    → Handle missing/failed screenshots gracefully             │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 3. Baseline Storage                                          │  │
+│  │    → Save to .aat/baselines/{scenario_id}/                   │  │
+│  │    → Store metadata (scenario name, URL, viewport)            │  │
+│  │    → Index by step number for comparison                      │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 4. Multi-Viewport Support (Optional)                          │  │
+│  │    → mobile: 375x812 (iPhone)                                │  │
+│  │    → tablet: 768x1024 (iPad)                                 │  │
+│  │    → desktop: 1280x720 (standard)                            │  │
+│  │    → Store each viewport separately with labels                │  │
+│  └──────────────────┬───────────────────────────────────────────┘  │
+│  ┌──────────────────▼───────────────────────────────────────────┐  │
+│  │ 5. Console Error Collection (Optional)                        │  │
+│  │    → Attach console collector to browser page                  │  │
+│  │    → Capture JavaScript errors during execution                │  │
+│  │    → Fail if --console-fail and errors detected               │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+📦 CORE FUNCTIONALITY
+───────────────────────────────────────────────────────────────────────────────
+- **scenario execution**: Runs tests with comprehensive screenshot capture
+- **multi-viewport support**: Capture mobile, tablet, and desktop variants
+- **console error tracking**: Optional JavaScript error detection and reporting
+- **baseline management**: Organized storage with metadata for comparison
+- **viewport flexibility**: Custom viewport sizes or standard responsive presets
+- **conditional failure**: Exit code 1 if console errors detected (with --console-fail)
+
+⚠️  LIMITATIONS & NOTES
+───────────────────────────────────────────────────────────────────────────────
+- Requires successful scenario execution (failed steps may produce incomplete baselines)
+- Console error detection only works with WebEngine (Playwright)
+- Large screenshot sets may consume significant disk space
+- Baseline quality depends on scenario execution and timing stability
+- Responsive testing multiplies execution time by viewport count
+
+💡 BEST PRACTICES
+───────────────────────────────────────────────────────────────────────────────
+- Capture baselines after major UI changes
+- Use responsive mode for mobile-first applications
+- Enable console collection for SPA applications with JavaScript
+- Review captured baselines for quality before committing
+- Use specific viewports for targeted device testing
+- Run in CI/CD with consistent viewports for reproducibility
+
+🎯 WHEN TO USE
+───────────────────────────────────────────────────────────────────────────────
+✅ Initial baseline capture for visual regression testing
+✅ After intentional UI changes requiring baseline updates
+✅ Multi-device testing with responsive viewports
+✅ JavaScript error detection with console monitoring
+❌ Not for functional testing (use aat run instead)
+❌ Not needed if visual regression testing not required
+
+════════════════════════════════════════════════════════════════════════════════
+"""
 
 from __future__ import annotations
 
