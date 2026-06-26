@@ -13,6 +13,7 @@ from typing import Any
 from aat.agent.config import AgentConfig, AgentContext, TestIntent
 from aat.adapters.zhipuai import ZhipuAIAdapter
 from aat.core import AIConfig as AWTAIConfig
+from aat.core.config_models import EngineConfig
 
 
 class AgentSupervisor:
@@ -53,15 +54,19 @@ class AgentSupervisor:
 
             # 🔧 创建或使用现有浏览器引擎
             if not self._engine:
-                from aat.engine import create_engine
-                engine_config = {
-                    "type": "web",
-                    "browser": self.config.browser_type,
-                    "headless": False,  # 强制非headless模式
-                    "viewport": {"width": 1280, "height": 720},
-                    "timeout": self.config.browser_timeout,
-                }
-                self._engine = create_engine(engine_config)
+                from aat.engine.web import WebEngine
+
+                # 使用 AWT 的配置结构
+                engine_config = EngineConfig(
+                    type="web",
+                    browser=self.config.browser_type,
+                    headless=False,  # 强制非headless模式
+                    viewport_width=1280,
+                    viewport_height=720,
+                    timeout_ms=self.config.browser_timeout,
+                )
+
+                self._engine = WebEngine(config=engine_config)
                 print("🌐 创建了新的浏览器引擎 (非headless模式)")
 
             print(f"🌐 浏览器配置: {self.config.browser_type}, headless=False")
