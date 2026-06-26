@@ -58,6 +58,9 @@ class ChatZhipuAI(BaseChatModel):
 
         Returns:
             ChatResult: 聊天结果
+
+        Raises:
+            Exception: 当API调用失败时，提供清晰的错误信息
         """
         # 转换消息格式
         zhipu_messages = []
@@ -69,23 +72,40 @@ class ChatZhipuAI(BaseChatModel):
             elif isinstance(message, SystemMessage):
                 zhipu_messages.append({"role": "system", "content": message.content})
 
-        # 调用智谱AI API
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=zhipu_messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
+        try:
+            # 调用智谱AI API
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=zhipu_messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
 
-        # 提取回复内容
-        content = response.choices[0].message.content
+            # 提取回复内容
+            content = response.choices[0].message.content
 
-        # 创建 ChatGeneration
-        generation = ChatGeneration(
-            message=AIMessage(content=content),
-        )
+            # 创建 ChatGeneration
+            generation = ChatGeneration(
+                message=AIMessage(content=content),
+            )
 
-        return ChatResult(generations=[generation])
+            return ChatResult(generations=[generation])
+
+        except Exception as e:
+            # 提供清晰的错误信息
+            error_str = str(e)
+            if "余额不足" in error_str or "1113" in error_str:
+                raise Exception(
+                    "智谱AI账户余额不足，请充值后再试。你可以:\n"
+                    "1. 在智谱AI平台充值: https://open.bigmodel.cn/\n"
+                    "2. 或者在 aat.config.yaml 中切换到其他AI提供商 (anthropic, openai)"
+                ) from e
+            elif "Invalid API key" in error_str:
+                raise Exception(
+                    "智谱AI API密钥无效，请检查 aat.config.yaml 中的 api_key 配置"
+                ) from e
+            else:
+                raise Exception(f"智谱AI调用失败: {error_str}") from e
 
     @property
     def _llm_type(self) -> str:
