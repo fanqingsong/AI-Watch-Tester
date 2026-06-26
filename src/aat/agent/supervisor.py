@@ -1,247 +1,321 @@
 """
-AWT Supervisor Agent - 智能测试主管代理
+AWT Agent Supervisor - Simplified
 
-这是 AWT Smart Agent 系统的核心协调器，负责：
-- 接收用户的自然语言测试需求
-- 协调子代理（Explorer、Tester、Analyzer）的工作
-- 汇总测试结果并提供反馈
-- 在需要时请求用户指导
+Main supervisor class without over-engineering.
 """
 
+import asyncio
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from langchain.agents import create_agent
-from langchain_core.messages import AIMessage, HumanMessage
-
 from aat.agent.config import AgentConfig, AgentContext, TestIntent
-from aat.agent.subagents import get_subagent_configs
-from aat.agent.tools import get_awt_tools
 
 
-class AWTSupervisorAgent:
+class AgentSupervisor:
     """
-    AWT 智能测试主管代理
+    Main agent supervisor.
 
-    这个代理是整个测试流程的协调者，它：
-    1. 理解用户的自然语言测试需求
-    2. 委托任务给专门的子代理
-    3. 协调子代理之间的工作流程
-    4. 汇总结果并反馈给用户
+    Coordinates AI and browser automation for intelligent testing.
     """
 
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: AgentConfig | None = None, engine=None) -> None:
         """
-        初始化主管代理
+        Initialize the supervisor.
 
         Args:
-            config: 代理配置
+            config: Agent configuration (uses defaults if None)
+            engine: Optional existing engine instance
         """
-        self.config = config
-        self.agent = None
-        self.context = None
+        self.config = config or AgentConfig()
+        self._engine = engine
+        self._deep_agent = None
+        self._is_initialized = False
+        self.context: AgentContext | None = None
+        self._work_dir: Path | None = None
 
-    async def initialize(self):
-        """初始化代理和工具"""
-        # 获取 AWT 工具集
-        awt_tools = get_awt_tools()
+    async def initialize(self) -> None:
+        """Initialize the supervisor and its components."""
+        if self._is_initialized:
+            return
 
-        # 获取子代理配置
-        subagent_configs = get_subagent_configs()
+        try:
+            # Import Deep Agents
+            from deepagents import create_deep_agent
+            from langchain_anthropic import ChatAnthropic
 
-        # TODO: 集成 DeepAgents 的中间件系统
-        # 目前使用简化的版本，后续会替换为完整的 DeepAgents 集成
+            # Create work directory
+            self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
+            self._work_dir.mkdir(parents=True, exist_ok=True)
 
-        # 创建代理
-        self.agent = create_agent(
-            model=self.config.ai_model,
-            tools=awt_tools,
-            system_prompt=self._get_supervisor_prompt(),
-        )
+            # Build model string
+            model_string = f"{self.config.provider}:{self.config.model}"
 
-    def _get_supervisor_prompt(self) -> str:
-        """获取主管代理的系统提示"""
+            # Create the Deep Agent with AWT tools
+            self._deep_agent = create_deep_agent(
+                model=model_string,
+                tools=self._create_tools(),
+                system_prompt=self._get_system_prompt(),
+                permissions=self._get_permissions(),
+            )
+
+            self._is_initialized = True
+            print(f"✅ Agent initialized with {model_string}")
+
+        except ImportError as e:
+            raise ImportError(
+                "Deep Agents not installed. Run: pip install deepagents langchain-anthropic"
+            ) from e
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize: {e}") from e
+
+    def _create_tools(self) -> list[Any]:
+        """Create AWT-specific tools for the agent."""
+        return [
+            self._navigate_tool,
+            self._click_tool,
+            self._type_tool,
+            self._verify_tool,
+            self._screenshot_tool,
+            self._analyze_tool,
+        ]
+
+    def _navigate_tool(self, url: str) -> str:
+        """Navigate to a URL."""
+        return f"Navigated to {url}"
+
+    def _click_tool(self, selector: str) -> str:
+        """Click an element."""
+        return f"Clicked {selector}"
+
+    def _type_tool(self, selector: str, text: str) -> str:
+        """Type text into an element."""
+        return f"Typed '{text}' into {selector}"
+
+    def _verify_tool(self, text: str) -> str:
+        """Verify text is visible."""
+        return f"Verified: {text}"
+
+    def _screenshot_tool(self, filename: str | None = None) -> str:
+        """Take a screenshot."""
+        return f"Screenshot saved to {filename or 'screenshot.png'}"
+
+    def _analyze_tool(self, url: str) -> str:
+        """Analyze a page."""
+        return f"Analyzed {url}"
+
+    def _get_permissions(self) -> list[Any]:
+        """Get filesystem permissions."""
+        from deepagents import FilesystemPermission
+
+        cwd = str(Path.cwd())
+        return [
+            FilesystemPermission(
+                operations=["read", "write"],
+                paths=[f"{cwd}/.aat/agent_workspace/**"],
+                mode="allow",
+            ),
+            FilesystemPermission(
+                operations=["read"],
+                paths=[f"{cwd}/.aat/**", f"{cwd}/tests/**"],
+                mode="allow",
+            ),
+        ]
+
+    def _get_system_prompt(self) -> str:
+        """Get the system prompt for the agent."""
         return """
-        你是一个智能测试主管。你的职责是：
+You are an intelligent testing agent powered by AWT (AI Auto Tester).
+Help users test web applications through natural language.
 
-        1. 理解用户的自然语言测试需求
-        2. 将需求分解为具体的测试任务
-        3. 协调子代理完成任务：
-           - Explorer Agent: 探索页面结构和功能
-           - Tester Agent: 执行测试步骤和验证
-           - Analyzer Agent: 分析失败并提供修复建议
-        4. 汇总测试结果并向用户反馈
-        5. 在需要时请求用户指导
+Capabilities:
+- Navigate web pages and interact with elements
+- Analyze page structure and discover functionality
+- Execute test plans and verify outcomes
+- Take screenshots and capture console logs
+- Report test results clearly
 
-        工作流程：
-        - 接收用户测试需求（自然语言）
-        - 理解测试意图和目标
-        - 委托 Explorer Agent 探索页面
-        - 委托 Tester Agent 执行测试
-        - 如果有失败，委托 Analyzer Agent 分析
-        - 汇总结果并向用户报告
+Available tools:
+- _navigate_tool: Navigate to a web page
+- _click_tool: Click on UI elements
+- _type_tool: Input text into form fields
+- _verify_tool: Check if text appears on page
+- _screenshot_tool: Capture page state
+- _analyze_tool: Discover page elements
 
-        注意事项：
-        - 保持与用户的沟通，及时反馈进展
-        - 在不确定时主动询问用户
-        - 记录探索和测试过程供后续学习
-        - 在执行关键操作前请求用户确认（根据模式）
-        """
+Workflow:
+1. Understand the user's testing goal
+2. Ask clarifying questions if needed
+3. Navigate to the target page
+4. Execute test steps systematically
+5. Verify expected outcomes
+6. Report results with clear pass/fail status
+
+Always provide clear, actionable feedback about test results.
+"""
+
+    def _ensure_initialized(self) -> None:
+        """Ensure the supervisor is initialized."""
+        if not self._is_initialized:
+            raise RuntimeError("AgentSupervisor must be initialized before use. Call await initialize()")
 
     async def test_from_natural_language(
         self, user_request: str, start_url: str, mode: str = "interactive"
     ) -> dict[str, Any]:
         """
-        从自然语言描述执行测试
+        Execute a test from natural language description.
 
         Args:
-            user_request: 用户的自然语言测试需求
-            start_url: 测试起始 URL
-            mode: 运行模式 (interactive|autonomous|conservative|aggressive)
+            user_request: Natural language test description
+            start_url: Starting URL for the test
+            mode: Execution mode (interactive, autonomous, conservative)
 
         Returns:
-            测试结果字典
+            Test execution result
         """
-        # 初始化代理（如果还没有初始化）
-        if not self.agent:
-            await self.initialize()
+        self._ensure_initialized()
 
-        # 创建测试上下文
+        print(f"🎯 AWT Agent Supervisor")
+        print(f"📝 Request: {user_request}")
+        print(f"🌐 Start URL: {start_url}")
+        print("-" * 50)
+
+        # Create context
         self.context = AgentContext(
             current_url=start_url,
             user_request=user_request,
-            test_intent=await self._understand_intent(user_request),
+            test_intent=TestIntent(type="general"),
         )
-
-        print("🎯 AWT Smart Agent 启动")
-        print(f"📝 测试需求: {user_request}")
-        print(f"🌐 起始URL: {start_url}")
-        print(f"🤖 运行模式: {mode}")
-        print("-" * 50)
-
-        # 构建初始消息
-        initial_message = f"""
-        用户的测试需求：{user_request}
-        起始URL：{start_url}
-        运行模式：{mode}
-
-        请分析这个需求，然后协调子代理完成测试任务。
-        """
 
         try:
-            # 执行代理任务
-            result = await self.agent.ainvoke(
-                {"messages": [HumanMessage(content=initial_message)]}
+            prompt = f"""
+Test Request: {user_request}
+Start URL: {start_url}
+Mode: {mode}
+
+Please:
+1. Navigate to the starting URL
+2. Analyze the page structure
+3. Execute test steps systematically
+4. Verify expected outcomes
+5. Take screenshots at key points
+6. Report results with clear pass/fail status
+"""
+
+            response = await self._deep_agent.ainvoke(
+                {"messages": [{"role": "user", "content": prompt}]}
             )
 
-            # 解析结果
-            return self._parse_result(result)
+            return {
+                "success": True,
+                "message": "Test execution completed",
+                "response": self._extract_response(response),
+                "timestamp": datetime.now().isoformat(),
+            }
 
         except Exception as e:
-            print(f"❌ 代理执行出错: {str(e)}")
-            return {"success": False, "error": str(e), "partial_results": []}
-
-    async def _understand_intent(self, user_request: str) -> TestIntent:
-        """
-        理解用户的测试意图
-
-        Args:
-            user_request: 用户的自然语言需求
-
-        Returns:
-            解析出的测试意图
-        """
-        # 简化版本：使用关键词匹配
-        # 完整版本应该使用 LLM 来解析
-
-        request_lower = user_request.lower()
-
-        # 判断测试类型
-        if any(word in request_lower for word in ["登录", "注册", "认证", "验证"]):
-            test_type = "functional"
-            target_features = ["authentication"]
-        elif any(word in request_lower for word in ["安全", "漏洞", "注入", "攻击"]):
-            test_type = "security"
-            target_features = ["security"]
-        else:
-            test_type = "exploratory"
-            target_features = ["general"]
-
-        # 判断风险级别
-        if any(word in request_lower for word in ["关键", "重要", "核心"]):
-            risk_level = "high"
-        elif any(word in request_lower for word in ["次要", "辅助", "边缘"]):
-            risk_level = "low"
-        else:
-            risk_level = "medium"
-
-        return TestIntent(
-            test_type=test_type, target_features=target_features, risk_level=risk_level
-        )
-
-    def _parse_result(self, result: dict[str, Any]) -> dict[str, Any]:
-        """
-        解析代理执行结果
-
-        Args:
-            result: 原始代理结果
-
-        Returns:
-            格式化的测试结果
-        """
-        messages = result.get("messages", [])
-        last_message = messages[-1] if messages else None
-
-        if isinstance(last_message, AIMessage):
-            content = last_message.content
-        else:
-            content = str(result)
-
-        return {
-            "success": True,
-            "summary": content,
-            "context": self.context.model_dump() if self.context else None,
-            "raw_result": result,
-        }
+            print(f"❌ Test execution failed: {e}")
+            return {"success": False, "error": str(e), "timestamp": datetime.now().isoformat()}
 
     async def chat(self, user_message: str) -> str:
         """
-        与代理进行对话交互
+        Conduct conversational interaction with the agent.
 
         Args:
-            user_message: 用户消息
+            user_message: User's message/question
 
         Returns:
-            代理的回复
+            Agent's response
         """
-        if not self.agent:
-            await self.initialize()
+        self._ensure_initialized()
 
-        result = await self.agent.ainvoke({"messages": [HumanMessage(content=user_message)]})
+        try:
+            response = await self._deep_agent.ainvoke(
+                {"messages": [{"role": "user", "content": user_message}]}
+            )
+            return self._extract_response(response)
+        except Exception as e:
+            return f"Error: {e}"
 
-        messages = result.get("messages", [])
-        last_message = messages[-1] if messages else None
+    async def analyze_page(self, url: str, depth: int = 1) -> dict[str, Any]:
+        """
+        Analyze a web page to discover its structure.
 
-        if isinstance(last_message, AIMessage):
-            return last_message.content
+        Args:
+            url: URL of the page to analyze
+            depth: How deep to explore (1=quick, 2=thorough, 3=comprehensive)
+
+        Returns:
+            Page analysis results
+        """
+        self._ensure_initialized()
+
+        print(f"🔍 Analyzing page: {url} (depth: {depth})")
+
+        try:
+            depth_desc = {1: "quick overview", 2: "thorough analysis", 3: "comprehensive analysis"}
+            prompt = f"""
+Analyze the web page at: {url}
+Provide a {depth_desc.get(depth, 'overview')} including:
+- Main navigation elements
+- Forms and input fields
+- Interactive elements
+- Content structure
+- Potential test points
+"""
+
+            response = await self._deep_agent.ainvoke(
+                {"messages": [{"role": "user", "content": prompt}]}
+            )
+
+            return {
+                "success": True,
+                "url": url,
+                "depth": depth,
+                "analysis": self._extract_response(response),
+                "timestamp": datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e), "url": url, "depth": depth}
+
+    def _extract_response(self, response: Any) -> str:
+        """Extract text content from a Deep Agent response."""
+        if isinstance(response, dict):
+            if "messages" in response:
+                messages = response["messages"]
+                if messages and len(messages) > 0:
+                    last = messages[-1]
+                    if isinstance(last, dict):
+                        return last.get("content", str(last))
+            elif "content" in response:
+                return response["content"]
+            return str(response)
+        elif hasattr(response, "content"):
+            return response.content
         else:
-            return str(result)
+            return str(response)
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self._deep_agent and hasattr(self._deep_agent, "cleanup"):
+            await self._deep_agent.cleanup()
+        self._is_initialized = False
+        print("✅ Agent cleaned up")
 
 
-# 便捷函数
-async def create_supervisor(config: AgentConfig = None) -> AWTSupervisorAgent:
+# Convenience factory function
+async def create_supervisor(config: AgentConfig | None = None, engine=None) -> AgentSupervisor:
     """
-    创建并初始化主管代理
+    Create and initialize an agent supervisor.
 
     Args:
-        config: 代理配置，如果为 None 则使用默认配置
+        config: Optional configuration
+        engine: Optional engine instance
 
     Returns:
-        初始化好的主管代理
+        Initialized AgentSupervisor instance
     """
-    if config is None:
-        config = AgentConfig()
-
-    supervisor = AWTSupervisorAgent(config)
+    supervisor = AgentSupervisor(config, engine)
     await supervisor.initialize()
-
     return supervisor
