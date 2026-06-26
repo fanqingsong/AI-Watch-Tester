@@ -69,11 +69,39 @@ aat agent chat
 """
 
 import asyncio
+import re
 
 import typer
 
 from aat.agent import AgentConfig, AgentSupervisor, create_supervisor
 from aat.core.config import load_config
+
+
+def _clean_response(response: str) -> str:
+    """
+    清理AI响应，去掉markdown格式和原始编码。
+
+    Args:
+        response: 原始响应文本
+
+    Returns:
+        清理后的响应文本
+    """
+    if not response:
+        return response
+
+    # 去除markdown代码块标记
+    response = re.sub(r'```(?:json|yaml|markdown)?\n?', '', response)
+    response = re.sub(r'```', '', response)
+
+    # 去除过多的换行
+    response = re.sub(r'\n{3,}', '\n\n', response)
+
+    # 去除行首行尾的空格
+    lines = [line.strip() for line in response.split('\n')]
+    response = '\n'.join(lines)
+
+    return response.strip()
 
 # 创建 agent 命令组
 agent_app = typer.Typer(help="AWT 智能测试代理命令")
@@ -129,12 +157,13 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
                 temperature=aat_config.ai.temperature,
                 max_tokens=aat_config.ai.max_tokens,
                 browser_type=aat_config.engine.browser,
-                headless=aat_config.engine.headless,
+                headless=False,  # 🔧 修复问题3: 显示浏览器让用户实时check
                 browser_timeout=aat_config.engine.timeout_ms,
             )
 
             supervisor = await create_supervisor(config=agent_config)
             typer.echo(f"✅ Agent Supervisor 已启动 (使用 {aat_config.ai.provider}:{aat_config.ai.model})")
+            typer.echo(f"🌐 浏览器模式: 非无头模式 (可以看到浏览器操作)")
 
             # 显示 Deep Agents 功能
             typer.echo("\n🤖 Deep Agents 功能:")
@@ -159,8 +188,12 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
 
                     # 获取代理回复 - supervisor 会自动路由到合适的 subagent
                     typer.echo("🤖 代理正在思考...")
+
+                    # 🔧 修复问题2: 清理响应格式，去掉原始编码
                     response = await supervisor.chat(user_input)
-                    typer.echo(f"🤖 代理: {response}")
+                    clean_response = self._clean_response(response)
+
+                    typer.echo(f"🤖 代理: {clean_response}")
 
                 except KeyboardInterrupt:
                     typer.echo("\n👋 再见！")

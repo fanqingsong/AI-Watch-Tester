@@ -31,7 +31,7 @@ class AgentSupervisor:
             engine: Optional existing engine instance
         """
         self.config = config or AgentConfig()
-        self._engine = engine
+        self._engine = engine  # 保存引擎引用供工具使用
         self._deep_agent = None
         self._is_initialized = False
         self.context: AgentContext | None = None
@@ -50,6 +50,21 @@ class AgentSupervisor:
             # Create work directory
             self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
             self._work_dir.mkdir(parents=True, exist_ok=True)
+
+            # 🔧 创建或使用现有浏览器引擎
+            if not self._engine:
+                from aat.engine import create_engine
+                engine_config = {
+                    "type": "web",
+                    "browser": self.config.browser_type,
+                    "headless": False,  # 强制非headless模式
+                    "viewport": {"width": 1280, "height": 720},
+                    "timeout": self.config.browser_timeout,
+                }
+                self._engine = create_engine(engine_config)
+                print("🌐 创建了新的浏览器引擎 (非headless模式)")
+
+            print(f"🌐 浏览器配置: {self.config.browser_type}, headless=False")
 
             # Build model based on provider using AWT adapters
             provider = self.config.provider
@@ -124,29 +139,77 @@ class AgentSupervisor:
             self._analyze_tool,
         ]
 
-    def _navigate_tool(self, url: str) -> str:
-        """Navigate to a URL."""
-        return f"Navigated to {url}"
+    async def _navigate_tool(self, url: str) -> str:
+        """Navigate to a URL using real browser engine."""
+        print(f"🌐 正在导航到: {url}")
+        try:
+            if self._engine and hasattr(self._engine, 'goto'):
+                await self._engine.goto(url)
+                return f"Successfully navigated to {url}"
+            else:
+                return f"Navigated to {url} (simulation mode)"
+        except Exception as e:
+            return f"Navigation failed: {str(e)}"
 
-    def _click_tool(self, selector: str) -> str:
-        """Click an element."""
-        return f"Clicked {selector}"
+    async def _click_tool(self, selector: str) -> str:
+        """Click an element using real browser engine."""
+        print(f"🖱️  正在点击元素: {selector}")
+        try:
+            if self._engine and hasattr(self._engine, 'click'):
+                await self._engine.click(selector)
+                return f"Successfully clicked {selector}"
+            else:
+                return f"Clicked {selector} (simulation mode)"
+        except Exception as e:
+            return f"Click failed: {str(e)}"
 
-    def _type_tool(self, selector: str, text: str) -> str:
-        """Type text into an element."""
-        return f"Typed '{text}' into {selector}"
+    async def _type_tool(self, selector: str, text: str) -> str:
+        """Type text into an element using real browser engine."""
+        print(f"⌨️  正在输入文本到 {selector}: '{text[:30]}...'")
+        try:
+            if self._engine and hasattr(self._engine, 'type'):
+                await self._engine.type(selector, text)
+                return f"Successfully typed '{text}' into {selector}"
+            else:
+                return f"Typed '{text}' into {selector} (simulation mode)"
+        except Exception as e:
+            return f"Type failed: {str(e)}"
 
-    def _verify_tool(self, text: str) -> str:
-        """Verify text is visible."""
-        return f"Verified: {text}"
+    async def _verify_tool(self, text: str) -> str:
+        """Verify text is visible using real browser engine."""
+        print(f"🔍 正在验证文本: '{text[:30]}...'")
+        try:
+            if self._engine and hasattr(self._engine, 'verify_text'):
+                result = await self._engine.verify_text(text)
+                return f"Text verification: {result}"
+            else:
+                return f"Verified text: '{text}' (simulation mode)"
+        except Exception as e:
+            return f"Verification failed: {str(e)}"
 
-    def _screenshot_tool(self, filename: str | None = None) -> str:
-        """Take a screenshot."""
-        return f"Screenshot saved to {filename or 'screenshot.png'}"
+    async def _screenshot_tool(self, filename: str | None = None) -> str:
+        """Take a screenshot using real browser engine."""
+        print(f"📸 正在截图: {filename or 'screenshot.png'}")
+        try:
+            if self._engine and hasattr(self._engine, 'screenshot'):
+                screenshot_path = await self._engine.screenshot(filename)
+                return f"Screenshot saved to {screenshot_path}"
+            else:
+                return f"Screenshot saved to {filename or 'screenshot.png'} (simulation mode)"
+        except Exception as e:
+            return f"Screenshot failed: {str(e)}"
 
-    def _analyze_tool(self, url: str) -> str:
-        """Analyze a page."""
-        return f"Analyzed {url}"
+    async def _analyze_tool(self, url: str) -> str:
+        """Analyze a page using real browser engine."""
+        print(f"🔬 正在分析页面: {url}")
+        try:
+            if self._engine and hasattr(self._engine, 'analyze'):
+                result = await self._engine.analyze(url)
+                return f"Page analysis: {result}"
+            else:
+                return f"Analyzed {url} (simulation mode)"
+        except Exception as e:
+            return f"Analysis failed: {str(e)}"
 
     def _get_permissions(self) -> list[Any]:
         """Get filesystem permissions."""
