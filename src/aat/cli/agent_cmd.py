@@ -72,10 +72,8 @@ import asyncio
 
 import typer
 
-from aat.agent import (
-    AgentSupervisor,
-    create_supervisor,
-)
+from aat.agent import AgentConfig, AgentSupervisor, create_supervisor
+from aat.core.config import load_config
 
 # 创建 agent 命令组
 agent_app = typer.Typer(help="AWT 智能测试代理命令")
@@ -108,6 +106,10 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
 
     async def run_chat():
         try:
+            # 加载项目配置
+            typer.echo("📋 加载项目配置...")
+            aat_config = load_config()
+
             # 显示启动信息
             typer.echo("💬 AWT 对话式测试代理 (Deep Agents)")
             typer.echo("─────────────────────────────────────────────────────────")
@@ -116,10 +118,23 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
             typer.echo("输入 'quit' 或 'exit' 退出")
             typer.echo("─────────────────────────────────────────────────────────")
 
-            # 创建 Agent Supervisor
+            # 创建 Agent Supervisor (从项目配置读取AI设置)
             typer.echo("\n⚙️  初始化 Agent Supervisor...")
-            supervisor = await create_supervisor()
-            typer.echo("✅ Agent Supervisor 已启动")
+
+            # 从 AAT 配置创建 AgentConfig
+            agent_config = AgentConfig(
+                provider=aat_config.ai.provider,
+                model=aat_config.ai.model,
+                api_key=aat_config.ai.api_key,
+                temperature=aat_config.ai.temperature,
+                max_tokens=aat_config.ai.max_tokens,
+                browser_type=aat_config.engine.browser,
+                headless=aat_config.engine.headless,
+                browser_timeout=aat_config.engine.timeout_ms,
+            )
+
+            supervisor = await create_supervisor(config=agent_config)
+            typer.echo(f"✅ Agent Supervisor 已启动 (使用 {aat_config.ai.provider}:{aat_config.ai.model})")
 
             # 显示 Deep Agents 功能
             typer.echo("\n🤖 Deep Agents 功能:")

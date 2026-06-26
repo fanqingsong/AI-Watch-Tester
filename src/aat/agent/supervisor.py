@@ -42,14 +42,26 @@ class AgentSupervisor:
         try:
             # Import Deep Agents
             from deepagents import create_deep_agent
-            from langchain_anthropic import ChatAnthropic
 
             # Create work directory
             self._work_dir = Path.cwd() / ".aat" / "agent_workspace"
             self._work_dir.mkdir(parents=True, exist_ok=True)
 
-            # Build model string
-            model_string = f"{self.config.provider}:{self.config.model}"
+            # Build model string based on provider
+            provider = self.config.provider
+            model = self.config.model
+
+            # Map provider to Deep Agents format
+            if provider == "zhipuai":
+                model_string = f"zhipuai:{model}"
+            elif provider == "anthropic":
+                model_string = f"anthropic:{model}"
+            elif provider == "openai":
+                model_string = f"openai:{model}"
+            elif provider == "google":
+                model_string = f"google_genai:{model}"
+            else:
+                model_string = f"anthropic:claude-sonnet-4-6"
 
             # Create the Deep Agent with AWT tools
             self._deep_agent = create_deep_agent(
