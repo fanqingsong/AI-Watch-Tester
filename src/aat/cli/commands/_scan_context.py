@@ -105,7 +105,7 @@ def load_scan_result(data_dir: Path) -> dict[str, Any]:
     """
     scan_path = data_dir / SCAN_FILENAME
     if not scan_path.exists():
-        msg = f"Scan result not found: {scan_path}. " "Run `aat scan --url <URL>` first."
+        msg = f"Scan result not found: {scan_path}. Run `aat scan --url <URL>` first."
         raise AATError(msg)
     try:
         data = json.loads(scan_path.read_text(encoding="utf-8"))

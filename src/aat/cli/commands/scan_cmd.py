@@ -456,7 +456,7 @@ async def _collect_accessibility_elements(
         # Examples:
         # - searchbox "输入搜索词" [active] [ref=e6] [box=356,149,549,42]
         # - button "Submit" [box=942,170,0,0]
-        lines = snapshot_str.strip().split('\n')
+        lines = snapshot_str.strip().split("\n")
 
         for line in lines:
             # Parse role, name, ref, and box from each line
@@ -464,11 +464,11 @@ async def _collect_accessibility_elements(
             # or: - role [attributes] [ref=e#] [box=x,y,w,h]
 
             # Skip empty lines or non-element lines
-            if not line.strip().startswith('-'):
+            if not line.strip().startswith("-"):
                 continue
 
             # Extract role (first word after dash, accounting for leading spaces)
-            role_match = re.search(r'-\s+(\S+)', line)
+            role_match = re.search(r"-\s+(\S+)", line)
             if not role_match:
                 continue
             role = role_match.group(1)
@@ -478,11 +478,11 @@ async def _collect_accessibility_elements(
             name = name_match.group(1) if name_match else ""
 
             # Extract ref (e.g., ref=e6)
-            ref_match = re.search(r'\[ref=(e\d+)\]', line)
+            ref_match = re.search(r"\[ref=(e\d+)\]", line)
             ref = ref_match.group(1) if ref_match else None
 
             # Extract box coordinates (e.g., box=356,149,549,42)
-            box_match = re.search(r'\[box=(\d+),(\d+),(\d+),(\d+)\]', line)
+            box_match = re.search(r"\[box=(\d+),(\d+),(\d+),(\d+)\]", line)
             if not box_match:
                 continue  # Skip elements without bounding box
 

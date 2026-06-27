@@ -52,11 +52,13 @@ def test_error_before_initialization():
 
 def test_tools_list():
     """Test tools are created."""
+    from langchain_core.tools import BaseTool
+
     supervisor = AgentSupervisor()
     tools = supervisor._create_tools()
 
     assert len(tools) == 6
-    assert all(callable(tool) for tool in tools)
+    assert all(isinstance(tool, BaseTool) for tool in tools)
 
 
 def test_permissions_list():

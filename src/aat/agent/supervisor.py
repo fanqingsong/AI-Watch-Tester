@@ -133,81 +133,54 @@ class AgentSupervisor:
         except Exception as e:
             raise RuntimeError(f"Failed to initialize: {e}") from e
 
+    async def _ensure_engine_started(self) -> None:
+        """Start the browser engine if it is not running yet."""
+        if self._engine is None:
+            return
+        if self._engine._page is None:
+            await self._engine.start()
+
     def _create_tools(self) -> list[Any]:
-        """Create AWT-specific tools for the agent with proper docstrings."""
-        # 创建具有 docstring的工具函数（无self引用）
-        def navigate_tool(url: str) -> str:
-            """
-            Navigate to a URL.
+        """Create AWT browser tools wired to the real WebEngine."""
+        from langchain_core.tools import tool
 
-            Args:
-                url: The URL to navigate to
+        supervisor = self
 
-            Returns:
-                Navigation result message
-            """
-            return f"Navigated to {url} (simulation mode - no engine)"
+        @tool
+        async def navigate_tool(url: str) -> str:
+            """Navigate the browser to a URL. Call this first when testing a website."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._navigate_with_engine(supervisor._engine, url)
 
-        def click_tool(selector: str) -> str:
-            """
-            Click on an element.
+        @tool
+        async def click_tool(selector: str) -> str:
+            """Click a page element using a CSS selector (e.g. '#search-icon', 'button[type=submit]')."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._click_with_engine(supervisor._engine, selector)
 
-            Args:
-                selector: CSS selector for the element
+        @tool
+        async def type_tool(selector: str, text: str) -> str:
+            """Type text into an input field identified by CSS selector."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._type_with_engine(supervisor._engine, selector, text)
 
-            Returns:
-                Click result message
-            """
-            return f"Clicked {selector} (simulation mode - no engine)"
+        @tool
+        async def verify_tool(text: str) -> str:
+            """Verify that expected text appears on the current page."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._verify_with_engine(supervisor._engine, text)
 
-        def type_tool(selector: str, text: str) -> str:
-            """
-            Type text into an element.
+        @tool
+        async def screenshot_tool(filename: str | None = None) -> str:
+            """Capture a screenshot of the current browser page."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._screenshot_with_engine(supervisor._engine, filename)
 
-            Args:
-                selector: CSS selector for the element
-                text: Text to type into the element
-
-            Returns:
-                Type result message
-            """
-            return f"Typed '{text}' into {selector} (simulation mode)"
-
-        def verify_tool(text: str) -> str:
-            """
-            Verify text is visible on page.
-
-            Args:
-                text: Text to verify
-
-            Returns:
-                Verification result message
-            """
-            return f"Verified text: '{text}' (simulation mode)"
-
-        def screenshot_tool(filename: str | None = None) -> str:
-            """
-            Take a screenshot of current page.
-
-            Args:
-                filename: Optional filename for the screenshot
-
-            Returns:
-                Screenshot result message
-            """
-            return f"Screenshot saved to {filename or 'screenshot.png'} (simulation mode)"
-
-        def analyze_tool(url: str) -> str:
-            """
-            Analyze a web page.
-
-            Args:
-                url: URL of the page to analyze
-
-            Returns:
-                Analysis result message
-            """
-            return f"Analyzed {url} (simulation mode)"
+        @tool
+        async def analyze_tool(url: str) -> str:
+            """Navigate to a URL and summarize page structure (forms, buttons, links)."""
+            await supervisor._ensure_engine_started()
+            return await supervisor._analyze_with_engine(supervisor._engine, url)
 
         return [
             navigate_tool,
@@ -231,11 +204,12 @@ class AgentSupervisor:
         """
         print(f"🌐 正在导航到: {url}")
         try:
-            if engine and hasattr(engine, 'goto'):
-                await engine.goto(url)
-                return f"Successfully navigated to {url}"
-            else:
-                return f"Navigated to {url} (simulation mode)"
+            if engine is None:
+                return "Navigation failed: browser engine not available"
+            if engine._page is None:
+                await engine.start()
+            await engine.navigate(url)
+            return f"Successfully navigated to {url}"
         except Exception as e:
             return f"Navigation failed: {str(e)}"
 
@@ -252,11 +226,12 @@ class AgentSupervisor:
         """
         print(f"🖱️  正在点击元素: {selector}")
         try:
-            if engine and hasattr(engine, 'click'):
-                await engine.click(selector)
-                return f"Successfully clicked {selector}"
-            else:
-                return f"Clicked {selector} (simulation mode)"
+            if engine is None or engine._page is None:
+                return "Click failed: browser not started. Use navigate_tool first."
+            locator = engine.page.locator(selector).first
+            await locator.wait_for(state="visible", timeout=engine._config.timeout_ms)
+            await locator.click()
+            return f"Successfully clicked {selector}"
         except Exception as e:
             return f"Click failed: {str(e)}"
 
@@ -272,13 +247,15 @@ class AgentSupervisor:
         Returns:
             Type result message
         """
-        print(f"⌨️  正在输入文本到 {selector}: '{text[:30]}...'")
+        preview = text[:30] + ("..." if len(text) > 30 else "")
+        print(f"⌨️  正在输入文本到 {selector}: '{preview}'")
         try:
-            if engine and hasattr(engine, 'type'):
-                await engine.type(selector, text)
-                return f"Successfully typed '{text}' into {selector}"
-            else:
-                return f"Typed '{text}' into {selector} (simulation mode)"
+            if engine is None or engine._page is None:
+                return "Type failed: browser not started. Use navigate_tool first."
+            locator = engine.page.locator(selector).first
+            await locator.wait_for(state="visible", timeout=engine._config.timeout_ms)
+            await locator.fill(text)
+            return f"Successfully typed '{text}' into {selector}"
         except Exception as e:
             return f"Type failed: {str(e)}"
 
@@ -293,13 +270,15 @@ class AgentSupervisor:
         Returns:
             Verification result message
         """
-        print(f"🔍 正在验证文本: '{text[:30]}...'")
+        preview = text[:30] + ("..." if len(text) > 30 else "")
+        print(f"🔍 正在验证文本: '{preview}'")
         try:
-            if engine and hasattr(engine, 'verify_text'):
-                result = await engine.verify_text(text)
-                return f"Text verification: {result}"
-            else:
-                return f"Verified text: '{text}' (simulation mode)"
+            if engine is None or engine._page is None:
+                return "Verification failed: browser not started. Use navigate_tool first."
+            page_text = await engine.page.inner_text("body")
+            if text in page_text:
+                return f"Verified: text '{text}' is visible on page"
+            return f"Verification failed: text '{text}' not found on page"
         except Exception as e:
             return f"Verification failed: {str(e)}"
 
@@ -316,11 +295,15 @@ class AgentSupervisor:
         """
         print(f"📸 正在截图: {filename or 'screenshot.png'}")
         try:
-            if engine and hasattr(engine, 'screenshot'):
-                screenshot_path = await engine.screenshot(filename)
-                return f"Screenshot saved to {screenshot_path}"
-            else:
-                return f"Screenshot saved to {filename or 'screenshot.png'} (simulation mode)"
+            if engine is None or engine._page is None:
+                return "Screenshot failed: browser not started. Use navigate_tool first."
+            work_dir = self._work_dir or Path.cwd() / ".aat" / "agent_workspace"
+            work_dir.mkdir(parents=True, exist_ok=True)
+            screenshot_name = filename or f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            screenshot_path = work_dir / screenshot_name
+            screenshot_bytes = await engine.screenshot()
+            screenshot_path.write_bytes(screenshot_bytes)
+            return f"Screenshot saved to {screenshot_path}"
         except Exception as e:
             return f"Screenshot failed: {str(e)}"
 
@@ -337,11 +320,23 @@ class AgentSupervisor:
         """
         print(f"🔬 正在分析页面: {url}")
         try:
-            if engine and hasattr(engine, 'analyze'):
-                result = await engine.analyze(url)
-                return f"Page analysis: {result}"
-            else:
-                return f"Analyzed {url} (simulation mode)"
+            nav_result = await self._navigate_with_engine(engine, url)
+            if "failed" in nav_result.lower():
+                return nav_result
+            if engine is None or engine._page is None:
+                return "Analysis failed: browser not started"
+            title = await engine.page.title()
+            counts = await engine.page.evaluate(
+                """() => ({
+                    inputs: document.querySelectorAll('input, textarea, select').length,
+                    buttons: document.querySelectorAll('button, [role="button"]').length,
+                    links: document.querySelectorAll('a').length,
+                })"""
+            )
+            return (
+                f"Page analysis for {url}: title='{title}', "
+                f"inputs={counts['inputs']}, buttons={counts['buttons']}, links={counts['links']}"
+            )
         except Exception as e:
             return f"Analysis failed: {str(e)}"
 
@@ -369,28 +364,29 @@ class AgentSupervisor:
 You are an intelligent testing agent powered by AWT (AI Auto Tester).
 Help users test web applications through natural language.
 
+When the user asks to test a website or feature, proactively use browser tools.
+Do not say you cannot access the internet — you have a real browser.
+
 Capabilities:
 - Navigate web pages and interact with elements
 - Analyze page structure and discover functionality
 - Execute test plans and verify outcomes
-- Take screenshots and capture console logs
+- Take screenshots at key steps
 - Report test results clearly
 
-Available tools:
-- _navigate_tool: Navigate to a web page
-- _click_tool: Click on UI elements
-- _type_tool: Input text into form fields
-- _verify_tool: Check if text appears on page
-- _screenshot_tool: Capture page state
-- _analyze_tool: Discover page elements
+Available tools (call them directly, do not describe what you would do):
+- navigate_tool: Open a URL in the browser
+- click_tool: Click an element by CSS selector
+- type_tool: Fill an input field by CSS selector
+- verify_tool: Check expected text on the page
+- screenshot_tool: Capture the current page
+- analyze_tool: Open a URL and summarize interactive elements
 
 Workflow:
-1. Understand the user's testing goal
-2. Ask clarifying questions if needed
-3. Navigate to the target page
-4. Execute test steps systematically
-5. Verify expected outcomes
-6. Report results with clear pass/fail status
+1. Infer the target site from the user request (e.g. Bing search -> https://www.bing.com)
+2. Navigate, interact, and verify — use tools immediately
+3. Only ask clarifying questions when the target site or expected outcome is ambiguous
+4. Report pass/fail with the steps you executed
 
 Always provide clear, actionable feedback about test results.
 """
@@ -551,6 +547,8 @@ Provide a {depth_desc.get(depth, 'overview')} including:
 
     async def cleanup(self) -> None:
         """Clean up resources."""
+        if self._engine and self._engine._page is not None:
+            await self._engine.stop()
         if self._deep_agent and hasattr(self._deep_agent, "cleanup"):
             await self._deep_agent.cleanup()
         self._is_initialized = False

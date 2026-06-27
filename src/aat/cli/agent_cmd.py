@@ -175,31 +175,33 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
             typer.echo("")
 
             # 对话循环
-            while True:
-                try:
-                    user_input = typer.prompt("\n👤 你").strip()
+            try:
+                while True:
+                    try:
+                        user_input = typer.prompt("\n👤 你").strip()
 
-                    if not user_input:
-                        continue
+                        if not user_input:
+                            continue
 
-                    if user_input.lower() in ["quit", "exit", "q"]:
-                        typer.echo("👋 再见！")
+                        if user_input.lower() in ["quit", "exit", "q"]:
+                            typer.echo("👋 再见！")
+                            break
+
+                        # 获取代理回复 - supervisor 会自动路由到合适的 subagent
+                        typer.echo("🤖 代理正在思考...")
+
+                        response = await supervisor.chat(user_input)
+                        clean_response = _clean_response(response)
+
+                        typer.echo(f"🤖 代理: {clean_response}")
+
+                    except KeyboardInterrupt:
+                        typer.echo("\n👋 再见！")
                         break
-
-                    # 获取代理回复 - supervisor 会自动路由到合适的 subagent
-                    typer.echo("🤖 代理正在思考...")
-
-                    # 🔧 修复问题2: 清理响应格式，去掉原始编码
-                    response = await supervisor.chat(user_input)
-                    clean_response = self._clean_response(response)
-
-                    typer.echo(f"🤖 代理: {clean_response}")
-
-                except KeyboardInterrupt:
-                    typer.echo("\n👋 再见！")
-                    break
-                except Exception as e:
-                    typer.echo(f"❌ 错误: {str(e)}")
+                    except Exception as e:
+                        typer.echo(f"❌ 错误: {str(e)}")
+            finally:
+                await supervisor.cleanup()
 
         except Exception as e:
             typer.echo(f"❌ 初始化失败: {str(e)}")

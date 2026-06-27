@@ -171,9 +171,7 @@ def test_generate_with_scan_enriches_document_text(tmp_path: Path) -> None:
         mock_cfg.data_dir = str(data_dir)
         mock_load.return_value = mock_cfg
 
-        result = runner.invoke(
-            app, ["generate", "--from", str(doc), "--scan"]
-        )
+        result = runner.invoke(app, ["generate", "--from", str(doc), "--scan"])
         assert result.exit_code == 0, result.output
         assert "Enriched" in result.output
 
@@ -205,9 +203,7 @@ def test_generate_with_scan_missing_file_fails(tmp_path: Path) -> None:
         mock_cfg.data_dir = str(tmp_path / ".aat")  # no scan_result.json here
         mock_load.return_value = mock_cfg
 
-        result = runner.invoke(
-            app, ["generate", "--from", str(doc), "--scan"]
-        )
+        result = runner.invoke(app, ["generate", "--from", str(doc), "--scan"])
         assert result.exit_code == 1
         assert "Scan result not found" in result.output
         mock_adapter.generate_scenarios.assert_not_called()
