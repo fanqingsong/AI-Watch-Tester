@@ -521,14 +521,26 @@ Provide a {depth_desc.get(depth, 'overview')} including:
             return {"success": False, "error": str(e), "url": url, "depth": depth}
 
     def _extract_response(self, response: Any) -> str:
-        """Extract text content from a Deep Agent response."""
+        """Extract text content from a Deep Agent response.
+
+        Handles LangChain message objects (AIMessage, etc.) which have
+        a .content attribute, as well as plain dicts.
+        """
+        # 找到最后一条 AI 消息的内容
         if isinstance(response, dict):
             if "messages" in response:
                 messages = response["messages"]
-                if messages and len(messages) > 0:
-                    last = messages[-1]
-                    if isinstance(last, dict):
-                        return last.get("content", str(last))
+                # 从后往前找最后一条有文本内容的 AI 消息
+                for msg in reversed(messages):
+                    # LangChain 消息对象（AIMessage 等）
+                    if hasattr(msg, "content") and getattr(msg, "content", "").strip():
+                        # 跳过只有 tool_calls 没有文本内容的消息
+                        return msg.content
+                    # 普通 dict 消息
+                    elif isinstance(msg, dict) and msg.get("content", "").strip():
+                        return msg["content"]
+                # 没有文本内容，返回整个响应的字符串
+                return str(response)
             elif "content" in response:
                 return response["content"]
             return str(response)
