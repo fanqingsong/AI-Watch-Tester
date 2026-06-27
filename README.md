@@ -432,18 +432,11 @@ aat devqa "checkout flow test" --url http://localhost:3000
 Say goodbye to writing test code. With AWT Smart Agent, you simply describe what you want to test in plain language, and our AI agent does the rest:
 
 ```bash
-# Test with natural language
-aat agent test "测试用户登录功能" --url http://localhost:3000/login
-
-# Generate test plans
-aat agent plan "测试购物流程" --url http://localhost:3000/shop
-
-# Analyze pages
-aat agent analyze http://localhost:3000
-
-# Interactive chat mode
+# Interactive conversational testing (single entry point)
 aat agent chat
 ```
+
+Inside the chat, the Deep Agent routes natural-language requests itself — describe what to test, ask for analysis, or request a plan.
 
 ### Key Features
 
@@ -515,20 +508,23 @@ Generates test plan (internal)
 
 ```python
 import asyncio
-from aat.agent import create_simple_supervisor
+from aat.agent import AgentConfig, create_supervisor
 
 async def main():
-    # Create the agent
-    agent = await create_simple_supervisor()
-    
-    # Execute test from natural language
-    result = await agent.test_from_natural_language(
-        user_request="Test user login functionality",
-        start_url="http://localhost:3000/login",
-        mode="autonomous"
+    # Create and initialize the supervisor
+    config = AgentConfig(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
     )
-    
-    print(result.summary())
+    supervisor = await create_supervisor(config)
+
+    # The supervisor exposes a Deep Agent you can drive directly
+    response = await supervisor._deep_agent.ainvoke(
+        {"messages": [{"role": "user", "content": "Test the login flow on this page"}]}
+    )
+    print(supervisor._extract_response(response))
+
+    await supervisor.cleanup()
 
 asyncio.run(main())
 ```
@@ -537,18 +533,13 @@ asyncio.run(main())
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `aat agent test` | Execute tests from natural language | `aat agent test "测试登录功能" --url http://localhost:3000/login` |
-| `aat agent chat` | Interactive chat mode | `aat agent chat` |
-| `aat agent analyze` | Analyze page structure | `aat agent analyze http://localhost:3000` |
-| `aat agent plan` | Generate test plans | `aat agent plan "测试购物流程" --url http://localhost:3000/shop` |
-| `aat agent demo` | Run interactive demos | `aat agent demo --number 2` |
+| `aat agent chat` | Interactive conversational testing (single entry point) | `aat agent chat` |
+
+The chat interface routes natural-language requests (test execution, page analysis, planning) through a single Deep Agent.
 
 ### Learn More
 
-- 📖 [Quick Start Guide](docs/agent/QUICKSTART.md)
-- 🏗️ [Detailed Implementation](docs/agent/DEEPAGENTS_IMPLEMENTATION.md)
-- 📊 [Final Report](docs/agent/FINAL_REPORT.md)
-- 💻 [API Documentation](src/aat/agent/)
+- 💻 [Agent module source](src/aat/agent/)
 
 **Smart Agent is the future of test automation — try it today!**
 

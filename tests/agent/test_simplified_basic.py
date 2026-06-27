@@ -57,7 +57,7 @@ def test_tools_list():
     supervisor = AgentSupervisor()
     tools = supervisor._create_tools()
 
-    assert len(tools) == 6
+    assert len(tools) == 7  # navigate, click, type, verify, get_text, screenshot, analyze
     assert all(isinstance(tool, BaseTool) for tool in tools)
 
 

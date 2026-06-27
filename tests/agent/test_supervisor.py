@@ -54,7 +54,7 @@ class TestAgentSupervisor:
         tools = supervisor._create_tools()
 
         assert isinstance(tools, list)
-        assert len(tools) == 6  # navigate, click, type, verify, screenshot, analyze
+        assert len(tools) == 7  # navigate, click, type, verify, get_text, screenshot, analyze
 
         await supervisor.cleanup()
 
@@ -80,36 +80,6 @@ class TestAgentSupervisor:
         assert isinstance(prompt, str)
         assert len(prompt) > 0
         assert "testing" in prompt.lower()
-
-        await supervisor.cleanup()
-
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_chat_basic(self):
-        """Test basic chat functionality (requires API keys)."""
-        supervisor = await create_supervisor()
-
-        response = await supervisor.chat("Hello!")
-
-        assert isinstance(response, str)
-        assert len(response) > 0
-
-        await supervisor.cleanup()
-
-    @pytest.mark.e2e
-    @pytest.mark.asyncio
-    async def test_test_from_natural_language_basic(self):
-        """Test test execution from natural language (requires API keys)."""
-        supervisor = await create_supervisor()
-
-        result = await supervisor.test_from_natural_language(
-            user_request="Navigate to example.com and check if it loads",
-            start_url="https://example.com",
-            mode="interactive",
-        )
-
-        assert isinstance(result, dict)
-        assert "success" in result
 
         await supervisor.cleanup()
 
@@ -149,25 +119,3 @@ class TestAgentSupervisor:
         await supervisor.cleanup()
 
         assert supervisor._is_initialized is False
-
-    @pytest.mark.asyncio
-    async def test_ensure_initialized_error(self):
-        """Test that using supervisor before initialization raises error."""
-        supervisor = AgentSupervisor()
-
-        with pytest.raises(RuntimeError, match="must be initialized"):
-            await supervisor.chat("Hello")
-
-    @pytest.mark.asyncio
-    async def test_analyze_page(self):
-        """Test page analysis functionality."""
-        supervisor = await create_supervisor()
-
-        result = await supervisor.analyze_page("https://example.com", depth=1)
-
-        assert isinstance(result, dict)
-        assert "success" in result
-        assert "example.com" in result["url"]
-        assert result["depth"] == 1
-
-        await supervisor.cleanup()

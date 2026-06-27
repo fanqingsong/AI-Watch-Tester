@@ -69,39 +69,11 @@ aat agent chat
 """
 
 import asyncio
-import re
 
 import typer
 
-from aat.agent import AgentConfig, AgentSupervisor, create_supervisor
+from aat.agent import AgentConfig, clean_response, create_supervisor
 from aat.core.config import load_config
-
-
-def _clean_response(response: str) -> str:
-    """
-    清理AI响应，去掉markdown格式和原始编码。
-
-    Args:
-        response: 原始响应文本
-
-    Returns:
-        清理后的响应文本
-    """
-    if not response:
-        return response
-
-    # 去除markdown代码块标记
-    response = re.sub(r'```(?:json|yaml|markdown)?\n?', '', response)
-    response = re.sub(r'```', '', response)
-
-    # 去除过多的换行
-    response = re.sub(r'\n{3,}', '\n\n', response)
-
-    # 去除行首行尾的空格
-    lines = [line.strip() for line in response.split('\n')]
-    response = '\n'.join(lines)
-
-    return response.strip()
 
 # 创建 agent 命令组
 agent_app = typer.Typer(help="AWT 智能测试代理命令")
@@ -150,29 +122,38 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
             typer.echo("\n⚙️  初始化 Agent Supervisor...")
 
             # 从 AAT 配置创建 AgentConfig
+            # headless 由 AgentConfig 默认值决定 (False = 显示浏览器);
+            # CLI 不再覆盖此设置，保证配置单向流动。
             agent_config = AgentConfig(
                 provider=aat_config.ai.provider,
-                model=aat_config.ai.model,
+                model=model or aat_config.ai.model,
                 api_key=aat_config.ai.api_key,
                 temperature=aat_config.ai.temperature,
                 max_tokens=aat_config.ai.max_tokens,
                 browser_type=aat_config.engine.browser,
-                headless=False,  # 🔧 修复问题3: 显示浏览器让用户实时check
+                headless=False,  # 交互式聊天总是显示浏览器
                 browser_timeout=aat_config.engine.timeout_ms,
             )
 
             supervisor = await create_supervisor(config=agent_config)
-            typer.echo(f"✅ Agent Supervisor 已启动 (使用 {aat_config.ai.provider}:{aat_config.ai.model})")
-            typer.echo(f"🌐 浏览器模式: 非无头模式 (可以看到浏览器操作)")
+            typer.echo(
+                f"✅ Agent Supervisor 已启动 "
+                f"(使用 {agent_config.provider}:{agent_config.model})"
+            )
+            typer.echo("🌐 浏览器模式: 非无头模式 (可以看到浏览器操作)")
 
             # 显示 Deep Agents 功能
             typer.echo("\n🤖 Deep Agents 功能:")
+            typer.echo("  • 任务规划 - 多步测试自动生成计划并跟踪进度")
             typer.echo("  • 自动子代理生成 - 并行处理复杂任务")
             typer.echo("  • 虚拟文件系统 - 上下文管理和持久化")
             typer.echo("  • 人在回路 - 关键操作需要批准")
             typer.echo("  • 内置工具 - 浏览器操作、页面分析、测试执行")
 
             typer.echo("")
+
+            # 对话历史 — 让 agent 能理解上下文 (e.g. "再跑一次刚才的测试")
+            history: list[dict] = []
 
             # 对话循环
             try:
@@ -187,13 +168,30 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
                             typer.echo("👋 再见！")
                             break
 
-                        # 获取代理回复 - supervisor 会自动路由到合适的 subagent
                         typer.echo("🤖 代理正在思考...")
 
-                        response = await supervisor.chat(user_input)
-                        clean_response = _clean_response(response)
+                        try:
+                            result = await supervisor.chat_with_plan(
+                                user_input, history=history
+                            )
+                        except Exception as exc:
+                            typer.echo(f"❌ 代理调用失败: {exc}")
+                            continue
 
-                        typer.echo(f"🤖 代理: {clean_response}")
+                        response = result.text
+
+                        # 维护对话历史，保留最近 20 轮避免 token 膨胀
+                        history.append({"role": "user", "content": user_input})
+                        history.append({"role": "assistant", "content": response})
+                        if len(history) > 40:
+                            history = history[-40:]
+
+                        # 若 agent 用了 write_todos，先展示任务计划进度
+                        plan_view = supervisor.render_plan()
+                        if plan_view:
+                            typer.echo(plan_view)
+
+                        typer.echo(f"🤖 代理: {clean_response(response)}")
 
                     except KeyboardInterrupt:
                         typer.echo("\n👋 再见！")
@@ -205,7 +203,7 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
 
         except Exception as e:
             typer.echo(f"❌ 初始化失败: {str(e)}")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     asyncio.run(run_chat())
 

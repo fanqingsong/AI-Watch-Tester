@@ -5,7 +5,6 @@ Single, simple configuration class without over-engineering.
 """
 
 from enum import Enum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,6 +45,14 @@ class AgentConfig(BaseModel):
     screenshot_on_failure: bool = Field(default=True)
     save_console_logs: bool = Field(default=True)
     enable_sandbox: bool = Field(default=True)
+    enable_planning: bool = Field(
+        default=True,
+        description=(
+            "Enable structured task planning via the `write_todos` tool. "
+            "When True (default) the agent is encouraged to plan multi-step "
+            "tests and the plan is exposed via AgentSupervisor.get_plan()."
+        ),
+    )
 
     model_config = ConfigDict(extra="allow")
 

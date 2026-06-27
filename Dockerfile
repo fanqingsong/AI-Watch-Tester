@@ -33,6 +33,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # 其他工具
     git \
     curl \
+    # CJK 字体（修复 Chromium 渲染中文/韩文/日文乱码成方框的问题）
+    fonts-noto-cjk \
+    fonts-noto-cjk-extra \
+    # emoji fallback
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制项目文件
