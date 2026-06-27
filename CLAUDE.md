@@ -63,6 +63,7 @@ The `aat devqa` command is **ALLOWED** when used properly with human approval at
 - `docs/RELEASE_GUIDE.md` — **Release guide** (PyPI/README/PR sync procedure)
 - `docs/AWT_Agent_Skill_Comprehensive_Guide.md` — Complete AWT skill usage guide
 - `docs/AWT_Cost_Optimization_Plan.md` — Cost analysis and optimization strategies
+- `docs/AGENT_BROWSER_MULTI_TURN.md` — How `aat agent chat` drives the browser (tool-calling) and keeps browser state across multi-turn sessions
 - `CLAUDE.md` — This file: project architecture, workflow, and development guidelines
 - `README.md` — User-facing documentation and feature overview
 
