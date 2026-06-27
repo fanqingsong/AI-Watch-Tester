@@ -2,11 +2,16 @@
 // seed: http://127.0.0.1:8899/correlation
 
 import { test, expect } from '@playwright/test';
+import { APP_URL, skipIfAppDown } from '../helpers';
 
 test.describe('Correlation Matrix Display', () => {
+  test.beforeAll(async () => {
+    await skipIfAppDown();
+  });
+
   test('Correlation matrix input controls display', async ({ page }) => {
     // Step 1: Navigate to /correlation and verify the 'Correlation Matrix' heading is displayed
-    await page.goto('http://127.0.0.1:8899/correlation');
+    await page.goto(`${APP_URL}/correlation`);
     
     // Verify the Correlation Matrix heading is displayed
     await expect(page.getByRole('heading', { name: 'Correlation Matrix', level: 1 })).toBeVisible();

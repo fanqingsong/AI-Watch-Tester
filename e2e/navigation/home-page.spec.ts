@@ -1,9 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { APP_URL, skipIfAppDown } from '../helpers';
 
 test.describe('Navigation and Basic Access', () => {
+  test.beforeAll(async () => {
+    await skipIfAppDown();
+  });
+
   test('Home page access and navigation to all pages', async ({ page }) => {
     // 1. Navigate to home page and verify basic elements
-    await page.goto('http://127.0.0.1:8899/');
+    await page.goto(`${APP_URL}/`);
     
     // Verify page title contains 'Vibe-Trading'
     await expect(page).toHaveTitle(/Vibe-Trading/);

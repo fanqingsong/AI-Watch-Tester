@@ -1,8 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { APP_URL, skipIfAppDown } from '../helpers';
 
-const URL = 'http://127.0.0.1:8899/alpha-zoo';
+const URL = `${APP_URL}/alpha-zoo`;
 
 test.describe('Alpha Zoo Filtering', () => {
+  test.beforeAll(async () => {
+    await skipIfAppDown();
+  });
+
   test('Alpha zoo search and dropdown filtering', async ({ page }) => {
     await page.goto(URL);
 

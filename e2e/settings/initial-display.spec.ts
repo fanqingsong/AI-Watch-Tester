@@ -1,9 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { APP_URL, skipIfAppDown } from '../helpers';
 
 test.describe('Settings Page Basic Display', () => {
+  test.beforeAll(async () => {
+    await skipIfAppDown();
+  });
+
   test('Settings sections and LLM provider fields display', async ({ page }) => {
     // 1. Navigate to /settings and verify the 'Settings' heading is displayed
-    await page.goto('http://127.0.0.1:8899/settings');
+    await page.goto(`${APP_URL}/settings`);
 
     // Verify the Settings heading is displayed
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
