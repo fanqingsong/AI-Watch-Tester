@@ -28,8 +28,15 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('')`. */
     // baseURL: 'http://localhost:3000',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    /* Trace: always record locally for post-hoc inspection, retry-only on CI. */
+    trace: process.env.CI ? 'on-first-retry' : 'on',
+
+    /* Show the real browser window and slow each action down so you can watch
+       execution locally (disabled in CI for speed). */
+    headless: !!process.env.CI,
+    launchOptions: {
+      slowMo: process.env.CI ? 0 : 400,
+    },
   },
 
   /* Configure projects for major browsers */
