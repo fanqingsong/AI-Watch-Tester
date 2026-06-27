@@ -65,6 +65,5 @@ def build_model(config: AgentConfig) -> tuple[Any | None, str]:
 
     supported = ", ".join(sorted(_NATIVE_PROVIDERS | {"zhipuai"} | set(_PROVIDER_ALIASES)))
     raise ValueError(
-        f"Unsupported AI provider: '{config.provider}'. "
-        f"Supported providers: {supported}."
+        f"Unsupported AI provider: '{config.provider}'. Supported providers: {supported}."
     )

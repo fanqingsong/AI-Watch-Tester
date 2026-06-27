@@ -482,9 +482,8 @@ def _generate_scenario(
     for kw in keywords:
         typer.echo(f"[DEBUG] Trying to match keyword: '{kw}'")
         matched = _find_matching_elements(kw, buttons)
-        typer.echo(
-            f"[DEBUG] Matched {len(matched)} elements for '{kw}': {[m['label'] for m in matched[:3]]}"
-        )
+        preview = [m["label"] for m in matched[:3]]
+        typer.echo(f"[DEBUG] Matched {len(matched)} elements for '{kw}': {preview}")
         for el in matched[:1]:
             label = el["label"]
             if label in clicked_labels:
@@ -1067,7 +1066,7 @@ def _find_matching_elements(
     5. other sources
     """
     # Button/action keyword synonyms (include Chinese translations)
-    SYNONYMS: dict[str, list[str]] = {
+    SYNONYMS: dict[str, list[str]] = {  # noqa: N806
         "send": ["search", "submit", "go", "find", "查询", "搜索"],
         "submit": ["confirm", "save", "apply", "提交", "确认", "发送"],
         "search": ["find", "look", "find", "查询", "搜索", "查找"],

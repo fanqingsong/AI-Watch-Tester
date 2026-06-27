@@ -1,3 +1,4 @@
+# ruff: noqa: E501  # embeds long inline JavaScript passed to page.evaluate
 """
 ════════════════════════════════════════════════════════════════════════════════
                    🔍 Page Scanning & Element Detection Module
@@ -495,9 +496,8 @@ async def _collect_accessibility_elements(
             # Skip tiny elements (<4px) UNLESS they're buttons/links with valid coordinates
             # Buttons/links with 0x0 size but valid coordinates might be hidden submit buttons
             # or elements with incomplete accessibility tree data
-            if width < 4 or height < 4:
-                if role not in ("button", "link", "submit"):
-                    continue
+            if (width < 4 or height < 4) and role not in ("button", "link", "submit"):
+                continue
 
             # Filter footer elements (bottom 15% of viewport)
             viewport_height = 720  # TODO: Get from config

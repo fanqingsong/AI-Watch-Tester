@@ -20,7 +20,6 @@ from aat.agent import (
 from aat.agent.prompts import SYSTEM_PROMPT, get_system_prompt
 from aat.agent.response_utils import format_plan as _format_plan
 
-
 # -- data model --------------------------------------------------------------
 
 
@@ -248,9 +247,7 @@ class TestSupervisorPlanApi:
 
     def test_extract_plan_delegates(self):
         supervisor = AgentSupervisor()
-        plan = supervisor._extract_plan(
-            {"todos": [{"content": "x", "status": "completed"}]}
-        )
+        plan = supervisor._extract_plan({"todos": [{"content": "x", "status": "completed"}]})
         assert plan.summary() == "1/1"
 
     def test_system_prompt_respects_config(self):

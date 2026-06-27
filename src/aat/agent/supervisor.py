@@ -100,10 +100,7 @@ class AgentSupervisor:
                 self._engine = WebEngine(config=engine_config)
                 print(f"🌐 创建了新的浏览器引擎 (headless={self.config.headless})")
 
-            print(
-                f"🌐 浏览器配置: {self.config.browser_type}, "
-                f"headless={self.config.headless}"
-            )
+            print(f"🌐 浏览器配置: {self.config.browser_type}, headless={self.config.headless}")
 
             # Disable the built-in `write_todos` planning tool when the caller
             # opts out. The harness keeps TodoListMiddleware wired (it is part
@@ -121,18 +118,12 @@ class AgentSupervisor:
                 permissions=self._get_permissions(),
             )
             if model_instance:
-                self._deep_agent = create_deep_agent(
-                    model=model_instance, **create_kwargs
-                )
+                self._deep_agent = create_deep_agent(model=model_instance, **create_kwargs)
             else:
-                self._deep_agent = create_deep_agent(
-                    model=model_identifier, **create_kwargs
-                )
+                self._deep_agent = create_deep_agent(model=model_identifier, **create_kwargs)
 
             self._is_initialized = True
-            planning_state = (
-                "planning on" if self.config.enable_planning else "planning off"
-            )
+            planning_state = "planning on" if self.config.enable_planning else "planning off"
             print(f"✅ Agent initialized with {model_identifier} ({planning_state})")
 
         except ImportError as e:
@@ -151,9 +142,7 @@ class AgentSupervisor:
         is safe to invoke before ``initialize()`` (used in tests).
         """
         if self._toolbox is None:
-            self._toolbox = BrowserToolbox(
-                self._engine, work_dir_provider=lambda: self._work_dir
-            )
+            self._toolbox = BrowserToolbox(self._engine, work_dir_provider=lambda: self._work_dir)
         return build_tools(self._toolbox)
 
     def _get_permissions(self) -> list[Any]:
@@ -211,8 +200,7 @@ class AgentSupervisor:
         """Ensure the supervisor is initialized."""
         if not self._is_initialized:
             raise RuntimeError(
-                "AgentSupervisor must be initialized before use. "
-                "Call await initialize()"
+                "AgentSupervisor must be initialized before use. Call await initialize()"
             )
 
     # -- public API -------------------------------------------------------
@@ -239,9 +227,7 @@ class AgentSupervisor:
         result = await self.chat_with_plan(message, history=history)
         return result.text
 
-    async def chat_with_plan(
-        self, message: str, history: list[dict] | None = None
-    ) -> ChatResult:
+    async def chat_with_plan(self, message: str, history: list[dict] | None = None) -> ChatResult:
         """Like :meth:`chat` but also return the task plan for this turn.
 
         Useful when the caller wants to render the plan (e.g. a checklist

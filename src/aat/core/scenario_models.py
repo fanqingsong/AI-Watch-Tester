@@ -163,7 +163,7 @@ try:
     from enum import StrEnum
 except ImportError:
     # Fallback for Python 3.10
-    class StrEnum(str, Enum):  # type: ignore[misc,no-redef]
+    class StrEnum(str, Enum):  # type: ignore[misc,no-redef]  # noqa: UP042
         pass
 
 # ============================================================

@@ -224,7 +224,8 @@ class FeatureMatcher(BaseMatcher):
             else self._config.confidence_threshold
         )
 
-        # RANSAC homography for accurate position estimation (prevents false detection on repetitive patterns)
+        # RANSAC homography for accurate position estimation
+        # (prevents false detection on repetitive patterns)
         src_pts = np.array(
             [kp_tmpl[m.queryIdx].pt for m in good_matches], dtype=np.float32
         ).reshape(-1, 1, 2)

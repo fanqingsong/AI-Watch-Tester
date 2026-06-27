@@ -6,7 +6,7 @@ Tests for the simplified AgentSupervisor.
 
 import pytest
 
-from aat.agent import AgentSupervisor, AgentConfig, create_supervisor
+from aat.agent import AgentConfig, AgentSupervisor, create_supervisor
 
 
 class TestAgentSupervisor:

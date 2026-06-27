@@ -63,7 +63,6 @@ class TestPreprocessSelection:
     def test_otsu_branch_thresholds_the_image(self, mock_tess: MagicMock) -> None:
         """The 'otsu' branch applies Otsu thresholding before OCR."""
         mock_tess.image_to_string.return_value = "ok"
-        before_dim = None
 
         ocr_screenshot(_png(), preprocess=PREPROCESS_OTSU, lang="kor+eng", oem=3, psm=6)
 

@@ -97,9 +97,7 @@ class BrowserToolbox:
         except Exception as e:
             return f"Verification failed: {e}"
 
-    async def get_text(
-        self, selector: str | None = None, max_chars: int = 8000
-    ) -> str:
+    async def get_text(self, selector: str | None = None, max_chars: int = 8000) -> str:
         """Read visible text from the current page.
 
         Args:
@@ -199,9 +197,7 @@ def build_tools(toolbox: BrowserToolbox) -> list[Any]:
         return await toolbox.verify(text)
 
     @tool
-    async def get_text_tool(
-        selector: str | None = None, max_chars: int = 8000
-    ) -> str:
+    async def get_text_tool(selector: str | None = None, max_chars: int = 8000) -> str:
         """Read the visible text content of the current page.
 
         Use this to extract page content for analysis, scraping, or reporting

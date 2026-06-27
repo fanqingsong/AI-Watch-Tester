@@ -137,8 +137,7 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
 
             supervisor = await create_supervisor(config=agent_config)
             typer.echo(
-                f"✅ Agent Supervisor 已启动 "
-                f"(使用 {agent_config.provider}:{agent_config.model})"
+                f"✅ Agent Supervisor 已启动 (使用 {agent_config.provider}:{agent_config.model})"
             )
             typer.echo("🌐 浏览器模式: 非无头模式 (可以看到浏览器操作)")
 
@@ -171,9 +170,7 @@ def chat(model: str | None = typer.Option(None, "--model", help="AI 模型")):
                         typer.echo("🤖 代理正在思考...")
 
                         try:
-                            result = await supervisor.chat_with_plan(
-                                user_input, history=history
-                            )
+                            result = await supervisor.chat_with_plan(user_input, history=history)
                         except Exception as exc:
                             typer.echo(f"❌ 代理调用失败: {exc}")
                             continue

@@ -56,12 +56,12 @@ The todo list is visible to the user, so keep it accurate — it is how they
 follow your progress through a test run.
 """
 
+
 # Closing workflow guidance. Built per-call so the step numbers stay correct
 # whether or not the planning step is included.
 def _workflow_section(enable_planning: bool) -> str:
     steps = [
-        "Infer the target site from the user request "
-        "(e.g. Bing search -> https://www.bing.com)",
+        "Infer the target site from the user request (e.g. Bing search -> https://www.bing.com)",
     ]
     if enable_planning:
         steps.append("For multi-step tests, call `write_todos` to lay out the plan first")
@@ -73,8 +73,7 @@ def _workflow_section(enable_planning: bool) -> str:
                 "get_text_tool right after navigating — do not say you are "
                 "unable to"
             ),
-            "Ask clarifying questions only when the target site or expected "
-            "outcome is ambiguous",
+            "Ask clarifying questions only when the target site or expected outcome is ambiguous",
             "Report pass/fail with the steps you executed",
         ]
     )
@@ -95,16 +94,11 @@ def _build_prompt(enable_planning: bool = True) -> str:
     if enable_planning:
         planning_tool_line = (
             "- write_todos: Maintain a structured task plan for multi-step "
-            "testing work (see \"Task planning\" below). Call it before "
+            'testing work (see "Task planning" below). Call it before '
             "starting a complex test.\n"
         )
         tools = _TOOLS_SECTION.format(planning_tool_line=planning_tool_line)
-        return (
-            _BASE_PROMPT
-            + tools
-            + _PLANNING_SECTION
-            + _workflow_section(enable_planning=True)
-        )
+        return _BASE_PROMPT + tools + _PLANNING_SECTION + _workflow_section(enable_planning=True)
 
     tools = _TOOLS_SECTION.format(planning_tool_line="")
     return _BASE_PROMPT + tools + _workflow_section(enable_planning=False)

@@ -9,8 +9,9 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class AgentMode(str, Enum):
+class AgentMode(str, Enum):  # noqa: UP042
     """Agent execution mode"""
+
     INTERACTIVE = "interactive"
     AUTONOMOUS = "autonomous"
     CONSERVATIVE = "conservative"
@@ -60,6 +61,7 @@ class AgentConfig(BaseModel):
 # Runtime context (not configuration)
 class TestIntent(BaseModel):
     """Test intent specification"""
+
     type: str = "functional"
     features: list[str] = Field(default_factory=list)
     risk_level: str = "medium"
@@ -69,6 +71,7 @@ class TestIntent(BaseModel):
 
 class AgentContext(BaseModel):
     """Agent execution context"""
+
     current_url: str
     user_request: str
     test_intent: TestIntent

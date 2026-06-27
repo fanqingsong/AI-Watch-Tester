@@ -5,7 +5,8 @@ This test verifies that the simplified module maintains essential functionality.
 """
 
 import pytest
-from aat.agent import AgentSupervisor, AgentConfig, AgentMode
+
+from aat.agent import AgentConfig, AgentMode, AgentSupervisor
 
 
 def test_config_creation():

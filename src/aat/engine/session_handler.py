@@ -1,4 +1,4 @@
-"""Session handling extracted from :mod:`aat.engine.executor`.
+'''Session handling extracted from :mod:`aat.engine.executor`.
 
 Owns the session persistence responsibilities that previously lived inline
 on :class:`StepExecutor`:
@@ -63,7 +63,7 @@ Stored data:
 
 These functions are stateless — they receive the engine (duck-typed on
 ``save_session``/``load_session``/``page``) and screenshot directory as arguments.
-"""
+'''
 
 from __future__ import annotations
 
